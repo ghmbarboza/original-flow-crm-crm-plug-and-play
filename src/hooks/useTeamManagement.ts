@@ -57,7 +57,7 @@ export function useTeamManagement() {
         }
       }
       await supabase.from("user_roles").delete().eq("user_id", userId);
-      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole });
+      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole as any });
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Role atualizado"); invalidate(); },
