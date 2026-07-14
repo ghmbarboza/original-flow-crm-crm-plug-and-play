@@ -1,0 +1,491 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   VIVER DE IA — Design System Tokens
+   White-first · navy + grays · glass on light surfaces
+   ============================================================ */
+
+:root {
+  /* Navy — cor de marca */
+  --via-navy:        #0A1F3B;
+  --via-navy-deep:   #02162A;
+  --via-navy-darker: #010B1A;
+  --via-blue:        #1E3A5F;
+  --via-blue-soft:   #2A4A6E;
+
+  /* Navy alphas */
+  --via-navy-02: rgba(10,31,59,0.02);
+  --via-navy-04: rgba(10,31,59,0.04);
+  --via-navy-05: rgba(10,31,59,0.05);
+  --via-navy-06: rgba(10,31,59,0.06);
+  --via-navy-08: rgba(10,31,59,0.08);
+  --via-navy-10: rgba(10,31,59,0.10);
+  --via-navy-12: rgba(10,31,59,0.12);
+  --via-navy-14: rgba(10,31,59,0.14);
+  --via-navy-16: rgba(10,31,59,0.16);
+  --via-navy-18: rgba(10,31,59,0.18);
+  --via-navy-20: rgba(10,31,59,0.20);
+  --via-navy-25: rgba(10,31,59,0.25);
+  --via-navy-30: rgba(10,31,59,0.30);
+  --via-navy-40: rgba(10,31,59,0.40);
+  --via-navy-60: rgba(10,31,59,0.60);
+  --via-navy-80: rgba(10,31,59,0.80);
+
+  /* Grayscale */
+  --via-gray-50:  #F7F8FA;
+  --via-gray-100: #F0F2F5;
+  --via-gray-200: #E4E7EC;
+  --via-gray-300: #D0D5DD;
+  --via-gray-400: #98A2B3;
+  --via-gray-500: #667085;
+  --via-gray-600: #475467;
+  --via-gray-700: #344054;
+  --via-gray-800: #1D2939;
+  --via-gray-900: #101828;
+  --via-black: #000000;
+  --via-white: #FFFFFF;
+
+  /* Surfaces */
+  --via-bg:           var(--via-white);
+  --via-bg-2:         var(--via-gray-50);
+  --via-bg-3:         var(--via-gray-100);
+  --via-surface:      var(--via-white);
+  --via-surface-elev: var(--via-white);
+  --via-bg-soft: rgba(10,31,59,0.025);
+
+  /* Texto semântico */
+  --via-text-primary: var(--via-navy);
+  --via-text-body:    var(--via-gray-700);
+  --via-text-muted:   #5C6677;
+  --via-text-faint:   var(--via-gray-400);
+  --via-text-inverse: var(--via-white);
+  --via-text:         var(--via-gray-700);
+  --via-text-soft:    #5C6677;
+  --via-ink-2:        #5E6B82;
+  --via-ink-3:        #5F6981;
+
+  /* Bordas */
+  --via-border-hairline: var(--via-gray-200);
+  --via-border:          var(--via-gray-300);
+  --via-border-soft:     rgba(10,31,59,0.08);
+  --via-border-strong:   var(--via-navy-40);
+
+  /* Status */
+  --via-success: #1F8A5B;
+  --via-danger:  #B83A3A;
+  --via-coral:   #B85C5C;
+  --via-coral-dark: #8C2C2C;
+  --via-coral-deep: #A14848;
+
+  /* Accent */
+  --via-accent:      var(--via-navy);
+  --via-accent-deep: var(--via-navy-deep);
+  --via-accent-soft: var(--via-gray-300);
+  --via-accent-warm: var(--via-navy-deep);
+
+  /* Glass */
+  --via-glass-card:   linear-gradient(180deg, rgba(255,255,255,0.94), rgba(247,248,250,0.74));
+  --via-glass-card-2: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(247,248,250,0.62));
+  --via-surface-onnavy: linear-gradient(180deg, #FFFFFF 0%, #F5F7FA 100%);
+  --via-edge-hi: rgba(255,255,255,0.95);
+  --via-edge-lo: rgba(255,255,255,0.40);
+  --via-glass-sheen: linear-gradient(180deg, rgba(255,255,255,0.6), transparent);
+
+  /* Fontes */
+  --via-font:         'Geist', system-ui, -apple-system, sans-serif;
+  --via-font-display: 'Geist', system-ui, sans-serif;
+  --via-font-mono:    'Geist Mono', ui-monospace, monospace;
+  --via-fw-light:    300;
+  --via-fw-regular:  400;
+  --via-fw-medium:   500;
+  --via-fw-semibold: 600;
+  --via-fw-bold:     700;
+  --via-fw-black:    900;
+
+  /* Tipografia */
+  --via-fs-hero:    5rem;
+  --via-fs-display: 3.5rem;
+  --via-fs-h1:      2.5rem;
+  --via-fs-h2:      2rem;
+  --via-fs-h3:      1.5rem;
+  --via-fs-h4:      1.125rem;
+  --via-fs-body:    1rem;
+  --via-fs-sm:      0.875rem;
+  --via-fs-xs:      0.75rem;
+  --via-fs-label:   0.6875rem;
+  --via-ls-brand:   0.32em;
+  --via-ls-label:   0.18em;
+  --via-ls-wide:    0.08em;
+  --via-ls-tight:   -0.015em;
+  --via-ls-tighter: -0.025em;
+  --via-lh-tight:   1.02;
+  --via-lh-snug:    1.2;
+  --via-lh-normal:  1.5;
+  --via-lh-loose:   1.65;
+
+  /* Espaçamento */
+  --via-space-1:  4px;  --via-space-2:  8px;  --via-space-3:  12px;
+  --via-space-4:  16px; --via-space-5:  20px; --via-space-6:  24px;
+  --via-space-8:  32px; --via-space-10: 40px; --via-space-12: 48px;
+  --via-space-16: 64px; --via-space-20: 80px; --via-space-24: 96px;
+
+  /* Radii */
+  --via-radius-xs:   4px;  --via-radius-sm:   8px;
+  --via-radius-md:   12px; --via-radius-lg:   20px;
+  --via-radius-xl:   28px; --via-radius-2xl:  40px;
+  --via-radius-pill: 999px;
+
+  /* Sombras */
+  --via-shadow-xs: 0 1px 2px rgba(10,31,59,0.04);
+  --via-shadow-sm: 0 2px 6px rgba(10,31,59,0.05), 0 1px 2px rgba(10,31,59,0.03);
+  --via-shadow-md: 0 6px 18px rgba(10,31,59,0.07), 0 1px 3px rgba(10,31,59,0.04);
+  --via-shadow-lg: 0 16px 40px rgba(10,31,59,0.10), 0 2px 8px rgba(10,31,59,0.05);
+  --via-shadow-xl: 0 32px 80px rgba(10,31,59,0.14), 0 4px 16px rgba(10,31,59,0.06);
+  --via-shadow-glass-light:
+    inset 0 1px 0 rgba(255,255,255,0.95),
+    inset 0 -1px 0 rgba(255,255,255,0.30),
+    0 12px 32px rgba(10,31,59,0.08),
+    0 2px 8px rgba(10,31,59,0.04);
+  --via-shadow-glass-dark:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 -1px 0 rgba(255,255,255,0.06),
+    0 16px 40px rgba(0,0,0,0.30),
+    0 4px 12px rgba(0,0,0,0.15);
+  --via-shadow-focus: 0 0 0 3px rgba(10,31,59,0.15);
+
+  /* Blur */
+  --via-blur-sm: blur(8px)  saturate(140%);
+  --via-blur-md: blur(16px) saturate(160%);
+  --via-blur-lg: blur(28px) saturate(180%);
+  --via-blur-xl: blur(48px) saturate(180%);
+
+  /* Motion */
+  --via-ease:     cubic-bezier(0.32, 0.08, 0.24, 1);
+  --via-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --via-t-fast:   120ms var(--via-ease);
+  --via-t:        180ms var(--via-ease);
+  --via-t-slow:   360ms var(--via-ease);
+
+  /* Layout */
+  --via-container: 1280px;
+  --via-content:   760px;
+  --via-narrow:    560px;
+
+  /* Mesh atmospheres */
+  --via-mesh-light:
+    radial-gradient(ellipse 60% 70% at 12% 0%,  rgba(30,58,95,0.28)  0%, transparent 55%),
+    radial-gradient(ellipse 50% 60% at 95% 8%,  rgba(46,76,118,0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 80% at 100% 100%, rgba(10,31,59,0.30) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 60% at 5% 100%, rgba(30,58,95,0.18)  0%, transparent 55%),
+    linear-gradient(135deg, #CCD4DD 0%, #A7B2C0 100%);
+
+  --via-mesh-navy:
+    radial-gradient(ellipse 60% 70% at 12% 0%,  rgba(46,76,118,0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 95% 8%,  rgba(30,58,95,0.50)  0%, transparent 60%),
+    radial-gradient(ellipse 70% 80% at 100% 100%, rgba(2,22,42,0.85) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 60% at 5% 100%, rgba(46,76,118,0.40) 0%, transparent 55%),
+    linear-gradient(135deg, #0A1F3B 0%, #02162A 100%);
+
+  /* ─── Compatibilidade: tokens HSL antigos mapeados para novos valores ─── */
+  --background:             0 0% 100%;
+  --foreground:             213 96% 9%;
+  --card:                   0 0% 98%;
+  --card-foreground:        213 96% 9%;
+  --popover:                0 0% 98%;
+  --popover-foreground:     213 96% 9%;
+  /* --primary = --via-navy (#0A1F3B) para alinhar botões/links shadcn à marca VIA */
+  --primary:                214 74% 14%;
+  --primary-foreground:     0 0% 100%;
+  --secondary:              0 0% 96%;
+  --secondary-foreground:   213 96% 9%;
+  --muted:                  0 0% 89%;
+  --muted-foreground:       213 40% 30%;
+  --accent:                 0 0% 100%;
+  --accent-foreground:      213 96% 9%;
+  --destructive:            0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --success:                160 84% 39%;
+  --success-foreground:     0 0% 100%;
+  --warning:                43 96% 56%;
+  --warning-foreground:     0 0% 100%;
+  --border:                 0 0% 82%;
+  --input:                  0 0% 82%;
+  /* --ring = --via-navy (#0A1F3B) — mesmo navy do --primary */
+  --ring:                   214 74% 14%;
+  --radius:                 0.75rem;
+  --sidebar-background:     213 96% 6%;
+  --sidebar-foreground:     240 20% 95%;
+  --sidebar-primary:        213 60% 12%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent:         213 96% 9%;
+  --sidebar-accent-foreground: 240 20% 95%;
+  --sidebar-border:         213 96% 9%;
+  --sidebar-ring:           213 60% 12%;
+  --accent-primary:         213 60% 12%;
+  --accent-primary-hover:   213 60% 18%;
+  --accent-primary-light:   213 60% 28%;
+  --accent-foreground:      0 0% 100%;
+  --accent-warm:            213 96% 9%;
+}
+
+/* ── Dark mode ── */
+[data-theme="dark"],
+.dark {
+  --via-bg:           #0B1220;
+  --via-bg-2:         #131C30;
+  --via-bg-3:         #1B273F;
+  --via-surface:      #131C30;
+  --via-surface-elev: #1B273F;
+  --via-bg-soft:      rgba(255,255,255,0.04);
+  --via-gray-50:  #0F1729;
+  --via-gray-100: #17213A;
+  --via-text-primary: #F4F6FA;
+  --via-text-body:    #D0D5DD;
+  --via-text-muted:   #AEB8C6;
+  --via-text-faint:   #9CA5B5;
+  --via-text-inverse: var(--via-navy);
+  --via-text:      #D0D5DD;
+  --via-text-soft: #AEB8C6;
+  --via-ink-2:     #B4BBC9;
+  --via-ink-3:     #AEB8C6;
+  --via-border-hairline: rgba(255,255,255,0.10);
+  --via-border:          rgba(255,255,255,0.18);
+  --via-border-soft:     rgba(255,255,255,0.12);
+  --via-border-strong:   rgba(255,255,255,0.30);
+  --via-navy-06: rgba(255,255,255,0.07);
+  --via-navy-08: rgba(255,255,255,0.09);
+  --via-navy-10: rgba(255,255,255,0.11);
+  --via-navy-12: rgba(255,255,255,0.13);
+  --via-navy-20: rgba(255,255,255,0.22);
+  --via-glass-card:   linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+  --via-glass-card-2: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.018));
+  --via-edge-hi: rgba(255,255,255,0.08);
+  --via-edge-lo: rgba(255,255,255,0.05);
+  --via-glass-sheen: linear-gradient(180deg, rgba(255,255,255,0.05), transparent);
+  --via-danger: #E58A8A;
+  --via-coral-dark: #E89B9B;
+  color-scheme: dark;
+
+  /* Compat HSL dark */
+  --background:         220 20% 8%;
+  --foreground:         210 20% 92%;
+  --card:               220 18% 11%;
+  --card-foreground:    210 20% 92%;
+  --popover:            220 18% 11%;
+  --popover-foreground: 210 20% 92%;
+  --primary:            210 20% 85%;
+  --primary-foreground: 220 20% 8%;
+  --secondary:          220 16% 15%;
+  --secondary-foreground: 210 20% 92%;
+  --muted:              220 16% 15%;
+  --muted-foreground:   210 10% 55%;
+  --border:             220 14% 20%;
+  --input:              220 14% 20%;
+  --ring:               210 20% 70%;
+  --sidebar-background: 220 20% 6%;
+  --sidebar-foreground: 210 10% 55%;
+  --sidebar-primary:    210 20% 70%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent:     220 16% 15%;
+  --sidebar-accent-foreground: 210 20% 92%;
+  --sidebar-border:     220 14% 20%;
+  --sidebar-ring:       210 20% 70%;
+  --accent-primary:     210 20% 70%;
+  --accent-primary-hover: 210 20% 78%;
+  --accent-foreground:  220 20% 8%;
+}
+
+/* ── Base ── */
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  * { @apply border-border; }
+  body {
+    font-family: var(--via-font);
+    font-weight: var(--via-fw-regular);
+    font-size: var(--via-fs-body);
+    line-height: var(--via-lh-loose);
+    color: var(--via-text-body);
+    background: var(--via-bg);
+    @apply antialiased;
+  }
+  :where(h1,h2,h3,h4) { color: var(--via-text-primary); margin: 0; }
+  h1 { font-family: var(--via-font-display); font-weight: 500; font-size: var(--via-fs-h1); line-height: var(--via-lh-tight); letter-spacing: var(--via-ls-tighter); }
+  h2 { font-family: var(--via-font-display); font-weight: 500; font-size: var(--via-fs-h2); line-height: var(--via-lh-snug);  letter-spacing: var(--via-ls-tighter); }
+  h3 { font-family: var(--via-font); font-weight: var(--via-fw-semibold); font-size: var(--via-fs-h3); line-height: var(--via-lh-snug); letter-spacing: var(--via-ls-tight); }
+  h4 { font-family: var(--via-font); font-weight: var(--via-fw-semibold); font-size: var(--via-fs-h4); }
+  p { margin: 0; }
+  a { color: var(--via-navy); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  [data-theme="dark"] a:not([class]) { color: #8FB8F6; }
+}
+
+/* ── Utilidades ── */
+@layer utilities {
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+}
+
+/* ── Componentes canônicos VIA ── */
+@layer components {
+
+  /* Glass surfaces */
+  .via-glass {
+    background: linear-gradient(180deg, rgba(255,255,255,0.70) 0%, rgba(255,255,255,0.42) 100%);
+    backdrop-filter: var(--via-blur-md);
+    -webkit-backdrop-filter: var(--via-blur-md);
+    border: 1px solid rgba(255,255,255,0.80);
+    border-radius: var(--via-radius-lg);
+    box-shadow: var(--via-shadow-glass-light);
+  }
+  .via-glass-strong {
+    background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.58) 100%);
+    backdrop-filter: var(--via-blur-lg);
+    -webkit-backdrop-filter: var(--via-blur-lg);
+    border: 1px solid rgba(255,255,255,0.95);
+    border-radius: var(--via-radius-lg);
+    box-shadow: var(--via-shadow-glass-light);
+  }
+  .via-glass-dark {
+    background: linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%);
+    backdrop-filter: var(--via-blur-md);
+    -webkit-backdrop-filter: var(--via-blur-md);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: var(--via-radius-lg);
+    box-shadow: var(--via-shadow-glass-dark);
+    color: var(--via-white);
+  }
+  [data-theme="dark"] .via-glass {
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
+    border-color: rgba(255,255,255,0.10);
+  }
+  [data-theme="dark"] .via-glass-strong {
+    background: linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.05) 100%);
+    border-color: rgba(255,255,255,0.14);
+  }
+
+  /* Mesh */
+  .via-mesh-light { background: var(--via-mesh-light); position: relative; }
+  .via-mesh-navy  { background: var(--via-mesh-navy);  color: var(--via-white); position: relative; }
+  .via-mesh-navy h1, .via-mesh-navy h2, .via-mesh-navy h3, .via-mesh-navy h4,
+  .via-glass-dark h1, .via-glass-dark h2, .via-glass-dark h3, .via-glass-dark h4 { color: inherit; }
+
+  /* Card */
+  .via-card {
+    background: var(--via-white);
+    border: 1px solid var(--via-border-hairline);
+    border-radius: var(--via-radius-lg);
+    padding: var(--via-space-6);
+  }
+  .via-card-dark {
+    background: var(--via-navy);
+    border-radius: var(--via-radius-lg);
+    padding: var(--via-space-6);
+    color: var(--via-white);
+  }
+
+  /* Pill canônica */
+  .via-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 11px;
+    border-radius: var(--via-radius-pill);
+    font-family: var(--via-font);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: -0.004em;
+    white-space: nowrap;
+    line-height: 1.4;
+    background: var(--via-gray-100);
+    color: var(--via-text-muted);
+    border: 1px solid var(--via-border-hairline);
+  }
+
+  /* CTA primário */
+  .via-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 22px;
+    background: linear-gradient(180deg, #0A1F3B, #02162A);
+    color: #fff;
+    border: 1px solid #02162A;
+    border-radius: var(--via-radius-pill);
+    font-family: var(--via-font);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.004em;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 8px 18px -6px rgba(10,31,59,0.4);
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform var(--via-t);
+    border: none;
+  }
+  .via-cta:hover { transform: translateY(-1px); text-decoration: none; }
+
+  /* Hover signature · bar lateral navy */
+  .via-row { position: relative; overflow: hidden; }
+  .via-row::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: linear-gradient(180deg, #0A1F3B, transparent);
+    opacity: 0;
+    transition: opacity var(--via-t);
+  }
+  .via-row:hover::before { opacity: 1; }
+
+  /* Atmospheric (radial sutil em cards/heroes) */
+  .via-atmospheric {
+    background:
+      radial-gradient(ellipse 70% 60% at 0% 0%, rgba(10,31,59,0.04), transparent 60%),
+      var(--via-white);
+  }
+
+  /* Tipografia canônica */
+  .via-hero {
+    font-family: var(--via-font-display);
+    font-size: clamp(2.5rem, 6vw, var(--via-fs-hero));
+    font-weight: 500;
+    line-height: var(--via-lh-tight);
+    letter-spacing: var(--via-ls-tighter);
+    color: var(--via-text-primary);
+  }
+  .via-display {
+    font-family: var(--via-font-display);
+    font-size: clamp(2rem, 4.5vw, var(--via-fs-display));
+    font-weight: 500;
+    line-height: var(--via-lh-tight);
+    letter-spacing: var(--via-ls-tighter);
+    color: var(--via-text-primary);
+  }
+  .via-label {
+    font-family: var(--via-font);
+    font-size: var(--via-fs-label);
+    font-weight: var(--via-fw-semibold);
+    letter-spacing: var(--via-ls-label);
+    text-transform: uppercase;
+    color: var(--via-text-muted);
+  }
+  .via-wordmark {
+    font-family: var(--via-font);
+    font-weight: 300;
+    letter-spacing: var(--via-ls-brand);
+    text-transform: uppercase;
+    color: currentColor;
+  }
+
+  /* Sections LP */
+  .lp-section-light { background-color: var(--via-gray-100); color: var(--via-navy); }
+  .lp-section-dark  { background: var(--via-mesh-navy); }
+  .lp-section-spacing { @apply py-24 lg:py-32; }
+
+  /* Cards LP (compat legada) */
+  .lp-solid-card      { background: var(--via-white); border: 1px solid var(--via-gray-200); border-radius: var(--via-radius-md); }
+  .lp-solid-card-dark { background: var(--via-blue); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--via-radius-md); }
+  .lp-glass-card      { background: var(--via-glass-card); backdrop-filter: var(--via-blur-md); border: 1px solid var(--via-border-soft); border-radius: var(--via-radius-lg); }
+}
