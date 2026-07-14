@@ -1,5 +1,23 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, HelpCircle, LogOut } from "lucide-react";
+import {
+  Activity,
+  Award,
+  BarChart2,
+  Building2,
+  CheckSquare,
+  GitBranch,
+  HelpCircle,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  MessageCircle,
+  Package,
+  Settings,
+  Target,
+  TrendingUp,
+  Users,
+  Zap,
+} from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
@@ -31,9 +49,42 @@ export function AppSidebar() {
   const { pathname } = useLocation();
   const { signOut, profile, role } = useAuth();
 
-  const items = [
-    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, show: true },
-  ].filter((i) => i.show);
+  const groups = [
+    {
+      label: "CRM",
+      items: [
+        { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+        { title: "Contatos", url: "/contacts", icon: Users },
+        { title: "Empresas", url: "/companies", icon: Building2 },
+        { title: "Negócios", url: "/deals", icon: TrendingUp },
+        { title: "Atividades", url: "/activities", icon: Activity },
+        { title: "Tarefas", url: "/tasks", icon: CheckSquare },
+        { title: "Produtos", url: "/products", icon: Package },
+      ],
+    },
+    {
+      label: "Atendimento",
+      items: [
+        { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
+        { title: "Email", url: "/inbox", icon: Mail },
+      ],
+    },
+    {
+      label: "Marketing",
+      items: [
+        { title: "Automações", url: "/automations", icon: Zap },
+        { title: "Sequências", url: "/email-sequences", icon: GitBranch },
+      ],
+    },
+    {
+      label: "Analytics",
+      items: [
+        { title: "Relatórios", url: "/reports", icon: BarChart2 },
+        { title: "Metas", url: "/sales-goals", icon: Target },
+        { title: "Lead Scoring", url: "/lead-scoring", icon: Award },
+      ],
+    },
+  ];
 
   const activeClass =
     "data-[active=true]:bg-via-navy data-[active=true]:text-white data-[active=true]:hover:bg-via-blue data-[active=true]:hover:text-white data-[active=false]:hover:bg-via-navy/10";
@@ -59,27 +110,30 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(item.url)}
-                    className={cn("text-sidebar-foreground", activeClass)}
-                  >
-                    <NavLink to={item.url} className="flex items-center gap-2 no-underline hover:no-underline">
-                      <item.icon className="h-4 w-4" strokeWidth={1.5} />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {groups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith(item.url)}
+                      className={cn("text-sidebar-foreground", activeClass)}
+                      tooltip={item.title}
+                    >
+                      <NavLink to={item.url} className="flex items-center gap-2 no-underline hover:no-underline">
+                        <item.icon className="h-4 w-4" strokeWidth={1.5} />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
