@@ -1,0 +1,156 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useOrgId } from "@/hooks/useOrgId";
+import type { Database } from "@/integrations/supabase/types";
+
+export type WhatsAppProvider = Database["public"]["Enums"]["whatsapp_provider"];
+export type DistributionMode = Database["public"]["Enums"]["distribution_mode"];
+export type WhatsAppConfig = Database["public"]["Tables"]["whatsapp_config"]["Row"];
+export type EvolutionInstance = Database["public"]["Tables"]["evolution_instances"]["Row"];
+export type MetaInstance = Database["public"]["Tables"]["meta_instances"]["Row"];
+
+/**
+ * Estado consolidado do provedor de WhatsApp da organização.
+ *
+ * `configured` é verdadeiro só quando há config E uma instância do provedor
+ * escolhido. É o que /whatsapp usa para decidir entre o wizard e o inbox.
+ */
+export interface WhatsAppSetup {
+  config: WhatsAppConfig | null;
+  evolution: EvolutionInstance | null;
+  meta: MetaInstance | null;
+  provider: WhatsAppProvider | null;
+  configured: boolean;
+}
+
+export function useWhatsAppSetup() {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["whatsapp-setup", orgId],
+    enabled: !!orgId,
+    queryFn: async (): Promise<WhatsAppSetup> => {
+      const [config, evolution, meta] = await Promise.all([
+        supabase.from("whatsapp_config").select("*").eq("org_id", orgId!).maybeSingle(),
+        supabase
+          .from("evolution_instances")
+          .select("*")
+          .eq("org_id", orgId!)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("meta_instances")
+          .select("*")
+          .eq("org_id", orgId!)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      if (config.error) throw config.error;
+      if (evolution.error) throw evolution.error;
+      if (meta.error) throw meta.error;
+
+      const provider = config.data?.provider ?? null;
+      const configured =
+        (provider === "evolution" && !!evolution.data) ||
+        (provider === "meta_official" && !!meta.data);
+
+      return {
+        config: config.data ?? null,
+        evolution: evolution.data ?? null,
+        meta: meta.data ?? null,
+        provider,
+        configured,
+      };
+    },
+  });
+}
+
+/** Grava (ou atualiza) o provedor escolhido em whatsapp_config. */
+export function useSetProvider() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (provider: WhatsAppProvider) => {
+      if (!orgId) throw new Error("Organização não carregada. Recarregue a página.");
+      const { error } = await supabase
+        .from("whatsapp_config")
+        .upsert({ org_id: orgId, provider, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] }),
+  });
+}
+
+/**
+ * Cria/conecta uma instância Evolution.
+ *
+ * Delega à edge function `evolution-connect`, que registra a instância no
+ * servidor Evolution e devolve o QR Code para parear o número. A api_key nunca
+ * transita pelo cliente depois disso.
+ */
+export function useConnectEvolution() {
+  const queryClient = useQueryClient();
+  const orgId = useOrgId();
+
+  return useMutation({
+    mutationFn: async (input: {
+      server_url: string;
+      api_key: string;
+      instance_name: string;
+      display_name?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke("evolution-connect", { body: input });
+      if (error) throw new Error(error.message ?? "Falha ao conectar à Evolution.");
+      if (data?.error) throw new Error(data.error);
+      return data as { instance_id: string; qr_code: string | null; status: string };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] }),
+  });
+}
+
+/**
+ * Verifica as credenciais Meta e registra a instância.
+ *
+ * Delega à edge function `meta-verify`, que confere o phone_number_id contra a
+ * Graph API e configura o webhook.
+ */
+export function useVerifyMeta() {
+  const queryClient = useQueryClient();
+  const orgId = useOrgId();
+
+  return useMutation({
+    mutationFn: async (input: {
+      phone_number_id: string;
+      business_account_id: string;
+      access_token: string;
+      display_name?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke("meta-verify", { body: input });
+      if (error) throw new Error(error.message ?? "Falha ao verificar a conta Meta.");
+      if (data?.error) throw new Error(data.error);
+      return data as { instance_id: string; phone_number: string | null; webhook_verified: boolean };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] }),
+  });
+}
+
+/** Consulta o status atual de pareamento da instância Evolution (poll do QR). */
+export function useEvolutionStatus(instanceId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ["evolution-status", instanceId],
+    enabled: !!instanceId && enabled,
+    refetchInterval: enabled ? 4000 : false,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("evolution_instances")
+        .select("id, status, qr_code, phone_number, connected_at")
+        .eq("id", instanceId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}

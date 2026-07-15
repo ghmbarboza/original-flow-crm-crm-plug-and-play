@@ -7,9 +7,11 @@ import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
 import TeamSettings from "@/components/settings/TeamSettings";
 import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
 import OnboardingSettings from "@/components/settings/OnboardingSettings";
+import AISettings from "@/components/settings/AISettings";
+import FollowupSettings from "@/components/settings/FollowupSettings";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "security", "integrations", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "security", "integrations", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -24,6 +26,14 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
   integrations: {
     title: "Integrações",
     description: "Conecte serviços externos cadastrando chaves de API utilizadas pela plataforma.",
+  },
+  ia: {
+    title: "IA",
+    description: "Configure a personalidade, a base de conhecimento e o comportamento do atendimento por IA no WhatsApp.",
+  },
+  "follow-up": {
+    title: "Follow-up",
+    description: "Régua de mensagens automáticas para reengajar conversas de WhatsApp sem resposta.",
   },
   team: {
     title: "Equipe",
@@ -64,6 +74,8 @@ export default function SettingsPage() {
             <TabsTrigger value="general">Geral</TabsTrigger>
             {isAdmin && <TabsTrigger value="security">Segurança</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrações</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="ia">IA</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="follow-up">Follow-up</TabsTrigger>}
             {isAdmin && <TabsTrigger value="team">Equipe</TabsTrigger>}
             {isAdmin && <TabsTrigger value="demonstration">Demonstração</TabsTrigger>}
             {isAdmin && <TabsTrigger value="onboarding">Onboarding</TabsTrigger>}
@@ -75,6 +87,8 @@ export default function SettingsPage() {
           <TabsContent value="general"><GeneralSettings /></TabsContent>
           {isAdmin && <TabsContent value="security"><SecuritySettings /></TabsContent>}
           {isAdmin && <TabsContent value="integrations"><ApiKeysSettings /></TabsContent>}
+          {isAdmin && <TabsContent value="ia"><AISettings /></TabsContent>}
+          {isAdmin && <TabsContent value="follow-up"><FollowupSettings /></TabsContent>}
           {isAdmin && <TabsContent value="team"><TeamSettings /></TabsContent>}
           {isAdmin && <TabsContent value="demonstration"><DemonstrationSettings /></TabsContent>}
           {isAdmin && <TabsContent value="onboarding"><OnboardingSettings /></TabsContent>}

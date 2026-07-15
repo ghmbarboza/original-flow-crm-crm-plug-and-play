@@ -1,0 +1,178 @@
+// Dispatcher de follow-up automático (executar por cron, ex.: a cada 15 min).
+//
+// Para cada org com follow-up ativo, encontra conversas paradas (última mensagem
+// enviada por nós, sem resposta) e avança a régua: quando o delay da próxima
+// etapa venceu, envia a mensagem e registra a tentativa em followup_executions.
+// Ao esgotar as tentativas, aplica o comportamento configurado (on_limit_reached).
+//
+// Segurança: sem auth de usuário — proteja por header secreto (FOLLOWUP_CRON_SECRET)
+// ao agendar. Usa a service role para ler/escrever entre orgs.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
+/** Preenche as variáveis do template com os dados do contato. */
+function render(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_m, key) => vars[key] ?? "");
+}
+
+async function sendText(
+  admin: ReturnType<typeof createClient>,
+  provider: string,
+  orgId: string,
+  phone: string,
+  text: string,
+): Promise<string | null> {
+  if (provider === "evolution") {
+    const { data: instance } = await admin
+      .from("evolution_instances")
+      .select("server_url, api_key, instance_name")
+      .eq("org_id", orgId).eq("is_active", true)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!instance) return null;
+    const resp = await fetch(`${instance.server_url}/message/sendText/${instance.instance_name}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: instance.api_key as string },
+      body: JSON.stringify({ number: phone, text }),
+    });
+    return resp.ok ? "sent" : null;
+  }
+  const { data: instance } = await admin
+    .from("meta_instances")
+    .select("phone_number_id, access_token")
+    .eq("org_id", orgId).eq("is_active", true)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!instance) return null;
+  const resp = await fetch(`https://graph.facebook.com/v21.0/${instance.phone_number_id}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${instance.access_token}` },
+    body: JSON.stringify({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: text } }),
+  });
+  return resp.ok ? "sent" : null;
+}
+
+Deno.serve(async (req) => {
+  // Proteção opcional por segredo do cron.
+  const secret = Deno.env.get("FOLLOWUP_CRON_SECRET");
+  if (secret && req.headers.get("x-cron-secret") !== secret) {
+    return json({ error: "Não autorizado" }, 401);
+  }
+
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  const now = new Date();
+  let sent = 0;
+  let closed = 0;
+
+  const { data: configs } = await admin
+    .from("followup_configs")
+    .select("org_id, max_attempts, on_limit_reached")
+    .eq("is_active", true);
+
+  for (const config of configs ?? []) {
+    const orgId = config.org_id;
+    const { data: steps } = await admin
+      .from("followup_steps")
+      .select("delay_hours, message_template, order")
+      .eq("org_id", orgId)
+      .order("order");
+    if (!steps || steps.length === 0) continue;
+
+    // Conversas candidatas: abertas, com a última mensagem enviada por nós.
+    const { data: conversations } = await admin
+      .from("whatsapp_conversations")
+      .select("id, org_id, provider, phone_number, contact_id, assigned_to, last_message_at, status, company:companies(name), contact:contacts(first_name, last_name)")
+      .eq("org_id", orgId)
+      .neq("status", "closed")
+      .limit(200);
+
+    for (const conv of conversations ?? []) {
+      // Última mensagem precisa ser outbound (esperando resposta do cliente).
+      const { data: lastMsg } = await admin
+        .from("whatsapp_messages")
+        .select("direction, sent_at")
+        .eq("conversation_id", conv.id)
+        .eq("is_internal_note", false)
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!lastMsg || lastMsg.direction !== "outbound") continue;
+
+      // Estado atual do follow-up desta conversa.
+      const { data: execution } = await admin
+        .from("followup_executions")
+        .select("id, attempts, step_order, status, next_attempt_at")
+        .eq("conversation_id", conv.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (execution?.status === "completed" || execution?.status === "cancelled") continue;
+
+      const attempts = execution?.attempts ?? 0;
+      const nextStepIndex = attempts; // etapa 0 na primeira tentativa
+      if (nextStepIndex >= steps.length || attempts >= (config.max_attempts ?? steps.length)) {
+        // Esgotou: aplica o comportamento de limite.
+        if (config.on_limit_reached === "mark_inactive" || config.on_limit_reached === "both") {
+          if (conv.contact_id) await admin.from("contacts").update({ status: "churned" }).eq("id", conv.contact_id);
+        }
+        if ((config.on_limit_reached === "notify_agent" || config.on_limit_reached === "both") && conv.assigned_to) {
+          // Notifica o agente responsável (notifications exige type + user_id).
+          await admin.from("notifications").insert({
+            org_id: orgId,
+            user_id: conv.assigned_to,
+            type: "followup_exhausted",
+            title: "Follow-up esgotado",
+            body: `A conversa com ${conv.phone_number} não respondeu ao follow-up.`,
+            entity_type: "whatsapp_conversation",
+            entity_id: conv.id,
+          });
+        }
+        if (execution) await admin.from("followup_executions").update({ status: "completed" }).eq("id", execution.id);
+        continue;
+      }
+
+      const step = steps[nextStepIndex];
+      const baseTime = new Date(lastMsg.sent_at ?? conv.last_message_at ?? now);
+      const dueAt = new Date(baseTime.getTime() + step.delay_hours * 3600_000);
+      if (dueAt > now) continue; // ainda não venceu
+
+      const contact = conv.contact as { first_name?: string; last_name?: string } | null;
+      const company = conv.company as { name?: string } | null;
+      const text = render(step.message_template, {
+        nome: contact?.first_name ?? "",
+        empresa: company?.name ?? "",
+        agente: "",
+      });
+
+      const status = await sendText(admin, conv.provider, orgId, conv.phone_number, text);
+      if (status) {
+        await admin.from("whatsapp_messages").insert({
+          conversation_id: conv.id, org_id: orgId, direction: "outbound",
+          content: text, type: "text", status: "sent",
+        });
+        await admin.from("whatsapp_conversations").update({
+          last_message_at: now.toISOString(), last_message_preview: text.slice(0, 120),
+        }).eq("id", conv.id);
+
+        if (execution) {
+          await admin.from("followup_executions").update({
+            attempts: attempts + 1, step_order: step.order, status: "pending",
+            updated_at: now.toISOString(),
+          }).eq("id", execution.id);
+        } else {
+          await admin.from("followup_executions").insert({
+            org_id: orgId, conversation_id: conv.id, attempts: 1, step_order: step.order, status: "pending",
+          });
+        }
+        sent++;
+      }
+    }
+  }
+
+  return json({ ok: true, sent, closed });
+});
