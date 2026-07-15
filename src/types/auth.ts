@@ -2,6 +2,9 @@ import type { User, Session } from "@supabase/supabase-js";
 
 export type AppRole = "admin" | "member";
 
+/** Sub-papel do CRM. Ortogonal a AppRole: quem é `member` no auth pode ser gerente aqui. */
+export type CrmRole = "diretor" | "gerente" | "agente";
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -12,6 +15,10 @@ export interface Profile {
   status: "online" | "offline" | "away" | "busy" | null;
   is_active: boolean;
   is_approved: boolean;
+  /** Organização do usuário. Preenchida pelo trigger on_profile_created_assign_org. */
+  org_id: string | null;
+  crm_role: CrmRole | null;
+  manager_id: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
