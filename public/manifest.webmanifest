@@ -1,0 +1,20 @@
+{
+  "name": "VIA Flow CRM",
+  "short_name": "Flow CRM",
+  "description": "CRM da VIA para gestao de leads, negocios, atividades e automacoes.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "pt-BR",
+  "theme_color": "#0A1F3B",
+  "background_color": "#0A1F3B",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
