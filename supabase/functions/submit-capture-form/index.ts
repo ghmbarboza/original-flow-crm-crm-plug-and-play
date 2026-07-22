@@ -118,7 +118,9 @@ Deno.serve(async (req) => {
         if (!reservedKeys.has(field.key)) customFields[field.key] = strOf(field.key);
       }
 
-      // Cria o contato no org_id do form (nunca do cliente).
+      // Cria o contato no org_id do form (nunca do cliente). Selecionamos a linha
+      // inteira para usá-la como trigger_data da automação (mesmo formato que os
+      // triggers de banco produzem com to_jsonb(new)).
       const { data: contact, error: contactErr } = await admin
         .from("contacts")
         .insert({
@@ -130,7 +132,7 @@ Deno.serve(async (req) => {
           source: "capture_form",
           custom_fields: customFields,
         })
-        .select("id")
+        .select("*")
         .single();
       if (contactErr) return json({ error: contactErr.message }, 500);
 
@@ -164,25 +166,35 @@ Deno.serve(async (req) => {
         }
       }
 
-      const { error: dealErr } = await admin.from("deals").insert({
-        org_id: form.org_id,
-        contact_id: contact.id,
-        title: fullName,
-        stage_id: stageId,
-      });
+      const { data: deal, error: dealErr } = await admin
+        .from("deals")
+        .insert({
+          org_id: form.org_id,
+          contact_id: contact.id,
+          title: fullName,
+          stage_id: stageId,
+        })
+        .select("id")
+        .single();
       if (dealErr) return json({ error: dealErr.message }, 500);
 
-      // Automação vinculada: registramos a execução em automation_logs com
-      // status "queued" — o mecanismo de logs de automação já existe no schema.
-      // A EXECUÇÃO EFETIVA das ações (enviar email, mover deal etc.) NÃO é feita
-      // aqui: não há, hoje, um worker/dispatcher de automações acionável a partir
-      // desta função. Fica como integração pendente, sinalizada pelo log.
+      // Automação vinculada (gatilho form_submitted): enfileira em automation_logs
+      // com status "queued", no MESMO formato que a edge function
+      // `automation-dispatcher` espera. O trigger_data carrega a linha completa do
+      // contato criado (para as condições poderem avaliar campos do contato) mais
+      // o deal_id e o form_id. A execução efetiva das ações é feita pelo dispatcher.
       if (form.automation_id) {
         await admin.from("automation_logs").insert({
           org_id: form.org_id,
           automation_id: form.automation_id,
           status: "queued",
-          trigger_data: { source: "capture_form", form_id: form.id, contact_id: contact.id },
+          trigger_data: {
+            ...contact,
+            contact_id: contact.id,
+            deal_id: deal.id,
+            form_id: form.id,
+            source_event: "capture_form",
+          },
         });
       }
 
