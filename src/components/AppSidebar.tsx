@@ -5,6 +5,7 @@ import {
   BarChart2,
   Building2,
   CheckSquare,
+  FileText,
   GitBranch,
   HelpCircle,
   LayoutDashboard,
@@ -74,6 +75,7 @@ export function AppSidebar() {
       items: [
         { title: "Automações", url: "/automations", icon: Zap },
         { title: "Sequências", url: "/email-sequences", icon: GitBranch },
+        { title: "Templates", url: "/email-templates", icon: FileText },
       ],
     },
     {
