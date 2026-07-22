@@ -9,15 +9,20 @@ import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
 import OnboardingSettings from "@/components/settings/OnboardingSettings";
 import AISettings from "@/components/settings/AISettings";
 import FollowupSettings from "@/components/settings/FollowupSettings";
+import NotificationPreferences from "@/components/settings/NotificationPreferences";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "security", "integrations", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "notifications", "security", "integrations", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
   general: {
     title: "Geral",
     description: "Gerencie suas informações pessoais utilizadas na plataforma.",
+  },
+  notifications: {
+    title: "Notificações",
+    description: "Escolha em quais canais você quer ser avisado para cada tipo de evento.",
   },
   security: {
     title: "Segurança",
@@ -72,6 +77,7 @@ export default function SettingsPage() {
         <Tabs value={activeTab} onValueChange={handleChange}>
           <TabsList>
             <TabsTrigger value="general">Geral</TabsTrigger>
+            <TabsTrigger value="notifications">Notificações</TabsTrigger>
             {isAdmin && <TabsTrigger value="security">Segurança</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrações</TabsTrigger>}
             {isAdmin && <TabsTrigger value="ia">IA</TabsTrigger>}
@@ -85,6 +91,7 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">{meta.description}</p>
           </div>
           <TabsContent value="general"><GeneralSettings /></TabsContent>
+          <TabsContent value="notifications"><NotificationPreferences /></TabsContent>
           {isAdmin && <TabsContent value="security"><SecuritySettings /></TabsContent>}
           {isAdmin && <TabsContent value="integrations"><ApiKeysSettings /></TabsContent>}
           {isAdmin && <TabsContent value="ia"><AISettings /></TabsContent>}
