@@ -18,6 +18,8 @@ export function DealCard({ deal, onClick, onDragStart, onDragEnd, isDragging }: 
   return (
     <div
       draggable
+      data-testid="deal-card"
+      data-deal-id={deal.id}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = "move";
         // Alguns navegadores só iniciam o drag se houver payload.

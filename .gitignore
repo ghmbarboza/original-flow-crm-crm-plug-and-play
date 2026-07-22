@@ -25,3 +25,13 @@ dist-ssr
 
 # Playwright MCP artifacts
 .playwright-mcp/
+
+# Playwright e2e
+/test-results/
+/playwright-report/
+/playwright/.cache/
+e2e/.auth/
+
+# Env / secrets (nunca versionar, nem templates)
+.env
+.env.*
