@@ -26,7 +26,6 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 function getInitials(name?: string | null) {
   if (!name) return "?";
@@ -154,12 +153,15 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={() => toast("Em breve")}
+              asChild
+              isActive={pathname.startsWith("/help")}
               className={cn("text-sidebar-foreground", activeClass)}
               tooltip="Ajuda"
             >
-              <HelpCircle className="h-4 w-4" strokeWidth={1.5} />
-              {!collapsed && <span>Ajuda</span>}
+              <NavLink to="/help" className="flex items-center gap-2 no-underline hover:no-underline">
+                <HelpCircle className="h-4 w-4" strokeWidth={1.5} />
+                {!collapsed && <span>Ajuda</span>}
+              </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

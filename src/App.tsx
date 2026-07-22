@@ -35,6 +35,7 @@ const SalesGoalsPage = lazy(() => import("./pages/SalesGoalsPage"));
 const LeadScoringPage = lazy(() => import("./pages/LeadScoringPage"));
 const TeamPage = lazy(() => import("./pages/TeamPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const HelpPage = lazy(() => import("./pages/HelpPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -169,6 +170,9 @@ const App = () => (
             } />
             <Route path="/settings/*" element={
               <ProtectedRoute allowedRoles={["admin"]}><Page name="Configurações"><SettingsPage /></Page></ProtectedRoute>
+            } />
+            <Route path="/help" element={
+              <ProtectedRoute><Page name="Ajuda"><HelpPage /></Page></ProtectedRoute>
             } />
 
             <Route path="*" element={<NotFound />} />
