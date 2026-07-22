@@ -1,1 +1,6 @@
 project_id = "tvwhiyojgtbuwtuohdes"
+
+# Formulário público de captura de leads: acessado por visitantes sem sessão,
+# portanto sem verificação de JWT. A função usa service-role internamente.
+[functions.submit-capture-form]
+verify_jwt = false

@@ -10,9 +10,10 @@ import OnboardingSettings from "@/components/settings/OnboardingSettings";
 import AISettings from "@/components/settings/AISettings";
 import FollowupSettings from "@/components/settings/FollowupSettings";
 import NotificationPreferences from "@/components/settings/NotificationPreferences";
+import CaptureFormsSettings from "@/components/settings/CaptureFormsSettings";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "notifications", "security", "integrations", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "notifications", "security", "integrations", "capture", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -31,6 +32,10 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
   integrations: {
     title: "Integrações",
     description: "Conecte serviços externos cadastrando chaves de API utilizadas pela plataforma.",
+  },
+  capture: {
+    title: "Captura de Leads",
+    description: "Crie formulários públicos que capturam leads e os direcionam para um funil e uma automação.",
   },
   ia: {
     title: "IA",
@@ -80,6 +85,7 @@ export default function SettingsPage() {
             <TabsTrigger value="notifications">Notificações</TabsTrigger>
             {isAdmin && <TabsTrigger value="security">Segurança</TabsTrigger>}
             {isAdmin && <TabsTrigger value="integrations">Integrações</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="capture">Captura de Leads</TabsTrigger>}
             {isAdmin && <TabsTrigger value="ia">IA</TabsTrigger>}
             {isAdmin && <TabsTrigger value="follow-up">Follow-up</TabsTrigger>}
             {isAdmin && <TabsTrigger value="team">Equipe</TabsTrigger>}
@@ -94,6 +100,7 @@ export default function SettingsPage() {
           <TabsContent value="notifications"><NotificationPreferences /></TabsContent>
           {isAdmin && <TabsContent value="security"><SecuritySettings /></TabsContent>}
           {isAdmin && <TabsContent value="integrations"><ApiKeysSettings /></TabsContent>}
+          {isAdmin && <TabsContent value="capture"><CaptureFormsSettings /></TabsContent>}
           {isAdmin && <TabsContent value="ia"><AISettings /></TabsContent>}
           {isAdmin && <TabsContent value="follow-up"><FollowupSettings /></TabsContent>}
           {isAdmin && <TabsContent value="team"><TeamSettings /></TabsContent>}
