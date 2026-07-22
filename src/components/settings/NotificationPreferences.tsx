@@ -15,6 +15,7 @@ const EVENTS: { type: string; label: string; description: string }[] = [
   { type: "deal_perdido", label: "Negócio perdido", description: "Um negócio foi marcado como perdido." },
   { type: "tarefa_atribuida", label: "Tarefa atribuída", description: "Uma tarefa foi atribuída a você." },
   { type: "tarefa_vencendo", label: "Tarefa vencendo", description: "Uma tarefa sua está próxima do prazo." },
+  { type: "ia_acionou_humano", label: "IA acionou humano", description: "A IA transferiu uma conversa de WhatsApp para atendimento humano." },
   { type: "mensagem_whatsapp", label: "Mensagem no WhatsApp", description: "Nova mensagem numa conversa de WhatsApp." },
   { type: "email_recebido", label: "E-mail recebido", description: "Um novo e-mail chegou na caixa de entrada." },
 ];
