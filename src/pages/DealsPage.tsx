@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ErrorState } from "@/components/ErrorState";
 import { DealsKanban } from "@/components/deals/DealsKanban";
 import { DealsList } from "@/components/deals/DealsList";
 import { DealFormDialog } from "@/components/deals/DealFormDialog";
@@ -74,13 +75,15 @@ export default function DealsPage() {
         </div>
 
         {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar os negócios</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página; se
-              persistir, avise um administrador.
-            </p>
-          </div>
+          <ErrorState
+            title="Não foi possível carregar os negócios"
+            message={
+              <>
+                {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página; se
+                persistir, avise um administrador.
+              </>
+            }
+          />
         )}
 
         <Tabs defaultValue="kanban">

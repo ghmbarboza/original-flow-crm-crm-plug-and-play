@@ -2,6 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { GitBranch, Plus, Trash2, Users } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -71,14 +73,7 @@ export default function EmailSequencesPage() {
           </Button>
         </div>
 
-        {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar as sequências</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."}
-            </p>
-          </div>
-        )}
+        {error && <ErrorState title="Não foi possível carregar as sequências" error={error} />}
 
         {isLoading ? (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -86,14 +81,12 @@ export default function EmailSequencesPage() {
             <Skeleton className="h-28 w-full" />
           </div>
         ) : (sequences ?? []).length === 0 ? (
-          <div className="via-card p-10 text-center">
-            <GitBranch className="mx-auto mb-3 h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-            <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Nenhuma sequência ainda</p>
-            <p className="mb-4 text-sm" style={{ color: "var(--via-text-muted)" }}>
-              Crie sequências de nutrição com etapas espaçadas por dias, cada uma com um template.
-            </p>
-            <Button onClick={() => setCreateOpen(true)}>Criar primeira sequência</Button>
-          </div>
+          <EmptyState
+            icon={GitBranch}
+            title="Nenhuma sequência ainda"
+            description="Crie sequências de nutrição com etapas espaçadas por dias, cada uma com um template."
+            action={<Button onClick={() => setCreateOpen(true)}>Criar primeira sequência</Button>}
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {(sequences ?? []).map((seq) => (

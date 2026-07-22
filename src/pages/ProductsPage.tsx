@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ErrorState } from "@/components/ErrorState";
 import { ProductsTable } from "@/components/products/ProductsTable";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import { ProductImportDialog } from "@/components/products/ProductImportDialog";
@@ -71,12 +72,14 @@ export default function ProductsPage() {
         </div>
 
         {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar os produtos</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página.
-            </p>
-          </div>
+          <ErrorState
+            title="Não foi possível carregar os produtos"
+            message={
+              <>
+                {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página.
+              </>
+            }
+          />
         )}
 
         <div className="flex flex-wrap gap-2">

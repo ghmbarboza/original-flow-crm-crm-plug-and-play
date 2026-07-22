@@ -3,6 +3,7 @@ import { Building2, Plus, Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ErrorState } from "@/components/ErrorState";
 import { CompaniesTable } from "@/components/companies/CompaniesTable";
 import { CompanyDrawer } from "@/components/companies/CompanyDrawer";
 import { CompanyFormDialog } from "@/components/companies/CompanyFormDialog";
@@ -73,13 +74,15 @@ export default function CompaniesPage() {
         </div>
 
         {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar as empresas</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página; se
-              persistir, avise um administrador.
-            </p>
-          </div>
+          <ErrorState
+            title="Não foi possível carregar as empresas"
+            message={
+              <>
+                {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página; se
+                persistir, avise um administrador.
+              </>
+            }
+          />
         )}
 
         <div className="relative min-w-64 max-w-md">

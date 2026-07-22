@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ErrorState } from "@/components/ErrorState";
 import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { ContactDrawer } from "@/components/contacts/ContactDrawer";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
@@ -119,13 +120,15 @@ export default function ContactsPage() {
         </div>
 
         {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar os contatos</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página; se
-              persistir, avise um administrador.
-            </p>
-          </div>
+          <ErrorState
+            title="Não foi possível carregar os contatos"
+            message={
+              <>
+                {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página; se
+                persistir, avise um administrador.
+              </>
+            }
+          />
         )}
 
         <Tabs defaultValue="list">

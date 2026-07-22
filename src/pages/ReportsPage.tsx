@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { BarChart2, Download, Printer } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -111,14 +112,7 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar os relatórios</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."}
-            </p>
-          </div>
-        )}
+        {error && <ErrorState title="Não foi possível carregar os relatórios" error={error} />}
 
         {isLoading || !data ? (
           <div className="space-y-4">

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ErrorState } from "@/components/ErrorState";
 import { ActivitiesTable } from "@/components/activities/ActivitiesTable";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { useActivities, type Activity } from "@/hooks/useActivities";
@@ -69,12 +70,14 @@ export default function TasksPage() {
         </div>
 
         {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar as tarefas</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página.
-            </p>
-          </div>
+          <ErrorState
+            title="Não foi possível carregar as tarefas"
+            message={
+              <>
+                {error instanceof Error ? error.message : "Erro desconhecido."} Recarregue a página.
+              </>
+            }
+          />
         )}
 
         <div className="flex flex-wrap gap-2">

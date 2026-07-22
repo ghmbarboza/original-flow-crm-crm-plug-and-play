@@ -2,6 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { History, Pencil, Plus, Trash2, Zap } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,14 +113,7 @@ export default function AutomationsPage() {
           </Button>
         </div>
 
-        {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar as automações</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."}
-            </p>
-          </div>
-        )}
+        {error && <ErrorState title="Não foi possível carregar as automações" error={error} />}
 
         {isLoading ? (
           <div className="space-y-2">
@@ -126,14 +121,12 @@ export default function AutomationsPage() {
             <Skeleton className="h-20 w-full" />
           </div>
         ) : (automations ?? []).length === 0 ? (
-          <div className="via-card p-10 text-center">
-            <Zap className="mx-auto mb-3 h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-            <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Nenhuma automação ainda</p>
-            <p className="mb-4 text-sm" style={{ color: "var(--via-text-muted)" }}>
-              Automatize tarefas repetitivas: gatilho, condições e ações, sem código.
-            </p>
-            <Button onClick={openCreate}>Criar primeira automação</Button>
-          </div>
+          <EmptyState
+            icon={Zap}
+            title="Nenhuma automação ainda"
+            description="Automatize tarefas repetitivas: gatilho, condições e ações, sem código."
+            action={<Button onClick={openCreate}>Criar primeira automação</Button>}
+          />
         ) : (
           <div className="space-y-2">
             {(automations ?? []).map((automation) => (

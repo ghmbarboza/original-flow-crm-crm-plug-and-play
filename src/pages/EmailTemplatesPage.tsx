@@ -2,6 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -59,14 +61,7 @@ export default function EmailTemplatesPage() {
           </Button>
         </div>
 
-        {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar os templates</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."}
-            </p>
-          </div>
-        )}
+        {error && <ErrorState title="Não foi possível carregar os templates" error={error} />}
 
         {isLoading ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -74,14 +69,12 @@ export default function EmailTemplatesPage() {
             <Skeleton className="h-32 w-full" />
           </div>
         ) : (templates ?? []).length === 0 ? (
-          <div className="via-card p-10 text-center">
-            <FileText className="mx-auto mb-3 h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-            <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Nenhum template ainda</p>
-            <p className="mb-4 text-sm" style={{ color: "var(--via-text-muted)" }}>
-              Crie templates reutilizáveis com variáveis para agilizar o envio de emails.
-            </p>
-            <Button onClick={openCreate}>Criar primeiro template</Button>
-          </div>
+          <EmptyState
+            icon={FileText}
+            title="Nenhum template ainda"
+            description="Crie templates reutilizáveis com variáveis para agilizar o envio de emails."
+            action={<Button onClick={openCreate}>Criar primeiro template</Button>}
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {(templates ?? []).map((template) => (

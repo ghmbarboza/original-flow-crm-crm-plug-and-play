@@ -2,6 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Target, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -110,14 +112,7 @@ export default function SalesGoalsPage() {
           </div>
         </div>
 
-        {error && (
-          <div className="via-card p-4">
-            <p className="text-sm font-medium text-via-coral">Não foi possível carregar as metas</p>
-            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-              {error instanceof Error ? error.message : "Erro desconhecido."}
-            </p>
-          </div>
-        )}
+        {error && <ErrorState title="Não foi possível carregar as metas" error={error} />}
 
         {isLoading ? (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -125,14 +120,12 @@ export default function SalesGoalsPage() {
             <Skeleton className="h-28 w-full" />
           </div>
         ) : (goals ?? []).length === 0 ? (
-          <div className="via-card p-10 text-center">
-            <Target className="mx-auto mb-3 h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-            <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Nenhuma meta neste período</p>
-            <p className="mb-4 text-sm" style={{ color: "var(--via-text-muted)" }}>
-              Defina metas de receita, negócios, atividades ou contatos por pessoa ou para o time.
-            </p>
-            <Button onClick={() => setOpen(true)}>Criar primeira meta</Button>
-          </div>
+          <EmptyState
+            icon={Target}
+            title="Nenhuma meta neste período"
+            description="Defina metas de receita, negócios, atividades ou contatos por pessoa ou para o time."
+            action={<Button onClick={() => setOpen(true)}>Criar primeira meta</Button>}
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {(goals ?? []).map((goal) => {
