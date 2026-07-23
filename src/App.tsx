@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { supabase } from "@/integrations/supabase/client";
 import AuthPage from "./pages/AuthPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PendingApprovalPage from "./pages/PendingApprovalPage";
 import NotFound from "./pages/NotFound";
 
@@ -88,6 +89,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/auth" element={<AuthPage />} />
+            {/* Redefinição de senha via link de email: público, fora do AppLayout. */}
+            <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
 
             {/* Público: sem autenticação e sem sidebar. */}
             <Route path="/f/:slug" element={

@@ -178,7 +178,7 @@ export default function GeneralSettings() {
     setSendingReset(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${window.location.origin}/auth/reset-password`,
       });
       if (error) {
         toast.error("Não foi possível enviar o link de redefinição.");
