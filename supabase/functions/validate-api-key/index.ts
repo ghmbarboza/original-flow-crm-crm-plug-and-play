@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
     // Read decrypted value from vault.decrypted_secrets
     const { data: secret } = await admin
-      .from("vault.decrypted_secrets" as any)
+      .from("vault.decrypted_secrets")
       .select("decrypted_secret")
       .eq("id", row.vault_secret_id)
       .maybeSingle();

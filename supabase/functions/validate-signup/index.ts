@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       .in("key", ["restrict_signup_by_domain", "allowed_email_domains"]);
 
     const cfg: Record<string, string> = {};
-    (cfgRows ?? []).forEach((r: any) => { cfg[r.key] = r.value; });
+    (cfgRows ?? []).forEach((r: { key: string; value: string }) => { cfg[r.key] = r.value; });
 
     if (cfg.restrict_signup_by_domain !== "true") {
       return new Response(JSON.stringify({ allowed: true }), {

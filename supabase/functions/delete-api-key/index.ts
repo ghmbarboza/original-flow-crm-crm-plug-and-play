@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (row?.vault_secret_id) {
-      try { await admin.from("vault.secrets" as any).delete().eq("id", row.vault_secret_id); } catch (_) {}
+      try { await admin.from("vault.secrets").delete().eq("id", row.vault_secret_id); } catch (_) { /* best-effort: segredo do vault pode não existir */ }
     }
 
     await admin.from("api_keys_registry")
@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message ?? "Erro" }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
