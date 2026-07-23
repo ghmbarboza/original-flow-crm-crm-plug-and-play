@@ -190,7 +190,7 @@ export function AutomationBuilderDialog({ open, onOpenChange, automation }: Prop
           <div className="via-card space-y-3 p-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Então (ações)</p>
-              <Button size="sm" variant="ghost" onClick={addAction} className="gap-1">
+              <Button size="sm" variant="ghost" onClick={addAction} className="gap-1" aria-label="Adicionar ação">
                 <Plus className="h-4 w-4" strokeWidth={1.5} />
               </Button>
             </div>

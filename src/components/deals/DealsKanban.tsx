@@ -93,6 +93,9 @@ export function DealsKanban({ deals, isLoading, onSelect, onCreate }: Props) {
         return (
           <div
             key={stage.id}
+            data-testid="kanban-column"
+            data-stage-id={stage.id}
+            data-stage-name={stage.name}
             className="flex w-72 shrink-0 flex-col rounded-lg transition-colors"
             style={{ background: isOver ? "var(--via-surface)" : "transparent" }}
             onDragOver={(e) => {
