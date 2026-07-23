@@ -1475,7 +1475,7 @@ export type Database = {
           }
         ]
       }
-      evolution_instances: {
+      evolution_configs: {
         Row: {
           api_key: string
           connected_at: string | null
@@ -1523,7 +1523,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "evolution_instances_org_id_fkey"
+            foreignKeyName: "evolution_configs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1611,7 +1611,7 @@ export type Database = {
             foreignKeyName: "followup_executions_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "whatsapp_conversations"
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
           {
@@ -1853,7 +1853,7 @@ export type Database = {
           }
         ]
       }
-      meta_instances: {
+      meta_configs: {
         Row: {
           access_token: string
           business_account_id: string
@@ -1901,7 +1901,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "meta_instances_org_id_fkey"
+            foreignKeyName: "meta_configs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2170,6 +2170,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          assigned_channels: string[]
           avatar_url: string | null
           company: string | null
           created_at: string | null
@@ -2186,6 +2187,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          assigned_channels?: string[]
           avatar_url?: string | null
           company?: string | null
           created_at?: string | null
@@ -2202,6 +2204,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          assigned_channels?: string[]
           avatar_url?: string | null
           company?: string | null
           created_at?: string | null
@@ -2498,7 +2501,7 @@ export type Database = {
           }
         ]
       }
-      whatsapp_ai_config: {
+      ai_messaging_config: {
         Row: {
           agent_name: string
           agent_objective: string
@@ -2555,7 +2558,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "whatsapp_ai_config_org_id_fkey"
+            foreignKeyName: "ai_messaging_config_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: true
             referencedRelation: "organizations"
@@ -2563,14 +2566,14 @@ export type Database = {
           }
         ]
       }
-      whatsapp_config: {
+      messaging_config: {
         Row: {
           created_at: string
           distribution_mode: Database["public"]["Enums"]["distribution_mode"]
           id: string
           offline_timeout_minutes: number
           org_id: string
-          provider: Database["public"]["Enums"]["whatsapp_provider"]
+          provider: Database["public"]["Enums"]["messaging_provider"]
           updated_at: string
         }
         Insert: {
@@ -2579,7 +2582,7 @@ export type Database = {
           id?: string
           offline_timeout_minutes?: number
           org_id: string
-          provider?: Database["public"]["Enums"]["whatsapp_provider"]
+          provider?: Database["public"]["Enums"]["messaging_provider"]
           updated_at?: string
         }
         Update: {
@@ -2588,12 +2591,12 @@ export type Database = {
           id?: string
           offline_timeout_minutes?: number
           org_id?: string
-          provider?: Database["public"]["Enums"]["whatsapp_provider"]
+          provider?: Database["public"]["Enums"]["messaging_provider"]
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "whatsapp_config_org_id_fkey"
+            foreignKeyName: "messaging_config_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: true
             referencedRelation: "organizations"
@@ -2601,9 +2604,12 @@ export type Database = {
           }
         ]
       }
-      whatsapp_conversations: {
+      conversations: {
         Row: {
           assigned_to: string | null
+          channel: string
+          channel_contact_id: string | null
+          channel_contact_name: string | null
           contact_id: string | null
           created_at: string
           deal_id: string | null
@@ -2612,7 +2618,7 @@ export type Database = {
           last_message_preview: string | null
           org_id: string
           phone_number: string
-          provider: Database["public"]["Enums"]["whatsapp_provider"]
+          provider: Database["public"]["Enums"]["messaging_provider"]
           provider_conversation_id: string | null
           status: Database["public"]["Enums"]["conversation_status"]
           tags: Json
@@ -2622,6 +2628,9 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          channel?: string
+          channel_contact_id?: string | null
+          channel_contact_name?: string | null
           contact_id?: string | null
           created_at?: string
           deal_id?: string | null
@@ -2630,7 +2639,7 @@ export type Database = {
           last_message_preview?: string | null
           org_id: string
           phone_number: string
-          provider?: Database["public"]["Enums"]["whatsapp_provider"]
+          provider?: Database["public"]["Enums"]["messaging_provider"]
           provider_conversation_id?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
           tags?: Json
@@ -2640,6 +2649,9 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          channel?: string
+          channel_contact_id?: string | null
+          channel_contact_name?: string | null
           contact_id?: string | null
           created_at?: string
           deal_id?: string | null
@@ -2648,7 +2660,7 @@ export type Database = {
           last_message_preview?: string | null
           org_id?: string
           phone_number?: string
-          provider?: Database["public"]["Enums"]["whatsapp_provider"]
+          provider?: Database["public"]["Enums"]["messaging_provider"]
           provider_conversation_id?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
           tags?: Json
@@ -2658,38 +2670,82 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "whatsapp_conversations_assigned_to_fkey"
+            foreignKeyName: "conversations_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "whatsapp_conversations_contact_id_fkey"
+            foreignKeyName: "conversations_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "whatsapp_conversations_deal_id_fkey"
+            foreignKeyName: "conversations_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "whatsapp_conversations_org_id_fkey"
+            foreignKeyName: "conversations_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "whatsapp_conversations_team_id_fkey"
+            foreignKeyName: "conversations_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      zernio_configs: {
+        Row: {
+          active_channels: string[]
+          api_key: string
+          created_at: string
+          id: string
+          org_id: string
+          profile_id: string
+          status: string
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          active_channels?: string[]
+          api_key: string
+          created_at?: string
+          id?: string
+          org_id: string
+          profile_id: string
+          status?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          active_channels?: string[]
+          api_key?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          profile_id?: string
+          status?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zernio_configs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           }
         ]
@@ -2739,14 +2795,14 @@ export type Database = {
             foreignKeyName: "whatsapp_inbound_queue_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "whatsapp_conversations"
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "whatsapp_inbound_queue_message_id_fkey"
             columns: ["message_id"]
             isOneToOne: false
-            referencedRelation: "whatsapp_messages"
+            referencedRelation: "conversation_messages"
             referencedColumns: ["id"]
           },
           {
@@ -2758,7 +2814,7 @@ export type Database = {
           }
         ]
       }
-      whatsapp_messages: {
+      conversation_messages: {
         Row: {
           content: string | null
           conversation_id: string
@@ -2809,21 +2865,21 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            foreignKeyName: "conversation_messages_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "whatsapp_conversations"
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "whatsapp_messages_org_id_fkey"
+            foreignKeyName: "conversation_messages_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "whatsapp_messages_sent_by_fkey"
+            foreignKeyName: "conversation_messages_sent_by_fkey"
             columns: ["sent_by"]
             isOneToOne: false
             referencedRelation: "users"
@@ -2856,7 +2912,7 @@ export type Database = {
       crm_role: "diretor" | "gerente" | "agente"
       deal_status: "open" | "won" | "lost"
       distribution_mode: "open_queue" | "round_robin" | "ai_directed"
-      whatsapp_provider: "evolution" | "meta_official"
+      messaging_provider: "evolution" | "meta_official" | "zernio"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2991,7 +3047,7 @@ export const Constants = {
       crm_role: ["diretor", "gerente", "agente"],
       deal_status: ["open", "won", "lost"],
       distribution_mode: ["open_queue", "round_robin", "ai_directed"],
-      whatsapp_provider: ["evolution", "meta_official"],
+      messaging_provider: ["evolution", "meta_official", "zernio"],
     },
   },
 } as const

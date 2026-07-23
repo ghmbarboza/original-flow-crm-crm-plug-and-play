@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrgId } from "@/hooks/useOrgId";
 import type { Database } from "@/integrations/supabase/types";
 
-export type AIConfig = Database["public"]["Tables"]["whatsapp_ai_config"]["Row"];
-export type AIConfigInsert = Database["public"]["Tables"]["whatsapp_ai_config"]["Insert"];
+export type AIConfig = Database["public"]["Tables"]["ai_messaging_config"]["Row"];
+export type AIConfigInsert = Database["public"]["Tables"]["ai_messaging_config"]["Insert"];
 export type FAQ = Database["public"]["Tables"]["ai_knowledge_faqs"]["Row"];
 export type Objection = Database["public"]["Tables"]["ai_knowledge_objections"]["Row"];
 export type PromptVersion = Database["public"]["Tables"]["ai_prompt_versions"]["Row"];
@@ -39,7 +39,7 @@ export function useAIConfig() {
     enabled: !!orgId,
     queryFn: async (): Promise<AIConfig | null> => {
       const { data, error } = await supabase
-        .from("whatsapp_ai_config")
+        .from("ai_messaging_config")
         .select("*")
         .eq("org_id", orgId!)
         .maybeSingle();
@@ -66,7 +66,7 @@ export function useUpsertAIConfig() {
       const { versionNote, ...rest } = patch;
 
       const { data: current } = await supabase
-        .from("whatsapp_ai_config")
+        .from("ai_messaging_config")
         .select("prompt_version, system_prompt")
         .eq("org_id", orgId)
         .maybeSingle();
@@ -75,7 +75,7 @@ export function useUpsertAIConfig() {
         rest.system_prompt !== undefined && rest.system_prompt !== current?.system_prompt;
       const nextVersion = (current?.prompt_version ?? 0) + (promptChanged ? 1 : 0);
 
-      const { error } = await supabase.from("whatsapp_ai_config").upsert(
+      const { error } = await supabase.from("ai_messaging_config").upsert(
         {
           org_id: orgId,
           ...rest,

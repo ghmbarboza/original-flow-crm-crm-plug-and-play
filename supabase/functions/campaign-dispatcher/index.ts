@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     if (profile?.org_id !== campaign.org_id) return json({ error: "Sem acesso a esta campanha" }, 403);
 
     const { data: instance } = await admin
-      .from("meta_instances")
+      .from("meta_configs")
       .select("phone_number_id, access_token")
       .eq("org_id", campaign.org_id)
       .eq("is_active", true)

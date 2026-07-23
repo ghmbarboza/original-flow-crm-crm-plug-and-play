@@ -5,8 +5,8 @@ import { useOrgId } from "@/hooks/useOrgId";
 import type { Database } from "@/integrations/supabase/types";
 
 export type ConversationStatus = Database["public"]["Enums"]["conversation_status"];
-type ConversationRow = Database["public"]["Tables"]["whatsapp_conversations"]["Row"];
-export type Message = Database["public"]["Tables"]["whatsapp_messages"]["Row"];
+type ConversationRow = Database["public"]["Tables"]["conversations"]["Row"];
+export type Message = Database["public"]["Tables"]["conversation_messages"]["Row"];
 
 /** Conversa com o contato embutido para exibir nome/avatar na lista. */
 export interface Conversation extends ConversationRow {
@@ -42,7 +42,7 @@ export function useConversations() {
       .channel(`conversations:${orgId}:${instanceId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "whatsapp_conversations", filter: `org_id=eq.${orgId}` },
+        { event: "*", schema: "public", table: "conversations", filter: `org_id=eq.${orgId}` },
         () => queryClient.invalidateQueries({ queryKey: ["conversations", orgId] }),
       )
       .subscribe();
@@ -56,7 +56,7 @@ export function useConversations() {
     enabled: !!orgId,
     queryFn: async (): Promise<Conversation[]> => {
       const { data, error } = await supabase
-        .from("whatsapp_conversations")
+        .from("conversations")
         .select(CONVERSATION_SELECT)
         .eq("org_id", orgId!)
         .order("last_message_at", { ascending: false, nullsFirst: false });
@@ -72,7 +72,7 @@ export function useConversation(id: string | null) {
     enabled: !!id,
     queryFn: async (): Promise<Conversation | null> => {
       const { data, error } = await supabase
-        .from("whatsapp_conversations")
+        .from("conversations")
         .select(CONVERSATION_SELECT)
         .eq("id", id!)
         .maybeSingle();
@@ -96,7 +96,7 @@ export function useMessages(conversationId: string | null) {
         {
           event: "*",
           schema: "public",
-          table: "whatsapp_messages",
+          table: "conversation_messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
         () => queryClient.invalidateQueries({ queryKey: ["messages", conversationId] }),
@@ -112,7 +112,7 @@ export function useMessages(conversationId: string | null) {
     enabled: !!conversationId,
     queryFn: async (): Promise<Message[]> => {
       const { data, error } = await supabase
-        .from("whatsapp_messages")
+        .from("conversation_messages")
         .select("*")
         .eq("conversation_id", conversationId!)
         .order("sent_at", { ascending: true });
@@ -125,7 +125,7 @@ export function useMessages(conversationId: string | null) {
 /**
  * Envia uma mensagem do agente. Delega ao edge function do provedor
  * (`evolution-send-message` / `meta-send-message`), que registra em
- * `whatsapp_messages` e entrega ao provedor. Notas internas não vão ao provedor:
+ * `conversation_messages` e entrega ao provedor. Notas internas não vão ao provedor:
  * gravam direto na tabela com `is_internal_note`.
  */
 export function useSendMessage() {
@@ -136,12 +136,12 @@ export function useSendMessage() {
     mutationFn: async (input: {
       conversationId: string;
       content: string;
-      provider: Database["public"]["Enums"]["whatsapp_provider"];
+      provider: Database["public"]["Enums"]["messaging_provider"];
       internalNote?: boolean;
     }) => {
       if (input.internalNote) {
         const { data: auth } = await supabase.auth.getUser();
-        const { error } = await supabase.from("whatsapp_messages").insert({
+        const { error } = await supabase.from("conversation_messages").insert({
           conversation_id: input.conversationId,
           org_id: orgId!,
           direction: "outbound",
@@ -184,7 +184,7 @@ export function useUpdateConversation() {
   return useMutation({
     mutationFn: async ({ id, ...patch }: StatusVars) => {
       const { error } = await supabase
-        .from("whatsapp_conversations")
+        .from("conversations")
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) throw error;
@@ -204,7 +204,7 @@ export function useMarkRead() {
   return useMutation({
     mutationFn: async (conversationId: string) => {
       const { error } = await supabase
-        .from("whatsapp_conversations")
+        .from("conversations")
         .update({ unread_count: 0 })
         .eq("id", conversationId)
         .neq("unread_count", 0);
@@ -222,7 +222,7 @@ export function useSetConversationTags() {
   return useMutation({
     mutationFn: async ({ id, tags }: { id: string; tags: string[] }) => {
       const { error } = await supabase
-        .from("whatsapp_conversations")
+        .from("conversations")
         .update({ tags, updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) throw error;

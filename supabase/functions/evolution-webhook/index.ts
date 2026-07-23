@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
   if (!instanceName) return ok();
 
   const { data: instance } = await admin
-    .from("evolution_instances")
+    .from("evolution_configs")
     .select("id, org_id")
     .eq("instance_name", instanceName)
     .maybeSingle();
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const state = data.state ?? data.connection;
     const status = state === "open" ? "connected" : state === "close" ? "disconnected" : "connecting";
     await admin
-      .from("evolution_instances")
+      .from("evolution_configs")
       .update({
         status,
         phone_number: data.wuid ? String(data.wuid).split("@")[0] : undefined,
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
 
   if (normalizedEvent === "QRCODE_UPDATED") {
     await admin
-      .from("evolution_instances")
+      .from("evolution_configs")
       .update({ qr_code: data.qrcode?.base64 ?? data.qrcode?.code ?? null, status: "connecting", updated_at: new Date().toISOString() })
       .eq("id", instance.id);
     return ok();
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
 
   // Conversa: uma por telefone dentro da org.
   const { data: existingConversation } = await admin
-    .from("whatsapp_conversations")
+    .from("conversations")
     .select("id, status, unread_count")
     .eq("org_id", orgId)
     .eq("phone_number", phone)
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
   let status = existingConversation?.status ?? "ai_active";
   if (!conversationId) {
     const { data: created } = await admin
-      .from("whatsapp_conversations")
+      .from("conversations")
       .insert({
         org_id: orgId,
         phone_number: phone,
@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
     status = created?.status ?? "ai_active";
   } else {
     await admin
-      .from("whatsapp_conversations")
+      .from("conversations")
       .update({
         contact_id: contactId,
         last_message_at: new Date().toISOString(),
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
 
   if (!conversationId) return ok();
 
-  await admin.from("whatsapp_messages").insert({
+  await admin.from("conversation_messages").insert({
     conversation_id: conversationId,
     org_id: orgId,
     direction: "inbound",

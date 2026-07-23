@@ -116,7 +116,7 @@ async function resolveEntities(
       const convId = (data.conversation_id as string) ?? null;
       if (convId) {
         const { data: conv } = await admin
-          .from("whatsapp_conversations")
+          .from("conversations")
           .select("contact_id")
           .eq("id", convId)
           .eq("org_id", orgId)

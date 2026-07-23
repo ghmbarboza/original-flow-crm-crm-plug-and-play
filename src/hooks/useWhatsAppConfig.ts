@@ -3,11 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrgId } from "@/hooks/useOrgId";
 import type { Database } from "@/integrations/supabase/types";
 
-export type WhatsAppProvider = Database["public"]["Enums"]["whatsapp_provider"];
+export type WhatsAppProvider = Database["public"]["Enums"]["messaging_provider"];
 export type DistributionMode = Database["public"]["Enums"]["distribution_mode"];
-export type WhatsAppConfig = Database["public"]["Tables"]["whatsapp_config"]["Row"];
-export type EvolutionInstance = Database["public"]["Tables"]["evolution_instances"]["Row"];
-export type MetaInstance = Database["public"]["Tables"]["meta_instances"]["Row"];
+export type WhatsAppConfig = Database["public"]["Tables"]["messaging_config"]["Row"];
+export type EvolutionInstance = Database["public"]["Tables"]["evolution_configs"]["Row"];
+export type MetaInstance = Database["public"]["Tables"]["meta_configs"]["Row"];
 
 /**
  * Estado consolidado do provedor de WhatsApp da organização.
@@ -30,16 +30,16 @@ export function useWhatsAppSetup() {
     enabled: !!orgId,
     queryFn: async (): Promise<WhatsAppSetup> => {
       const [config, evolution, meta] = await Promise.all([
-        supabase.from("whatsapp_config").select("*").eq("org_id", orgId!).maybeSingle(),
+        supabase.from("messaging_config").select("*").eq("org_id", orgId!).maybeSingle(),
         supabase
-          .from("evolution_instances")
+          .from("evolution_configs")
           .select("*")
           .eq("org_id", orgId!)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
         supabase
-          .from("meta_instances")
+          .from("meta_configs")
           .select("*")
           .eq("org_id", orgId!)
           .order("created_at", { ascending: false })
@@ -67,7 +67,7 @@ export function useWhatsAppSetup() {
   });
 }
 
-/** Grava (ou atualiza) o provedor escolhido em whatsapp_config. */
+/** Grava (ou atualiza) o provedor escolhido em messaging_config. */
 export function useSetProvider() {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
@@ -76,7 +76,7 @@ export function useSetProvider() {
     mutationFn: async (provider: WhatsAppProvider) => {
       if (!orgId) throw new Error("Organização não carregada. Recarregue a página.");
       const { error } = await supabase
-        .from("whatsapp_config")
+        .from("messaging_config")
         .upsert({ org_id: orgId, provider, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
       if (error) throw error;
     },
@@ -145,7 +145,7 @@ export function useEvolutionStatus(instanceId: string | null, enabled: boolean) 
     refetchInterval: enabled ? 4000 : false,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("evolution_instances")
+        .from("evolution_configs")
         .select("id, status, qr_code, phone_number, connected_at")
         .eq("id", instanceId!)
         .maybeSingle();

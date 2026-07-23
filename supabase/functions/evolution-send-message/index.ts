@@ -1,4 +1,4 @@
-// Envia uma mensagem de texto pela Evolution API e registra em whatsapp_messages.
+// Envia uma mensagem de texto pela Evolution API e registra em conversation_messages.
 //
 // O cliente manda apenas conversation_id + content. A função resolve a instância
 // Evolution da org, entrega ao servidor e grava a mensagem outbound. A conversa
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: conversation } = await admin
-      .from("whatsapp_conversations")
+      .from("conversations")
       .select("id, org_id, phone_number")
       .eq("id", conversation_id)
       .maybeSingle();
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     if (profile?.org_id !== conversation.org_id) return json({ error: "Sem acesso a esta conversa" }, 403);
 
     const { data: instance } = await admin
-      .from("evolution_instances")
+      .from("evolution_configs")
       .select("server_url, api_key, instance_name")
       .eq("org_id", conversation.org_id)
       .eq("is_active", true)
@@ -80,14 +80,14 @@ Deno.serve(async (req) => {
       const text = await sendResp.text();
       status = "failed";
       // Ainda registramos como falha para o agente ver que não saiu.
-      await admin.from("whatsapp_messages").insert({
+      await admin.from("conversation_messages").insert({
         conversation_id, org_id: conversation.org_id, direction: "outbound",
         content, sent_by: user.id, type: "text", status: "failed",
       });
       return json({ error: `Evolution recusou o envio: ${text.slice(0, 200)}` }, 400);
     }
 
-    const { error: msgError } = await admin.from("whatsapp_messages").insert({
+    const { error: msgError } = await admin.from("conversation_messages").insert({
       conversation_id,
       org_id: conversation.org_id,
       direction: "outbound",
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
     if (msgError) return json({ error: msgError.message }, 500);
 
     await admin
-      .from("whatsapp_conversations")
+      .from("conversations")
       .update({
         last_message_at: new Date().toISOString(),
         last_message_preview: content.slice(0, 120),

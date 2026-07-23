@@ -75,11 +75,11 @@ async function ensureRow(
  * uma conversa nova em `ai_active`. Retorna o telefone (usado como nome na lista).
  */
 export async function seedWhatsAppInbox(page: Page, ctx: SupabaseCtx): Promise<{ phone: string }> {
-  await ensureRow(page, ctx, "whatsapp_config", `org_id=eq.${ctx.orgId}`, {
+  await ensureRow(page, ctx, "messaging_config", `org_id=eq.${ctx.orgId}`, {
     org_id: ctx.orgId,
     provider: "evolution",
   });
-  await ensureRow(page, ctx, "evolution_instances", `org_id=eq.${ctx.orgId}`, {
+  await ensureRow(page, ctx, "evolution_configs", `org_id=eq.${ctx.orgId}`, {
     org_id: ctx.orgId,
     instance_name: "e2e-instance",
     server_url: "https://evolution.e2e.local",
@@ -87,7 +87,7 @@ export async function seedWhatsAppInbox(page: Page, ctx: SupabaseCtx): Promise<{
   });
 
   const phone = `5511${Date.now().toString().slice(-8)}`;
-  await ensureRow(page, ctx, "whatsapp_conversations", `phone_number=eq.${phone}`, {
+  await ensureRow(page, ctx, "conversations", `phone_number=eq.${phone}`, {
     org_id: ctx.orgId,
     phone_number: phone,
     provider: "evolution",
