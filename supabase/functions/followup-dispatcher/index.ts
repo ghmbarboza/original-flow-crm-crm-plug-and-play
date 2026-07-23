@@ -133,6 +133,7 @@ Deno.serve(async (req) => {
           });
         }
         if (execution) await admin.from("followup_executions").update({ status: "completed" }).eq("id", execution.id);
+        closed++;
         continue;
       }
 

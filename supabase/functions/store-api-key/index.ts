@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-async function getUser(req: Request, admin: any) {
+async function getUser(req: Request, admin: SupabaseClient) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return null;
   const { data } = await admin.auth.getUser(authHeader.replace("Bearer ", ""));
@@ -46,23 +46,24 @@ Deno.serve(async (req) => {
     let vaultSecretId: string;
 
     if (existing?.vault_secret_id) {
-      const { error: updErr } = await admin.rpc("vault_update_secret" as any, {
+      // Best-effort: tenta atualizar o segredo existente antes do swap por delete+create.
+      await admin.rpc("vault_update_secret", {
         secret_id: existing.vault_secret_id, new_secret: api_key,
-      } as any).select?.() ?? { error: null };
+      }).select?.();
       // Fallback: direct call via raw SQL not available — rely on insert+swap
       vaultSecretId = existing.vault_secret_id;
       // Best-effort: Supabase client lacks a Vault RPC; we replace by deleting + creating
       try {
-        await admin.from("vault.secrets" as any).delete().eq("id", existing.vault_secret_id);
+        await admin.from("vault.secrets").delete().eq("id", existing.vault_secret_id);
       } catch (_) { /* ignore */ }
-      const { data: ins } = await admin.rpc("create_secret" as any, {
+      const { data: ins } = await admin.rpc("create_secret", {
         new_secret: api_key, new_name: secretName, new_description: label ?? service_name,
-      } as any);
+      });
       if (ins) vaultSecretId = ins as unknown as string;
     } else {
-      const { data: ins, error: insErr } = await admin.rpc("create_secret" as any, {
+      const { data: ins, error: insErr } = await admin.rpc("create_secret", {
         new_secret: api_key, new_name: secretName, new_description: label ?? service_name,
-      } as any);
+      });
       if (insErr || !ins) {
         return new Response(JSON.stringify({ error: "Falha ao salvar no Vault", details: insErr?.message }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -83,8 +84,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message ?? "Erro" }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erro" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

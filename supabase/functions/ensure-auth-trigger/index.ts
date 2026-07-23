@@ -25,14 +25,14 @@ Deno.serve(async (req) => {
     });
 
     // 1. Ensure trigger exists; create if missing
-    let triggerResult = await admin.rpc("ensure_auth_trigger");
+    const triggerResult = await admin.rpc("ensure_auth_trigger");
     if (triggerResult.error) {
       return json({
         ok: false,
         message: `RPC ensure_auth_trigger failed: ${triggerResult.error.message}`,
       });
     }
-    let triggerData = (triggerResult.data ?? {}) as {
+    const triggerData = (triggerResult.data ?? {}) as {
       ok?: boolean;
       created?: boolean;
       message?: string;
