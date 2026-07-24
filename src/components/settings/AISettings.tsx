@@ -71,9 +71,9 @@ export default function AISettings() {
       response_delay_ms: config.response_delay_ms ?? 0,
       max_ai_turns_before_human: config.max_ai_turns_before_human ?? 0,
     });
-    const wh = (config.working_hours ?? {}) as Partial<WorkingHours>;
+    const wh = (config.working_hours ?? {}) as unknown as Partial<WorkingHours>;
     setWorkingHours(Object.keys(wh).length ? { ...defaultWorkingHours(), ...wh } : defaultWorkingHours());
-    const tr = (config.human_trigger_rules ?? {}) as Partial<HumanTriggerRules>;
+    const tr = (config.human_trigger_rules ?? {}) as unknown as Partial<HumanTriggerRules>;
     setTriggers({ keywords: tr.keywords ?? [], negative_sentiment: tr.negative_sentiment ?? false });
     setKeywordsText((tr.keywords ?? []).join(", "));
   }, [config]);
