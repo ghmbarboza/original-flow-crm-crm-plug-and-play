@@ -4,7 +4,7 @@
 //  1. Autentica o usuário e resolve a org.
 //  2. Cria a instância no servidor Evolution (ou reaproveita se já existir).
 //  3. Registra o webhook da instância apontando para `evolution-webhook`.
-//  4. Persiste a instância em `evolution_instances` com o QR Code.
+//  4. Persiste a instância em `evolution_configs` com o QR Code.
 //
 // A api_key da Evolution fica só no banco (protegido por RLS) — nunca volta ao cliente.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
 
     // 2. Persiste (upsert por instância dentro da org).
     const { data: existing } = await admin
-      .from("evolution_instances")
+      .from("evolution_configs")
       .select("id")
       .eq("org_id", orgId)
       .eq("instance_name", instance_name)
@@ -121,11 +121,11 @@ Deno.serve(async (req) => {
 
     let instanceId: string;
     if (existing?.id) {
-      await admin.from("evolution_instances").update(record).eq("id", existing.id);
+      await admin.from("evolution_configs").update(record).eq("id", existing.id);
       instanceId = existing.id;
     } else {
       const { data: inserted, error } = await admin
-        .from("evolution_instances")
+        .from("evolution_configs")
         .insert(record)
         .select("id")
         .single();

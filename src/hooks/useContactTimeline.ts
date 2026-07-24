@@ -49,7 +49,7 @@ export function useContactTimeline(contactId: string | null) {
           .eq("contact_id", contactId!)
           .order("created_at", { ascending: false }),
         supabase
-          .from("whatsapp_conversations")
+          .from("conversations")
           .select("id")
           .eq("contact_id", contactId!),
       ]);
@@ -102,7 +102,7 @@ export function useContactTimeline(contactId: string | null) {
       const conversationIds = (conversations.data ?? []).map((c) => c.id);
       if (conversationIds.length > 0) {
         const { data: messages, error } = await supabase
-          .from("whatsapp_messages")
+          .from("conversation_messages")
           .select("id, content, direction, is_from_ai, is_internal_note, sent_at")
           .in("conversation_id", conversationIds)
           .order("sent_at", { ascending: false })

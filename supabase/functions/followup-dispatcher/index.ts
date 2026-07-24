@@ -30,7 +30,7 @@ async function sendText(
 ): Promise<string | null> {
   if (provider === "evolution") {
     const { data: instance } = await admin
-      .from("evolution_instances")
+      .from("evolution_configs")
       .select("server_url, api_key, instance_name")
       .eq("org_id", orgId).eq("is_active", true)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -43,7 +43,7 @@ async function sendText(
     return resp.ok ? "sent" : null;
   }
   const { data: instance } = await admin
-    .from("meta_instances")
+    .from("meta_configs")
     .select("phone_number_id, access_token")
     .eq("org_id", orgId).eq("is_active", true)
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
     // Conversas candidatas: abertas, com a última mensagem enviada por nós.
     const { data: conversations } = await admin
-      .from("whatsapp_conversations")
+      .from("conversations")
       .select("id, org_id, provider, phone_number, contact_id, assigned_to, last_message_at, status, company:companies(name), contact:contacts(first_name, last_name)")
       .eq("org_id", orgId)
       .neq("status", "closed")
@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     for (const conv of conversations ?? []) {
       // Última mensagem precisa ser outbound (esperando resposta do cliente).
       const { data: lastMsg } = await admin
-        .from("whatsapp_messages")
+        .from("conversation_messages")
         .select("direction, sent_at")
         .eq("conversation_id", conv.id)
         .eq("is_internal_note", false)
@@ -152,11 +152,11 @@ Deno.serve(async (req) => {
 
       const status = await sendText(admin, conv.provider, orgId, conv.phone_number, text);
       if (status) {
-        await admin.from("whatsapp_messages").insert({
+        await admin.from("conversation_messages").insert({
           conversation_id: conv.id, org_id: orgId, direction: "outbound",
           content: text, type: "text", status: "sent",
         });
-        await admin.from("whatsapp_conversations").update({
+        await admin.from("conversations").update({
           last_message_at: now.toISOString(), last_message_preview: text.slice(0, 120),
         }).eq("id", conv.id);
 

@@ -1,5 +1,5 @@
 // Envia uma mensagem de texto pela WhatsApp Cloud API (Meta) e registra em
-// whatsapp_messages. Estrutura idêntica à evolution-send-message, trocando o
+// conversation_messages. Estrutura idêntica à evolution-send-message, trocando o
 // transporte pela Graph API.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: conversation } = await admin
-      .from("whatsapp_conversations")
+      .from("conversations")
       .select("id, org_id, phone_number")
       .eq("id", conversation_id)
       .maybeSingle();
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     if (profile?.org_id !== conversation.org_id) return json({ error: "Sem acesso a esta conversa" }, 403);
 
     const { data: instance } = await admin
-      .from("meta_instances")
+      .from("meta_configs")
       .select("phone_number_id, access_token")
       .eq("org_id", conversation.org_id)
       .eq("is_active", true)
@@ -86,14 +86,14 @@ Deno.serve(async (req) => {
       providerMessageId = result?.messages?.[0]?.id ?? null;
     } else {
       const err = await sendResp.json().catch(() => ({}));
-      await admin.from("whatsapp_messages").insert({
+      await admin.from("conversation_messages").insert({
         conversation_id, org_id: conversation.org_id, direction: "outbound",
         content, sent_by: user.id, type: "text", status: "failed",
       });
       return json({ error: err?.error?.message ?? "Meta recusou o envio." }, 400);
     }
 
-    const { error: msgError } = await admin.from("whatsapp_messages").insert({
+    const { error: msgError } = await admin.from("conversation_messages").insert({
       conversation_id,
       org_id: conversation.org_id,
       direction: "outbound",
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
     if (msgError) return json({ error: msgError.message }, 500);
 
     await admin
-      .from("whatsapp_conversations")
+      .from("conversations")
       .update({
         last_message_at: new Date().toISOString(),
         last_message_preview: content.slice(0, 120),

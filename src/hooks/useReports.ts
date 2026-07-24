@@ -55,7 +55,7 @@ export function useReports(filters: ReportFilters) {
       const [deals, conversations, contacts] = await Promise.all([
         filters.ownerId ? dealsQuery.eq("owner_id", filters.ownerId) : dealsQuery,
         supabase
-          .from("whatsapp_conversations")
+          .from("conversations")
           .select("status, created_at")
           .eq("org_id", orgId!)
           .gte("created_at", filters.from)

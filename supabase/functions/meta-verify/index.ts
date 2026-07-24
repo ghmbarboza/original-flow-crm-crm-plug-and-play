@@ -2,7 +2,7 @@
 //
 // Confere o phone_number_id contra a Graph API com o access_token informado. Se
 // a chamada responde com o número, as credenciais são válidas e persistimos a
-// instância em `meta_instances`. O access_token fica só no banco (RLS).
+// instância em `meta_configs`. O access_token fica só no banco (RLS).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
     };
 
     const { data: existing } = await admin
-      .from("meta_instances")
+      .from("meta_configs")
       .select("id")
       .eq("org_id", orgId)
       .eq("phone_number_id", phone_number_id)
@@ -91,11 +91,11 @@ Deno.serve(async (req) => {
 
     let instanceId: string;
     if (existing?.id) {
-      await admin.from("meta_instances").update(record).eq("id", existing.id);
+      await admin.from("meta_configs").update(record).eq("id", existing.id);
       instanceId = existing.id;
     } else {
       const { data: inserted, error } = await admin
-        .from("meta_instances")
+        .from("meta_configs")
         .insert(record)
         .select("id")
         .single();

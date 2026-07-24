@@ -49,7 +49,7 @@ async function deliver(
 ): Promise<string | null> {
   if (provider === "evolution") {
     const { data: instance } = await admin
-      .from("evolution_instances")
+      .from("evolution_configs")
       .select("server_url, api_key, instance_name")
       .eq("org_id", orgId)
       .eq("is_active", true)
@@ -69,7 +69,7 @@ async function deliver(
 
   // Meta
   const { data: instance } = await admin
-    .from("meta_instances")
+    .from("meta_configs")
     .select("phone_number_id, access_token")
     .eq("org_id", orgId)
     .eq("is_active", true)
@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     if (!conversation_id) return json({ error: "Informe conversation_id." }, 400);
 
     const { data: conversation } = await admin
-      .from("whatsapp_conversations")
+      .from("conversations")
       .select("id, org_id, phone_number, provider, status")
       .eq("id", conversation_id)
       .maybeSingle();
@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     if (conversation.status !== "ai_active") return json({ skipped: "IA não está ativa nesta conversa" });
 
     const { data: config } = await admin
-      .from("whatsapp_ai_config")
+      .from("ai_messaging_config")
       .select("*")
       .eq("org_id", conversation.org_id)
       .maybeSingle();
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
     // Janela de contexto: últimas N mensagens (não notas internas), em ordem.
     const windowSize = config.context_window_size ?? 20;
     const { data: history } = await admin
-      .from("whatsapp_messages")
+      .from("conversation_messages")
       .select("direction, content, is_from_ai, sent_at, is_internal_note")
       .eq("conversation_id", conversation_id)
       .eq("is_internal_note", false)
@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
       shouldEscalate(lastInbound.content, rules, aiTurns, config.max_ai_turns_before_human ?? 0)
     ) {
       await admin
-        .from("whatsapp_conversations")
+        .from("conversations")
         .update({ status: "human_takeover", updated_at: new Date().toISOString() })
         .eq("id", conversation_id);
       return json({ escalated: true });
@@ -231,7 +231,7 @@ Deno.serve(async (req) => {
       reply,
     );
 
-    await admin.from("whatsapp_messages").insert({
+    await admin.from("conversation_messages").insert({
       conversation_id,
       org_id: conversation.org_id,
       direction: "outbound",
@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
     });
 
     await admin
-      .from("whatsapp_conversations")
+      .from("conversations")
       .update({
         last_message_at: new Date().toISOString(),
         last_message_preview: reply.slice(0, 120),

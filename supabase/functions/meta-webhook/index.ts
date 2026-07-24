@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       if (!phoneNumberId || messages.length === 0) continue;
 
       const { data: instance } = await admin
-        .from("meta_instances")
+        .from("meta_configs")
         .select("id, org_id")
         .eq("phone_number_id", phoneNumberId)
         .maybeSingle();
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
 
         // Conversa.
         const { data: existingConversation } = await admin
-          .from("whatsapp_conversations")
+          .from("conversations")
           .select("id, status, unread_count")
           .eq("org_id", orgId)
           .eq("phone_number", phone)
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
         let status = existingConversation?.status ?? "ai_active";
         if (!conversationId) {
           const { data: created } = await admin
-            .from("whatsapp_conversations")
+            .from("conversations")
             .insert({
               org_id: orgId,
               phone_number: phone,
@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
           status = created?.status ?? "ai_active";
         } else {
           await admin
-            .from("whatsapp_conversations")
+            .from("conversations")
             .update({
               contact_id: contactId,
               last_message_at: new Date().toISOString(),
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
 
         if (!conversationId) continue;
 
-        await admin.from("whatsapp_messages").insert({
+        await admin.from("conversation_messages").insert({
           conversation_id: conversationId,
           org_id: orgId,
           direction: "inbound",

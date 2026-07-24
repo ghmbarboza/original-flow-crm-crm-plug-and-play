@@ -61,7 +61,7 @@ export function useDealTimeline(dealId: string | null, contactId?: string | null
 
       if (contactId) {
         const { data: conversations, error } = await supabase
-          .from("whatsapp_conversations")
+          .from("conversations")
           .select("id")
           .eq("contact_id", contactId);
         if (error) throw error;
@@ -69,7 +69,7 @@ export function useDealTimeline(dealId: string | null, contactId?: string | null
         const conversationIds = (conversations ?? []).map((c) => c.id);
         if (conversationIds.length > 0) {
           const { data: messages, error: msgError } = await supabase
-            .from("whatsapp_messages")
+            .from("conversation_messages")
             .select("id, content, direction, is_from_ai, is_internal_note, sent_at")
             .in("conversation_id", conversationIds)
             .order("sent_at", { ascending: false })
