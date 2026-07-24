@@ -46,7 +46,7 @@ export function DealQualification({ deal }: { deal: Deal }) {
         need: form.need?.trim() || null,
         timeline: form.timeline?.trim() || null,
       };
-      await updateDeal.mutateAsync({ id: deal.id, qualification: cleaned });
+      await updateDeal.mutateAsync({ id: deal.id, qualification: cleaned as unknown as never });
       setDirty(false);
       toast.success("Qualificação salva.");
     } catch (error) {
