@@ -89,6 +89,30 @@ export function useSetProvider() {
   });
 }
 
+/** Atualiza a distribuição de conversas (modo + tempo de redistribuição offline). */
+export function useSetDistribution() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { distribution_mode: DistributionMode; offline_timeout_minutes: number }) => {
+      if (!orgId) throw new Error("Organização não carregada. Recarregue a página.");
+      const { error } = await supabase
+        .from("messaging_config")
+        .upsert(
+          {
+            org_id: orgId,
+            distribution_mode: input.distribution_mode,
+            offline_timeout_minutes: input.offline_timeout_minutes,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "org_id" },
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] }),
+  });
+}
+
 /**
  * Cria/conecta uma instância Evolution.
  *
