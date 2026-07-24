@@ -49,7 +49,7 @@ export default function WhatsAppPage() {
             className="font-display text-3xl font-medium tracking-tight"
             style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}
           >
-            WhatsApp
+            Atendimento
           </h1>
         </div>
         <Inbox provider={setup.provider} />
