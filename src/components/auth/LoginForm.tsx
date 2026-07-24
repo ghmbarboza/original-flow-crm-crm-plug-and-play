@@ -30,7 +30,7 @@ export function LoginForm() {
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
-      redirectTo: `${window.location.origin}/auth`,
+      redirectTo: `${window.location.origin}/auth/reset-password`,
     });
     if (error) {
       toast.error("Não foi possível enviar o email de recuperação.");
