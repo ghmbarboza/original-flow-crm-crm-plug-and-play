@@ -32,3 +32,9 @@ verify_jwt = false
 # header secreto x-cron-secret (FOLLOWUP_CRON_SECRET), verificado na função.
 [functions.followup-dispatcher]
 verify_jwt = false
+
+# Webhook do Zernio (multicanal): quem chama é a plataforma Zernio, sem JWT do
+# Supabase. A segurança é resolver a org pelo profileId e verificar a assinatura
+# HMAC (X-Zernio-Signature) quando a org tem webhook_secret configurado.
+[functions.zernio-webhook]
+verify_jwt = false
