@@ -95,7 +95,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <div
           className={cn(
-            "flex items-center gap-2 py-3",
+            "flex items-center gap-2 py-2",
             collapsed ? "w-full justify-center px-0" : "px-2"
           )}
         >
@@ -110,18 +110,20 @@ export function AppSidebar() {
           )}
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      {/* Região central: único ponto de scroll (fixa header/rodapé). Comprime para
+          caber sem barra visível; abaixo de ~768px rola com scrollbar invisível. */}
+      <SidebarContent className="gap-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {groups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+          <SidebarGroup key={group.label} className="py-0.5">
+            <SidebarGroupLabel className="h-6">{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="gap-0.5">
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
                       asChild
                       isActive={pathname.startsWith(item.url)}
-                      className={cn("text-sidebar-foreground", activeClass)}
+                      className={cn("text-sidebar-foreground h-7", activeClass)}
                       tooltip={item.title}
                     >
                       <NavLink to={item.url} className="flex items-center gap-2 no-underline hover:no-underline">
@@ -137,12 +139,12 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
       <SidebarFooter>
-        <SidebarMenu>
+        <SidebarMenu className="gap-0.5">
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               isActive={pathname.startsWith("/settings")}
-              className={cn("text-sidebar-foreground", activeClass)}
+              className={cn("text-sidebar-foreground h-7", activeClass)}
               tooltip="Configurações"
             >
               <NavLink to="/settings" className="flex items-center gap-2 no-underline hover:no-underline">
@@ -155,7 +157,7 @@ export function AppSidebar() {
             <SidebarMenuButton
               asChild
               isActive={pathname.startsWith("/help")}
-              className={cn("text-sidebar-foreground", activeClass)}
+              className={cn("text-sidebar-foreground h-7", activeClass)}
               tooltip="Ajuda"
             >
               <NavLink to="/help" className="flex items-center gap-2 no-underline hover:no-underline">
@@ -169,7 +171,7 @@ export function AppSidebar() {
         {profile && (
           <div
             className={cn(
-              "flex items-center gap-2 py-2",
+              "flex items-center gap-2 py-1.5",
               collapsed ? "justify-center px-0" : "px-2"
             )}
           >
