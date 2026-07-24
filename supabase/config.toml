@@ -10,3 +10,25 @@ verify_jwt = false
 # só lê a fila (automation_logs status='queued'), sempre escopada por org_id.
 [functions.automation-dispatcher]
 verify_jwt = false
+
+# Webhook da Evolution API: quem chama é o servidor da Evolution, que não envia
+# JWT do Supabase. A função usa service-role internamente e valida a instância
+# pelo par (instance_name, apikey) antes de gravar qualquer coisa.
+[functions.evolution-webhook]
+verify_jwt = false
+
+# Webhook da Meta (WhatsApp Cloud API): o GET é o desafio de verificação
+# (hub.challenge, validado contra META_WEBHOOK_VERIFY_TOKEN) e o POST são os
+# eventos. Ambos vêm da Meta, sem JWT do Supabase.
+[functions.meta-webhook]
+verify_jwt = false
+
+# Callback do OAuth do Gmail: o Google redireciona o navegador para cá com
+# `code` e `state`, sem Authorization. O `state` é o que amarra a sessão.
+[functions.gmail-oauth-callback]
+verify_jwt = false
+
+# Dispatcher de follow-up: acionado por cron, não por usuário. A proteção é o
+# header secreto x-cron-secret (FOLLOWUP_CRON_SECRET), verificado na função.
+[functions.followup-dispatcher]
+verify_jwt = false
