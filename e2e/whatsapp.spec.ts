@@ -8,7 +8,7 @@ test("inbox WhatsApp: abrir conversa, assumir e devolver para IA", async ({ page
   const { phone } = await seedWhatsAppInbox(page, ctx);
 
   await page.goto("/whatsapp");
-  await expect(page.getByRole("heading", { name: "WhatsApp", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Atendimento", level: 1 })).toBeVisible();
 
   // Abre a conversa semeada (sem contato vinculado, o nome exibido é o telefone).
   await page.getByRole("button", { name: new RegExp(phone) }).click();

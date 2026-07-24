@@ -224,30 +224,38 @@ async function seed(admin: Admin, orgId: string) {
   );
   if (activityErr) throw new Error(`Falha ao inserir atividades: ${activityErr.message}`);
 
-  // Conversas (WhatsApp) + mensagens, vinculadas a contatos/negócios.
+  // Conversas multicanal (WhatsApp via Evolution; demais canais via Zernio) + mensagens.
   const wphone = (i: number) => `5511${String(90000000 + i * 271).padStart(8, "0")}`;
   const CONVERSATIONS = [
-    { contact: 0, deal: 0, status: "ai_active", preview: "Perfeito, aguardo a proposta!", unread: 2 },
-    { contact: 8, deal: 4, status: "human_takeover", preview: "Podemos falar amanhã às 10h?", unread: 0 },
-    { contact: 11, deal: 6, status: "ai_active", preview: "Qual o prazo de implantação?", unread: 1 },
-    { contact: 2, deal: 1, status: "closed", preview: "Contrato assinado, obrigado!", unread: 0 },
+    { contact: 0, deal: 0, channel: "whatsapp", status: "ai_active", preview: "Perfeito, aguardo a proposta!", unread: 2 },
+    { contact: 8, deal: 4, channel: "instagram", status: "human_takeover", preview: "Podemos falar amanhã às 10h?", unread: 0 },
+    { contact: 11, deal: 6, channel: "telegram", status: "ai_active", preview: "Qual o prazo de implantação?", unread: 1 },
+    { contact: 2, deal: 1, channel: "whatsapp", status: "closed", preview: "Contrato assinado, obrigado!", unread: 0 },
+    { contact: 4, deal: 2, channel: "facebook", status: "ai_active", preview: "Recebi, muito obrigada!", unread: 1 },
   ];
   const { data: convRows, error: convErr } = await admin
     .from("conversations")
     .insert(
-      CONVERSATIONS.map((c, i) => ({
-        org_id: orgId,
-        is_demo: true,
-        contact_id: contactIds[c.contact] ?? null,
-        deal_id: dealIds[c.deal] ?? null,
-        phone_number: wphone(i),
-        channel: "whatsapp",
-        provider: "evolution",
-        status: c.status,
-        last_message_at: daysFromNow(-i - 1),
-        last_message_preview: c.preview,
-        unread_count: c.unread,
-      })),
+      CONVERSATIONS.map((c, i) => {
+        const isWa = c.channel === "whatsapp";
+        const ct = CONTACTS[c.contact];
+        const identifier = isWa ? wphone(i) : `${c.channel.slice(0, 2)}:${900100 + i}`;
+        return {
+          org_id: orgId,
+          is_demo: true,
+          contact_id: contactIds[c.contact] ?? null,
+          deal_id: dealIds[c.deal] ?? null,
+          phone_number: identifier,
+          channel: c.channel,
+          channel_contact_id: isWa ? null : identifier,
+          channel_contact_name: isWa ? null : `${ct.first_name} ${ct.last_name}`,
+          provider: isWa ? "evolution" : "zernio",
+          status: c.status,
+          last_message_at: daysFromNow(-i - 1),
+          last_message_preview: c.preview,
+          unread_count: c.unread,
+        };
+      }),
     )
     .select("id");
   if (convErr) throw new Error(`Falha ao inserir conversas: ${convErr.message}`);

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  ArrowRightLeft, Bot, CheckCheck, MessageCircle, Send, StickyNote, UserCheck, X,
+  ArrowRightLeft, Bot, CheckCheck, Link2, MessageCircle, Send, StickyNote, UserCheck, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WhatsAppStatusBadge } from "@/components/whatsapp/WhatsAppStatusBadge";
+import { ChannelBadge } from "@/components/whatsapp/ChannelBadge";
+import { LinkContactDialog } from "@/components/whatsapp/LinkContactDialog";
 import { TransferDialog } from "@/components/whatsapp/TransferDialog";
 import {
   conversationName, useMarkRead, useMessages, useSendMessage,
@@ -81,6 +83,7 @@ export function MessagePanel({ conversation, provider }: Props) {
   const [text, setText] = useState("");
   const [isNote, setIsNote] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Ao abrir/atualizar, zera não lidas e rola para o fim.
@@ -133,11 +136,24 @@ export function MessagePanel({ conversation, provider }: Props) {
       <div className="border-b p-3" style={{ borderColor: "var(--via-border)" }}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <p className="truncate font-medium" style={{ color: "var(--via-text-primary)" }}>{name}</p>
+              <ChannelBadge channel={conversation.channel} showLabel />
               <WhatsAppStatusBadge status={conversation.status} />
             </div>
-            <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>{conversation.phone_number}</p>
+            <div className="flex items-center gap-2 text-xs" style={{ color: "var(--via-text-muted)" }}>
+              <span className="truncate">{conversation.phone_number}</span>
+              {!conversation.contact && (
+                <button
+                  type="button"
+                  onClick={() => setLinkOpen(true)}
+                  className="inline-flex shrink-0 items-center gap-1 underline hover:no-underline"
+                >
+                  <Link2 className="h-3 w-3" strokeWidth={1.5} />
+                  Vincular contato
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-1.5">
@@ -265,6 +281,10 @@ export function MessagePanel({ conversation, provider }: Props) {
       <TransferDialog
         conversationId={transferOpen ? conversation.id : null}
         onOpenChange={setTransferOpen}
+      />
+      <LinkContactDialog
+        conversation={linkOpen ? conversation : null}
+        onOpenChange={setLinkOpen}
       />
     </div>
   );

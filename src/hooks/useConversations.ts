@@ -18,7 +18,10 @@ const CONVERSATION_SELECT = `
   contact:contacts(id, first_name, last_name)
 ` as const;
 
-/** Nome de exibição da conversa: contato, ou o número cru. */
+/**
+ * Nome de exibição da conversa: contato do CRM, senão o nome retornado pelo canal
+ * (channel_contact_name — ex.: nome do Instagram), senão o identificador cru.
+ */
 export function conversationName(conversation: Conversation): string {
   if (conversation.contact) {
     const name = [conversation.contact.first_name, conversation.contact.last_name]
@@ -27,7 +30,7 @@ export function conversationName(conversation: Conversation): string {
       .trim();
     if (name) return name;
   }
-  return conversation.phone_number;
+  return conversation.channel_contact_name || conversation.phone_number;
 }
 
 /** Lista de conversas da org, com realtime (inbox). */
@@ -155,7 +158,10 @@ export function useSendMessage() {
         return;
       }
 
-      const fn = input.provider === "evolution" ? "evolution-send-message" : "meta-send-message";
+      const fn =
+        input.provider === "evolution" ? "evolution-send-message"
+        : input.provider === "zernio" ? "zernio-send-message"
+        : "meta-send-message";
       const { data, error } = await supabase.functions.invoke(fn, {
         body: { conversation_id: input.conversationId, content: input.content },
       });
@@ -186,6 +192,26 @@ export function useUpdateConversation() {
       const { error } = await supabase
         .from("conversations")
         .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["conversations", orgId] });
+      queryClient.invalidateQueries({ queryKey: ["conversation", id] });
+    },
+  });
+}
+
+/** Vincula (ou desvincula) a conversa a um contato do CRM. */
+export function useLinkConversationContact() {
+  const queryClient = useQueryClient();
+  const orgId = useOrgId();
+
+  return useMutation({
+    mutationFn: async ({ id, contactId }: { id: string; contactId: string | null }) => {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ contact_id: contactId, updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) throw error;
     },

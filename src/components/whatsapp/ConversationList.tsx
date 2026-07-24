@@ -3,8 +3,11 @@ import { MessageCircle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WhatsAppStatusBadge } from "@/components/whatsapp/WhatsAppStatusBadge";
+import { ChannelBadge, channelMeta } from "@/components/whatsapp/ChannelBadge";
 import { conversationName, type Conversation } from "@/hooks/useConversations";
 import { formatDateTime } from "@/lib/format";
+
+const ALL_CHANNELS = "__all__";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -23,22 +26,31 @@ interface Props {
 
 export function ConversationList({ conversations, isLoading, selectedId, onSelect }: Props) {
   const [search, setSearch] = useState("");
+  const [channel, setChannel] = useState<string>(ALL_CHANNELS);
+
+  // Canais presentes na lista (para montar os chips de filtro só quando fazem sentido).
+  const channels = useMemo(() => {
+    const set = new Set<string>();
+    conversations.forEach((c) => set.add(c.channel ?? "whatsapp"));
+    return [...set];
+  }, [conversations]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return conversations;
     return conversations.filter((c) => {
+      if (channel !== ALL_CHANNELS && (c.channel ?? "whatsapp") !== channel) return false;
+      if (!term) return true;
       const haystack = [conversationName(c), c.phone_number, c.last_message_preview]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return haystack.includes(term);
     });
-  }, [conversations, search]);
+  }, [conversations, search, channel]);
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b p-3" style={{ borderColor: "var(--via-border)" }}>
+      <div className="space-y-2 border-b p-3" style={{ borderColor: "var(--via-border)" }}>
         <div className="relative">
           <Search
             className="absolute left-2.5 top-2.5 h-4 w-4"
@@ -52,6 +64,34 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {channels.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            {[ALL_CHANNELS, ...channels].map((ch) => {
+              const activeChip = channel === ch;
+              const label = ch === ALL_CHANNELS ? "Todos" : channelMeta(ch).label;
+              return (
+                <button
+                  key={ch}
+                  type="button"
+                  onClick={() => setChannel(ch)}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors"
+                  style={
+                    activeChip
+                      ? { background: "var(--via-navy)", color: "var(--via-white)" }
+                      : { background: "var(--via-surface)", color: "var(--via-text-body)" }
+                  }
+                >
+                  {ch !== ALL_CHANNELS && (() => {
+                    const { Icon } = channelMeta(ch);
+                    return <Icon className="h-3 w-3" strokeWidth={1.5} />;
+                  })()}
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -84,11 +124,17 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
                       background: active ? "var(--via-surface)" : "transparent",
                     }}
                   >
-                    <span
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-medium"
-                      style={{ background: "var(--via-navy)", color: "var(--via-white)" }}
-                    >
-                      {initials(name)}
+                    <span className="relative shrink-0">
+                      <span
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-medium"
+                        style={{ background: "var(--via-navy)", color: "var(--via-white)" }}
+                      >
+                        {initials(name)}
+                      </span>
+                      {/* Badge do canal no canto do avatar. */}
+                      <span className="absolute -bottom-1 -right-1 rounded-full border-2 border-white">
+                        <ChannelBadge channel={conversation.channel} />
+                      </span>
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
