@@ -224,6 +224,107 @@ async function seed(admin: Admin, orgId: string) {
   );
   if (activityErr) throw new Error(`Falha ao inserir atividades: ${activityErr.message}`);
 
+  // Conversas (WhatsApp) + mensagens, vinculadas a contatos/negócios.
+  const wphone = (i: number) => `5511${String(90000000 + i * 271).padStart(8, "0")}`;
+  const CONVERSATIONS = [
+    { contact: 0, deal: 0, status: "ai_active", preview: "Perfeito, aguardo a proposta!", unread: 2 },
+    { contact: 8, deal: 4, status: "human_takeover", preview: "Podemos falar amanhã às 10h?", unread: 0 },
+    { contact: 11, deal: 6, status: "ai_active", preview: "Qual o prazo de implantação?", unread: 1 },
+    { contact: 2, deal: 1, status: "closed", preview: "Contrato assinado, obrigado!", unread: 0 },
+  ];
+  const { data: convRows, error: convErr } = await admin
+    .from("conversations")
+    .insert(
+      CONVERSATIONS.map((c, i) => ({
+        org_id: orgId,
+        is_demo: true,
+        contact_id: contactIds[c.contact] ?? null,
+        deal_id: dealIds[c.deal] ?? null,
+        phone_number: wphone(i),
+        channel: "whatsapp",
+        provider: "evolution",
+        status: c.status,
+        last_message_at: daysFromNow(-i - 1),
+        last_message_preview: c.preview,
+        unread_count: c.unread,
+      })),
+    )
+    .select("id");
+  if (convErr) throw new Error(`Falha ao inserir conversas: ${convErr.message}`);
+  const convIds = (convRows ?? []).map((r) => r.id as string);
+
+  // Mensagens: par cliente→nós por conversa (a última bate com o preview).
+  const messages = convIds.flatMap((convId, i) => [
+    {
+      org_id: orgId, is_demo: true, conversation_id: convId,
+      direction: "inbound", type: "text",
+      content: "Olá! Gostaria de saber mais sobre a solução.",
+      is_from_ai: false, is_internal_note: false, status: "received",
+      sent_at: daysFromNow(-i - 1),
+    },
+    {
+      org_id: orgId, is_demo: true, conversation_id: convId,
+      direction: "outbound", type: "text",
+      content: CONVERSATIONS[i].preview,
+      is_from_ai: CONVERSATIONS[i].status === "ai_active",
+      is_internal_note: false, status: "sent",
+      sent_at: daysFromNow(-i - 0.5),
+    },
+  ]);
+  const { error: msgErr } = await admin.from("conversation_messages").insert(messages);
+  if (msgErr) throw new Error(`Falha ao inserir mensagens: ${msgErr.message}`);
+
+  // Emails vinculados a contatos/negócios.
+  const emailAddr = (ci: number) =>
+    `${FIRST_NAMES_FOR_EMAIL(CONTACTS[ci].first_name, CONTACTS[ci].last_name)}@${COMPANIES[CONTACTS[ci].company].domain}`;
+  const EMAILS = [
+    { contact: 0, deal: 0, direction: "outbound", status: "sent", opens: 3, subject: "Proposta comercial — Aurora Tecnologia", body: "<p>Olá Mariana, segue nossa proposta do Plano Profissional. Fico à disposição.</p>" },
+    { contact: 8, deal: 4, direction: "outbound", status: "sent", opens: 1, subject: "Cronograma da obra — Construtora Horizonte", body: "<p>Fernanda, segue o cronograma da implantação de gestão de obras.</p>" },
+    { contact: 11, deal: 6, direction: "inbound", status: "received", opens: 0, subject: "Dúvida sobre infraestrutura cloud", body: "<p>Poderiam detalhar o SLA do ambiente cloud?</p>" },
+    { contact: 2, deal: 1, direction: "outbound", status: "sent", opens: 2, subject: "Contrato assinado — Marés Logística", body: "<p>Beatriz, recebemos o contrato assinado. Sejam bem-vindos!</p>" },
+  ];
+  const { error: emailErr } = await admin.from("emails").insert(
+    EMAILS.map((e, i) => ({
+      org_id: orgId, is_demo: true,
+      contact_id: contactIds[e.contact] ?? null,
+      deal_id: dealIds[e.deal] ?? null,
+      direction: e.direction,
+      subject: e.subject,
+      body_html: e.body,
+      from_email: e.direction === "outbound" ? "comercial@viverdeia.ai" : emailAddr(e.contact),
+      to_emails: e.direction === "outbound" ? [emailAddr(e.contact)] : ["comercial@viverdeia.ai"],
+      status: e.status,
+      open_count: e.opens,
+      sent_at: daysFromNow(-i - 1),
+    })),
+  );
+  if (emailErr) throw new Error(`Falha ao inserir emails: ${emailErr.message}`);
+
+  // Metas de vendas do mês corrente (progresso é calculado ao vivo pelos deals ganhos).
+  const now = new Date();
+  const { error: goalErr } = await admin.from("sales_goals").insert([
+    { org_id: orgId, is_demo: true, goal_type: "revenue", target_value: 100000, current_value: 0, period_month: now.getUTCMonth() + 1, period_year: now.getUTCFullYear(), assign_type: "team", user_id: null, team_id: null },
+    { org_id: orgId, is_demo: true, goal_type: "deals", target_value: 10, current_value: 0, period_month: now.getUTCMonth() + 1, period_year: now.getUTCFullYear(), assign_type: "team", user_id: null, team_id: null },
+  ]);
+  if (goalErr) throw new Error(`Falha ao inserir metas: ${goalErr.message}`);
+
+  // Histórico de lead scoring para alguns contatos.
+  const SCORES = [
+    { contact: 0, points: 15, reason: "Abriu email de proposta" },
+    { contact: 0, points: 10, reason: "Respondeu no WhatsApp" },
+    { contact: 8, points: 20, reason: "Participou de reunião" },
+    { contact: 11, points: 5, reason: "Visitou a página de preços" },
+    { contact: 2, points: 25, reason: "Negócio ganho" },
+  ];
+  const { error: scoreErr } = await admin.from("lead_score_history").insert(
+    SCORES.map((s) => ({
+      org_id: orgId, is_demo: true,
+      contact_id: contactIds[s.contact],
+      points: s.points, reason: s.reason,
+    })),
+  );
+  if (scoreErr) throw new Error(`Falha ao inserir histórico de lead scoring: ${scoreErr.message}`);
+
   return {
     skipped: false as const,
     counts: {
@@ -232,6 +333,11 @@ async function seed(admin: Admin, orgId: string) {
       products: PRODUCTS.length,
       deals: dealIds.length,
       activities: activities.length,
+      conversations: convIds.length,
+      messages: messages.length,
+      emails: EMAILS.length,
+      sales_goals: 2,
+      lead_score_history: SCORES.length,
     },
   };
 }
@@ -239,16 +345,24 @@ async function seed(admin: Admin, orgId: string) {
 // ---- Clear -------------------------------------------------------------------
 
 async function clear(admin: Admin, orgId: string) {
-  // Ordem de dependência: filhos antes dos pais.
-  // activities → deals → contacts → companies → products.
+  // Ordem de dependência: filhos antes dos pais. Conversas/emails/scores
+  // referenciam contatos/deals, então saem antes deles; mensagens antes das conversas.
   const order: Array<{ table: string; key: keyof typeof counts }> = [
+    { table: "conversation_messages", key: "messages" },
+    { table: "conversations", key: "conversations" },
+    { table: "emails", key: "emails" },
+    { table: "lead_score_history", key: "lead_score_history" },
+    { table: "sales_goals", key: "sales_goals" },
     { table: "activities", key: "activities" },
     { table: "deals", key: "deals" },
     { table: "contacts", key: "contacts" },
     { table: "companies", key: "companies" },
     { table: "products", key: "products" },
   ];
-  const counts = { activities: 0, deals: 0, contacts: 0, companies: 0, products: 0 };
+  const counts = {
+    messages: 0, conversations: 0, emails: 0, lead_score_history: 0, sales_goals: 0,
+    activities: 0, deals: 0, contacts: 0, companies: 0, products: 0,
+  };
 
   for (const { table, key } of order) {
     const { data, error } = await admin
