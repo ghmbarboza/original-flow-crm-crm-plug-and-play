@@ -77,8 +77,8 @@ export function AutomationBuilderDialog({ open, onOpenChange, automation }: Prop
     setDescription(automation?.description ?? "");
     const t = automation?.trigger as { type?: TriggerType } | null;
     setTrigger(t?.type ?? "contact_created");
-    setConditions((automation?.conditions as AutomationCondition[] | null) ?? []);
-    setActions((automation?.actions as AutomationAction[] | null) ?? []);
+    setConditions((automation?.conditions as unknown as AutomationCondition[] | null) ?? []);
+    setActions((automation?.actions as unknown as AutomationAction[] | null) ?? []);
   }, [open, automation]);
 
   const addCondition = () => setConditions([...conditions, { field: "", op: "eq", value: "" }]);

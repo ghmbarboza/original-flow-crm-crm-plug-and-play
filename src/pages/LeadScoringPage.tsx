@@ -27,7 +27,11 @@ function RulesTab() {
   const { data: rules, isLoading } = useScoringRules();
   const saveRule = useSaveScoringRule();
   const deleteRule = useDeleteScoringRule();
-  const [draft, setDraft] = useState({ label: "", event_type: SCORING_EVENTS[0].value, points: "10" });
+  const [draft, setDraft] = useState<{ label: string; event_type: string; points: string }>({
+    label: "",
+    event_type: SCORING_EVENTS[0].value,
+    points: "10",
+  });
 
   const add = async () => {
     if (!draft.label.trim()) {
