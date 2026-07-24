@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, MessageCircle, Server, Zap } from "lucide-react";
+import { CheckCircle2, Layers, MessageCircle, Server, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EvolutionSetup } from "@/components/whatsapp/EvolutionSetup";
 import { MetaSetup } from "@/components/whatsapp/MetaSetup";
+import { ZernioSetup } from "@/components/whatsapp/ZernioSetup";
 import { useSetProvider, type WhatsAppProvider } from "@/hooks/useWhatsAppConfig";
+
+const PROVIDER_LABEL: Record<WhatsAppProvider, string> = {
+  evolution: "Evolution API",
+  meta_official: "API Oficial (Meta)",
+  zernio: "Zernio (multicanal)",
+};
 
 type Step = "choose" | "setup" | "done";
 
@@ -36,6 +43,13 @@ const OPTIONS: ProviderOption[] = [
     description: "Usa a WhatsApp Business Platform oficial, com número verificado e recursos de campanha.",
     icon: Zap,
     note: "Requer conta Business aprovada na Meta. Libera campanhas e templates oficiais.",
+  },
+  {
+    value: "zernio",
+    title: "Zernio",
+    description: "Plataforma multicanal: WhatsApp, Instagram, Telegram, Facebook e mais — tudo em um só inbox.",
+    icon: Layers,
+    note: "Conecte vários canais por OAuth. Libera campanhas. Ideal para atender além do WhatsApp.",
   },
 ];
 
@@ -111,7 +125,7 @@ export function ProviderWizard({ onDone }: { onDone: () => void }) {
 
       {/* Passo 1: escolha do provedor */}
       {step === "choose" && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {OPTIONS.map((option) => {
             const Icon = option.icon;
             return (
@@ -147,6 +161,9 @@ export function ProviderWizard({ onDone }: { onDone: () => void }) {
       {step === "setup" && provider === "meta_official" && (
         <MetaSetup onConnected={() => setStep("done")} onBack={() => setStep("choose")} />
       )}
+      {step === "setup" && provider === "zernio" && (
+        <ZernioSetup onConnected={() => setStep("done")} onBack={() => setStep("choose")} />
+      )}
 
       {/* Passo 3: resumo */}
       {step === "done" && (
@@ -154,11 +171,11 @@ export function ProviderWizard({ onDone }: { onDone: () => void }) {
           <CheckCircle2 className="h-12 w-12" strokeWidth={1.5} style={{ color: "var(--via-success)" }} />
           <div>
             <p className="text-lg font-medium" style={{ color: "var(--via-text-primary)" }}>
-              WhatsApp configurado
+              Atendimento configurado
             </p>
             <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
-              Provedor: {provider === "evolution" ? "Evolution API" : "API Oficial (Meta)"}. As conversas
-              recebidas passam a aparecer no inbox. Configure a personalidade da IA em Configurações › IA.
+              Provedor: {provider ? PROVIDER_LABEL[provider] : "—"}. As conversas recebidas passam a
+              aparecer no inbox. Configure a personalidade da IA em Configurações › IA.
             </p>
           </div>
           <Button onClick={onDone}>Abrir inbox</Button>

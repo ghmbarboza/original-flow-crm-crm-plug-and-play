@@ -19,6 +19,7 @@ export interface WhatsAppSetup {
   config: WhatsAppConfig | null;
   evolution: EvolutionInstance | null;
   meta: MetaInstance | null;
+  zernio: Database["public"]["Tables"]["zernio_configs"]["Row"] | null;
   provider: WhatsAppProvider | null;
   configured: boolean;
 }
@@ -29,7 +30,7 @@ export function useWhatsAppSetup() {
     queryKey: ["whatsapp-setup", orgId],
     enabled: !!orgId,
     queryFn: async (): Promise<WhatsAppSetup> => {
-      const [config, evolution, meta] = await Promise.all([
+      const [config, evolution, meta, zernio] = await Promise.all([
         supabase.from("messaging_config").select("*").eq("org_id", orgId!).maybeSingle(),
         supabase
           .from("evolution_configs")
@@ -45,21 +46,25 @@ export function useWhatsAppSetup() {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
+        supabase.from("zernio_configs").select("*").eq("org_id", orgId!).maybeSingle(),
       ]);
 
       if (config.error) throw config.error;
       if (evolution.error) throw evolution.error;
       if (meta.error) throw meta.error;
+      if (zernio.error) throw zernio.error;
 
       const provider = config.data?.provider ?? null;
       const configured =
         (provider === "evolution" && !!evolution.data) ||
-        (provider === "meta_official" && !!meta.data);
+        (provider === "meta_official" && !!meta.data) ||
+        (provider === "zernio" && !!zernio.data);
 
       return {
         config: config.data ?? null,
         evolution: evolution.data ?? null,
         meta: meta.data ?? null,
+        zernio: zernio.data ?? null,
         provider,
         configured,
       };
