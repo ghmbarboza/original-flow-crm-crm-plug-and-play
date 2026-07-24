@@ -24,6 +24,7 @@ export type Database = {
           deal_id: string | null
           due_date: string | null
           id: string
+          is_demo: boolean
           org_id: string
           title: string
           type: Database["public"]["Enums"]["activity_type"]
@@ -38,6 +39,7 @@ export type Database = {
           deal_id?: string | null
           due_date?: string | null
           id?: string
+          is_demo?: boolean
           org_id: string
           title: string
           type: Database["public"]["Enums"]["activity_type"]
@@ -52,6 +54,7 @@ export type Database = {
           deal_id?: string | null
           due_date?: string | null
           id?: string
+          is_demo?: boolean
           org_id?: string
           title?: string
           type?: Database["public"]["Enums"]["activity_type"]
@@ -86,13 +89,6 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "activities_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
       ai_knowledge_faqs: {
@@ -127,7 +123,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       ai_knowledge_objections: {
@@ -162,7 +158,72 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
+        ]
+      }
+      ai_messaging_config: {
+        Row: {
+          agent_name: string
+          agent_objective: string
+          agent_tone: string
+          context_window_size: number
+          cooldown_ms: number
+          fallback_message: string
+          human_trigger_rules: Json
+          id: string
+          is_active: boolean
+          max_ai_turns_before_human: number
+          org_id: string
+          prompt_version: number
+          response_delay_ms: number
+          system_prompt: string
+          updated_at: string
+          working_hours: Json
+        }
+        Insert: {
+          agent_name?: string
+          agent_objective?: string
+          agent_tone?: string
+          context_window_size?: number
+          cooldown_ms?: number
+          fallback_message?: string
+          human_trigger_rules?: Json
+          id?: string
+          is_active?: boolean
+          max_ai_turns_before_human?: number
+          org_id: string
+          prompt_version?: number
+          response_delay_ms?: number
+          system_prompt?: string
+          updated_at?: string
+          working_hours?: Json
+        }
+        Update: {
+          agent_name?: string
+          agent_objective?: string
+          agent_tone?: string
+          context_window_size?: number
+          cooldown_ms?: number
+          fallback_message?: string
+          human_trigger_rules?: Json
+          id?: string
+          is_active?: boolean
+          max_ai_turns_before_human?: number
+          org_id?: string
+          prompt_version?: number
+          response_delay_ms?: number
+          system_prompt?: string
+          updated_at?: string
+          working_hours?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_ai_config_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ai_prompt_versions: {
@@ -195,19 +256,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "ai_prompt_versions_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "ai_prompt_versions_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       api_keys: {
@@ -246,19 +300,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "api_keys_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "api_keys_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       api_keys_registry: {
@@ -292,15 +339,7 @@ export type Database = {
           user_id?: string
           vault_secret_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "api_keys_registry_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       audit_logs: {
         Row: {
@@ -347,13 +386,6 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "audit_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
       automation_logs: {
@@ -401,7 +433,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       automations: {
@@ -455,19 +487,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "automations_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "automations_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       campaign_recipients: {
@@ -522,7 +547,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       campaigns: {
@@ -585,13 +610,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "campaigns_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "campaigns_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
@@ -604,7 +622,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tags"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       capture_forms: {
@@ -672,7 +690,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pipeline_stages"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       companies: {
@@ -682,6 +700,7 @@ export type Database = {
           domain: string | null
           id: string
           industry: string | null
+          is_demo: boolean
           name: string
           org_id: string
           owner_id: string | null
@@ -695,6 +714,7 @@ export type Database = {
           domain?: string | null
           id?: string
           industry?: string | null
+          is_demo?: boolean
           name: string
           org_id: string
           owner_id?: string | null
@@ -708,6 +728,7 @@ export type Database = {
           domain?: string | null
           id?: string
           industry?: string | null
+          is_demo?: boolean
           name?: string
           org_id?: string
           owner_id?: string | null
@@ -723,13 +744,6 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "companies_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
       contact_group_members: {
@@ -759,7 +773,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contact_groups"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       contact_groups: {
@@ -795,19 +809,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "contact_groups_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "contact_groups_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       contact_tags: {
@@ -837,7 +844,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tags"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       contacts: {
@@ -848,6 +855,7 @@ export type Database = {
           email: string | null
           first_name: string
           id: string
+          is_demo: boolean
           last_name: string | null
           lead_score: number
           merged_into_id: string | null
@@ -867,6 +875,7 @@ export type Database = {
           email?: string | null
           first_name?: string
           id?: string
+          is_demo?: boolean
           last_name?: string | null
           lead_score?: number
           merged_into_id?: string | null
@@ -886,6 +895,7 @@ export type Database = {
           email?: string | null
           first_name?: string
           id?: string
+          is_demo?: boolean
           last_name?: string | null
           lead_score?: number
           merged_into_id?: string | null
@@ -920,13 +930,173 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      conversation_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          direction: string
+          id: string
+          is_demo: boolean
+          is_from_ai: boolean
+          is_internal_note: boolean
+          media_url: string | null
+          org_id: string
+          provider_message_id: string | null
+          sent_at: string
+          sent_by: string | null
+          status: string
+          type: string
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          direction: string
+          id?: string
+          is_demo?: boolean
+          is_from_ai?: boolean
+          is_internal_note?: boolean
+          media_url?: string | null
+          org_id: string
+          provider_message_id?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+          type?: string
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          is_demo?: boolean
+          is_from_ai?: boolean
+          is_internal_note?: boolean
+          media_url?: string | null
+          org_id?: string
+          provider_message_id?: string | null
+          sent_at?: string
+          sent_by?: string | null
+          status?: string
+          type?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "contacts_owner_id_fkey"
-            columns: ["owner_id"]
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
-          }
+          },
+          {
+            foreignKeyName: "whatsapp_messages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          assigned_to: string | null
+          channel: string
+          channel_contact_id: string | null
+          channel_contact_name: string | null
+          contact_id: string | null
+          created_at: string
+          deal_id: string | null
+          id: string
+          is_demo: boolean
+          last_message_at: string | null
+          last_message_preview: string | null
+          org_id: string
+          phone_number: string
+          provider: Database["public"]["Enums"]["messaging_provider"]
+          provider_conversation_id: string | null
+          status: Database["public"]["Enums"]["conversation_status"]
+          tags: Json
+          team_id: string | null
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          channel?: string
+          channel_contact_id?: string | null
+          channel_contact_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          is_demo?: boolean
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          org_id: string
+          phone_number: string
+          provider?: Database["public"]["Enums"]["messaging_provider"]
+          provider_conversation_id?: string | null
+          status?: Database["public"]["Enums"]["conversation_status"]
+          tags?: Json
+          team_id?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          channel?: string
+          channel_contact_id?: string | null
+          channel_contact_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          is_demo?: boolean
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          org_id?: string
+          phone_number?: string
+          provider?: Database["public"]["Enums"]["messaging_provider"]
+          provider_conversation_id?: string | null
+          status?: Database["public"]["Enums"]["conversation_status"]
+          tags?: Json
+          team_id?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
         ]
       }
       custom_field_definitions: {
@@ -973,7 +1143,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       deal_products: {
@@ -1015,7 +1185,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       deal_tags: {
@@ -1045,7 +1215,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tags"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       deals: {
@@ -1057,6 +1227,7 @@ export type Database = {
           currency: string
           custom_fields: Json
           id: string
+          is_demo: boolean
           loss_reason_id: string | null
           org_id: string
           owner_id: string | null
@@ -1076,6 +1247,7 @@ export type Database = {
           currency?: string
           custom_fields?: Json
           id?: string
+          is_demo?: boolean
           loss_reason_id?: string | null
           org_id: string
           owner_id?: string | null
@@ -1095,6 +1267,7 @@ export type Database = {
           currency?: string
           custom_fields?: Json
           id?: string
+          is_demo?: boolean
           loss_reason_id?: string | null
           org_id?: string
           owner_id?: string | null
@@ -1136,19 +1309,12 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "deals_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "deals_stage_id_fkey"
             columns: ["stage_id"]
             isOneToOne: false
             referencedRelation: "pipeline_stages"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       email_connections: {
@@ -1196,13 +1362,6 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "email_connections_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
       email_sequence_enrollments: {
@@ -1257,7 +1416,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "email_sequences"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       email_sequence_steps: {
@@ -1306,7 +1465,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "email_templates"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       email_sequences: {
@@ -1338,7 +1497,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       email_templates: {
@@ -1377,19 +1536,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "email_templates_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "email_templates_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       emails: {
@@ -1401,6 +1553,7 @@ export type Database = {
           direction: string
           from_email: string | null
           id: string
+          is_demo: boolean
           open_count: number
           org_id: string
           sent_at: string | null
@@ -1418,6 +1571,7 @@ export type Database = {
           direction?: string
           from_email?: string | null
           id?: string
+          is_demo?: boolean
           open_count?: number
           org_id: string
           sent_at?: string | null
@@ -1435,6 +1589,7 @@ export type Database = {
           direction?: string
           from_email?: string | null
           id?: string
+          is_demo?: boolean
           open_count?: number
           org_id?: string
           sent_at?: string | null
@@ -1466,13 +1621,6 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "emails_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
       evolution_configs: {
@@ -1523,12 +1671,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "evolution_configs_org_id_fkey"
+            foreignKeyName: "evolution_instances_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       followup_configs: {
@@ -1566,7 +1714,7 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       followup_executions: {
@@ -1620,7 +1768,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       followup_steps: {
@@ -1655,7 +1803,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       google_oauth_tokens: {
@@ -1689,15 +1837,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "google_oauth_tokens_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       integration_configs: {
         Row: {
@@ -1729,19 +1869,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "integration_configs_connected_by_fkey"
-            columns: ["connected_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "integration_configs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       lead_score_history: {
@@ -1749,6 +1882,7 @@ export type Database = {
           contact_id: string
           created_at: string
           id: string
+          is_demo: boolean
           org_id: string
           points: number
           reason: string
@@ -1757,6 +1891,7 @@ export type Database = {
           contact_id: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           org_id: string
           points: number
           reason: string
@@ -1765,6 +1900,7 @@ export type Database = {
           contact_id?: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           org_id?: string
           points?: number
           reason?: string
@@ -1783,7 +1919,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       lead_scoring_rules: {
@@ -1821,7 +1957,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       loss_reasons: {
@@ -1850,7 +1986,45 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
+        ]
+      }
+      messaging_config: {
+        Row: {
+          created_at: string
+          distribution_mode: Database["public"]["Enums"]["distribution_mode"]
+          id: string
+          offline_timeout_minutes: number
+          org_id: string
+          provider: Database["public"]["Enums"]["messaging_provider"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
+          id?: string
+          offline_timeout_minutes?: number
+          org_id: string
+          provider?: Database["public"]["Enums"]["messaging_provider"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
+          id?: string
+          offline_timeout_minutes?: number
+          org_id?: string
+          provider?: Database["public"]["Enums"]["messaging_provider"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_config_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       meta_configs: {
@@ -1901,12 +2075,12 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "meta_configs_org_id_fkey"
+            foreignKeyName: "meta_instances_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       notification_preferences: {
@@ -1945,13 +2119,6 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "notification_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
       notifications: {
@@ -1999,13 +2166,6 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
       organizations: {
@@ -2083,7 +2243,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pipelines"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       pipelines: {
@@ -2118,7 +2278,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       products: {
@@ -2129,6 +2289,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_demo: boolean
           name: string
           org_id: string
           price: number
@@ -2141,6 +2302,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean
           name: string
           org_id: string
           price?: number
@@ -2153,6 +2315,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean
           name?: string
           org_id?: string
           price?: number
@@ -2165,7 +2328,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       profiles: {
@@ -2222,13 +2385,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "profiles_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "profiles_manager_id_fkey"
             columns: ["manager_id"]
             isOneToOne: false
@@ -2241,7 +2397,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       project_config: {
@@ -2269,6 +2425,7 @@ export type Database = {
           current_value: number
           goal_type: string
           id: string
+          is_demo: boolean
           org_id: string
           period_month: number
           period_year: number
@@ -2282,6 +2439,7 @@ export type Database = {
           current_value?: number
           goal_type?: string
           id?: string
+          is_demo?: boolean
           org_id: string
           period_month: number
           period_year: number
@@ -2295,6 +2453,7 @@ export type Database = {
           current_value?: number
           goal_type?: string
           id?: string
+          is_demo?: boolean
           org_id?: string
           period_month?: number
           period_year?: number
@@ -2317,13 +2476,6 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "sales_goals_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
       tags: {
@@ -2352,7 +2504,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       team_members: {
@@ -2376,13 +2528,6 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "team_members_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
       teams: {
@@ -2421,7 +2566,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       tracking_events: {
@@ -2469,7 +2614,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       user_roles: {
@@ -2491,264 +2636,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      ai_messaging_config: {
-        Row: {
-          agent_name: string
-          agent_objective: string
-          agent_tone: string
-          context_window_size: number
-          cooldown_ms: number
-          fallback_message: string
-          human_trigger_rules: Json
-          id: string
-          is_active: boolean
-          max_ai_turns_before_human: number
-          org_id: string
-          prompt_version: number
-          response_delay_ms: number
-          system_prompt: string
-          updated_at: string
-          working_hours: Json
-        }
-        Insert: {
-          agent_name?: string
-          agent_objective?: string
-          agent_tone?: string
-          context_window_size?: number
-          cooldown_ms?: number
-          fallback_message?: string
-          human_trigger_rules?: Json
-          id?: string
-          is_active?: boolean
-          max_ai_turns_before_human?: number
-          org_id: string
-          prompt_version?: number
-          response_delay_ms?: number
-          system_prompt?: string
-          updated_at?: string
-          working_hours?: Json
-        }
-        Update: {
-          agent_name?: string
-          agent_objective?: string
-          agent_tone?: string
-          context_window_size?: number
-          cooldown_ms?: number
-          fallback_message?: string
-          human_trigger_rules?: Json
-          id?: string
-          is_active?: boolean
-          max_ai_turns_before_human?: number
-          org_id?: string
-          prompt_version?: number
-          response_delay_ms?: number
-          system_prompt?: string
-          updated_at?: string
-          working_hours?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_messaging_config_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: true
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      messaging_config: {
-        Row: {
-          created_at: string
-          distribution_mode: Database["public"]["Enums"]["distribution_mode"]
-          id: string
-          offline_timeout_minutes: number
-          org_id: string
-          provider: Database["public"]["Enums"]["messaging_provider"]
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
-          id?: string
-          offline_timeout_minutes?: number
-          org_id: string
-          provider?: Database["public"]["Enums"]["messaging_provider"]
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
-          id?: string
-          offline_timeout_minutes?: number
-          org_id?: string
-          provider?: Database["public"]["Enums"]["messaging_provider"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "messaging_config_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: true
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      conversations: {
-        Row: {
-          assigned_to: string | null
-          channel: string
-          channel_contact_id: string | null
-          channel_contact_name: string | null
-          contact_id: string | null
-          created_at: string
-          deal_id: string | null
-          id: string
-          last_message_at: string | null
-          last_message_preview: string | null
-          org_id: string
-          phone_number: string
-          provider: Database["public"]["Enums"]["messaging_provider"]
-          provider_conversation_id: string | null
-          status: Database["public"]["Enums"]["conversation_status"]
-          tags: Json
-          team_id: string | null
-          unread_count: number
-          updated_at: string
-        }
-        Insert: {
-          assigned_to?: string | null
-          channel?: string
-          channel_contact_id?: string | null
-          channel_contact_name?: string | null
-          contact_id?: string | null
-          created_at?: string
-          deal_id?: string | null
-          id?: string
-          last_message_at?: string | null
-          last_message_preview?: string | null
-          org_id: string
-          phone_number: string
-          provider?: Database["public"]["Enums"]["messaging_provider"]
-          provider_conversation_id?: string | null
-          status?: Database["public"]["Enums"]["conversation_status"]
-          tags?: Json
-          team_id?: string | null
-          unread_count?: number
-          updated_at?: string
-        }
-        Update: {
-          assigned_to?: string | null
-          channel?: string
-          channel_contact_id?: string | null
-          channel_contact_name?: string | null
-          contact_id?: string | null
-          created_at?: string
-          deal_id?: string | null
-          id?: string
-          last_message_at?: string | null
-          last_message_preview?: string | null
-          org_id?: string
-          phone_number?: string
-          provider?: Database["public"]["Enums"]["messaging_provider"]
-          provider_conversation_id?: string | null
-          status?: Database["public"]["Enums"]["conversation_status"]
-          tags?: Json
-          team_id?: string | null
-          unread_count?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversations_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      zernio_configs: {
-        Row: {
-          active_channels: string[]
-          api_key: string
-          created_at: string
-          id: string
-          org_id: string
-          profile_id: string
-          status: string
-          updated_at: string
-          webhook_secret: string | null
-        }
-        Insert: {
-          active_channels?: string[]
-          api_key: string
-          created_at?: string
-          id?: string
-          org_id: string
-          profile_id: string
-          status?: string
-          updated_at?: string
-          webhook_secret?: string | null
-        }
-        Update: {
-          active_channels?: string[]
-          api_key?: string
-          created_at?: string
-          id?: string
-          org_id?: string
-          profile_id?: string
-          status?: string
-          updated_at?: string
-          webhook_secret?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "zernio_configs_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: true
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       }
       whatsapp_inbound_queue: {
         Row: {
@@ -2811,80 +2699,51 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
-      conversation_messages: {
+      zernio_configs: {
         Row: {
-          content: string | null
-          conversation_id: string
+          active_channels: string[]
+          api_key: string
           created_at: string
-          direction: string
           id: string
-          is_from_ai: boolean
-          is_internal_note: boolean
-          media_url: string | null
           org_id: string
-          provider_message_id: string | null
-          sent_at: string
-          sent_by: string | null
+          profile_id: string
           status: string
-          type: string
+          updated_at: string
+          webhook_secret: string | null
         }
         Insert: {
-          content?: string | null
-          conversation_id: string
+          active_channels?: string[]
+          api_key: string
           created_at?: string
-          direction: string
           id?: string
-          is_from_ai?: boolean
-          is_internal_note?: boolean
-          media_url?: string | null
           org_id: string
-          provider_message_id?: string | null
-          sent_at?: string
-          sent_by?: string | null
+          profile_id: string
           status?: string
-          type?: string
+          updated_at?: string
+          webhook_secret?: string | null
         }
         Update: {
-          content?: string | null
-          conversation_id?: string
+          active_channels?: string[]
+          api_key?: string
           created_at?: string
-          direction?: string
           id?: string
-          is_from_ai?: boolean
-          is_internal_note?: boolean
-          media_url?: string | null
           org_id?: string
-          provider_message_id?: string | null
-          sent_at?: string
-          sent_by?: string | null
+          profile_id?: string
           status?: string
-          type?: string
+          updated_at?: string
+          webhook_secret?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "conversation_messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversation_messages_org_id_fkey"
+            foreignKeyName: "zernio_configs_org_id_fkey"
             columns: ["org_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "conversation_messages_sent_by_fkey"
-            columns: ["sent_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
         ]
       }
     }
@@ -2892,7 +2751,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_notification: {
+        Args: {
+          p_body: string
+          p_entity_id: string
+          p_entity_type: string
+          p_event_type: string
+          p_org: string
+          p_title: string
+          p_user: string
+        }
+        Returns: undefined
+      }
       current_org_id: { Args: never; Returns: string }
+      enqueue_automations: {
+        Args: { p_org: string; p_trigger_data: Json; p_trigger_type: string }
+        Returns: undefined
+      }
       ensure_auth_trigger: { Args: never; Returns: Json }
       get_handle_new_user_def: { Args: never; Returns: string }
       has_role: {
@@ -2901,6 +2776,17 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      notify_org_admins: {
+        Args: {
+          p_body: string
+          p_entity_id: string
+          p_entity_type: string
+          p_event_type: string
+          p_org: string
+          p_title: string
+        }
+        Returns: undefined
       }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
     }
