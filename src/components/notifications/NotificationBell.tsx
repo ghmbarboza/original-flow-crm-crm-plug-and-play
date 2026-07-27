@@ -7,7 +7,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -102,7 +101,11 @@ export function NotificationBell() {
           )}
         </div>
 
-        <ScrollArea className="max-h-96">
+        {/* O ScrollArea do Radix não funcionava aqui: o Viewport usa h-full e,
+            sem altura definida no Root, 100% resolve como auto — a lista crescia
+            e o overflow-hidden apenas cortava. Container com max-height + overflow
+            próprio resolve e mantém a scrollbar nos tokens VIA. */}
+        <div className="via-scroll max-h-[400px]">
           {error ? (
             <p className="px-4 py-6 text-center text-sm text-via-coral">
               Não foi possível carregar as notificações.
@@ -167,7 +170,7 @@ export function NotificationBell() {
               })}
             </ul>
           )}
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );
