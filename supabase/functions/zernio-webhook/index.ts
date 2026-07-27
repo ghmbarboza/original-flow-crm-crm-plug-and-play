@@ -138,6 +138,7 @@ async function ingestInbound(
   let conversationId = existing?.id as string | undefined;
   let status = (existing?.status as string) ?? "ai_active";
   let contactId = (existing?.contact_id as string | null) ?? null;
+  const isNewConversation = !conversationId;
 
   if (!conversationId) {
     contactId = await resolveContact(
@@ -196,6 +197,25 @@ async function ingestInbound(
     type: "text",
     status: "received",
   });
+
+  // Lead scoring por canal. A função resolve a regra (canal vence geral),
+  // grava o histórico e incrementa o score; sem regra ativa, não faz nada.
+  if (contactId) {
+    if (isNewConversation) {
+      await admin.rpc("apply_lead_score", {
+        p_org: orgId,
+        p_contact: contactId,
+        p_event: "conversation_started",
+        p_channel: channel,
+      });
+    }
+    await admin.rpc("apply_lead_score", {
+      p_org: orgId,
+      p_contact: contactId,
+      p_event: "message_received",
+      p_channel: channel,
+    });
+  }
 
   return { conversationId, status };
 }

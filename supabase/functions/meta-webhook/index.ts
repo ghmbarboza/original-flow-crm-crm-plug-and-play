@@ -153,6 +153,20 @@ Deno.serve(async (req) => {
           status: "received",
         });
 
+        // Lead scoring por canal. Sem regra ativa a função não faz nada.
+        if (contactId) {
+          if (!existingConversation) {
+            await admin.rpc("apply_lead_score", {
+              p_org: orgId, p_contact: contactId,
+              p_event: "conversation_started", p_channel: "whatsapp",
+            });
+          }
+          await admin.rpc("apply_lead_score", {
+            p_org: orgId, p_contact: contactId,
+            p_event: "message_received", p_channel: "whatsapp",
+          });
+        }
+
         if (status === "ai_active") {
           const call = triggerAI(conversationId);
           const runtime = (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;

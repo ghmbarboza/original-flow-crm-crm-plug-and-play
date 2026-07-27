@@ -18,6 +18,22 @@ const EVENTS: { type: string; label: string; description: string }[] = [
   { type: "ia_acionou_humano", label: "IA acionou humano", description: "A IA transferiu uma conversa de WhatsApp para atendimento humano." },
   { type: "mensagem_whatsapp", label: "Mensagem no WhatsApp", description: "Nova mensagem numa conversa de WhatsApp." },
   { type: "email_recebido", label: "E-mail recebido", description: "Um novo e-mail chegou na caixa de entrada." },
+  // Eventos operacionais de atendimento multicanal (Sprint 8).
+  {
+    type: "conversa_sem_agente",
+    label: "Conversa sem agente",
+    description: "Uma conversa nova entrou e nenhum agente do canal estava disponível.",
+  },
+  {
+    type: "conversa_sem_resposta",
+    label: "Conversa sem resposta",
+    description: "Uma conversa passou do tempo tolerado sem resposta da equipe.",
+  },
+  {
+    type: "agente_no_limite",
+    label: "Agente no limite",
+    description: "Um agente atingiu o máximo de conversas configurado para o canal.",
+  },
 ];
 
 const CHANNELS: { key: keyof ChannelPrefs; label: string }[] = [

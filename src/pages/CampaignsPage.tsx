@@ -11,6 +11,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CampaignFormDialog } from "@/components/campaigns/CampaignFormDialog";
 import { TemplatesTab } from "@/components/campaigns/TemplatesTab";
+import { ChannelBadge } from "@/components/whatsapp/ChannelBadge";
+import { PROVIDER_LABEL, type CampaignProvider } from "@/lib/campaign-channels";
 import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
 import {
   CAMPAIGN_STATUS_LABEL, useCampaigns, useCancelCampaign, useSendCampaign,
@@ -37,9 +39,14 @@ export default function CampaignsPage() {
   const cancelCampaign = useCancelCampaign();
   const [formOpen, setFormOpen] = useState(false);
 
-  // Campanhas em massa só nos provedores oficiais. Evolution fica de fora.
-  const campaignProvider =
-    setup?.provider === "meta_official" || setup?.provider === "zernio" ? setup.provider : null;
+  // Campanhas dependem de ter um provedor oficial CONFIGURADO — não do provedor
+  // "principal" da org. Uma org em Evolution para atendimento pode ter Zernio
+  // conectado só para campanhas, e nesse caso a tela deve abrir.
+  const activeProviders = {
+    meta: !!setup?.meta,
+    zernio: !!setup?.zernio,
+  };
+  const canRunCampaigns = activeProviders.meta || activeProviders.zernio;
 
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -52,7 +59,7 @@ export default function CampaignsPage() {
           Campanhas
         </h1>
       </div>
-      {campaignProvider && (
+      {canRunCampaigns && (
         <Button onClick={() => setFormOpen(true)} className="gap-1.5">
           <Plus className="h-4 w-4" strokeWidth={1.5} />
           Nova campanha
@@ -66,7 +73,7 @@ export default function CampaignsPage() {
   }
 
   // Evolution (ou sem provedor): campanhas em massa bloqueadas.
-  if (!campaignProvider) {
+  if (!canRunCampaigns) {
     return (
       <AppShell>
         <div className="space-y-6">
@@ -142,6 +149,7 @@ export default function CampaignsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
+                  <TableHead>Canal</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Destinatários</TableHead>
                   <TableHead className="text-right">Enviadas</TableHead>
@@ -153,6 +161,14 @@ export default function CampaignsPage() {
                 {(campaigns ?? []).map((campaign) => (
                   <TableRow key={campaign.id}>
                     <TableCell className="font-medium">{campaign.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <ChannelBadge channel={campaign.channel} showLabel />
+                        <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                          {PROVIDER_LABEL[campaign.provider as CampaignProvider] ?? campaign.provider}
+                        </span>
+                      </div>
+                    </TableCell>
                     <TableCell><StatusBadge status={campaign.status} /></TableCell>
                     <TableCell className="text-right tabular-nums">{campaign.total_recipients}</TableCell>
                     <TableCell className="text-right tabular-nums">{campaign.sent_count}</TableCell>
@@ -188,7 +204,7 @@ export default function CampaignsPage() {
         </Tabs>
       </div>
 
-      <CampaignFormDialog open={formOpen} onOpenChange={setFormOpen} provider={campaignProvider} />
+      <CampaignFormDialog open={formOpen} onOpenChange={setFormOpen} activeProviders={activeProviders} />
     </AppShell>
   );
 }

@@ -38,11 +38,13 @@ function orderedParams(template: string, vars: Record<string, string>): string[]
   return [...template.matchAll(/\{\{(\w+)\}\}/g)].map((m) => vars[m[1]] ?? "");
 }
 
-/** Resolve a conta de WhatsApp conectada no Zernio (accountId é obrigatório no envio). */
-async function zernioWhatsAppAccountId(apiKey: string, profileId: string): Promise<string | null> {
+/** Resolve a conta conectada do canal no Zernio (accountId é obrigatório no envio). */
+async function zernioAccountId(
+  apiKey: string, profileId: string, channel: string,
+): Promise<string | null> {
   const url = new URL(`${ZERNIO_API}/accounts`);
   url.searchParams.set("profileId", profileId);
-  url.searchParams.set("platform", "whatsapp");
+  url.searchParams.set("platform", channel);
   url.searchParams.set("status", "connected");
   const resp = await fetch(url.toString(), { headers: { Authorization: `Bearer ${apiKey}` } });
   if (!resp.ok) return null;
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
 
     const { data: campaign } = await admin
       .from("campaigns")
-      .select("id, org_id, message_template, status, provider, template_name, template_language")
+      .select("id, org_id, message_template, status, channel, provider, template_name, template_language")
       .eq("id", campaign_id)
       .maybeSingle();
     if (!campaign) return json({ error: "Campanha não encontrada" }, 404);
@@ -85,9 +87,16 @@ Deno.serve(async (req) => {
     if (profile?.org_id !== campaign.org_id) return json({ error: "Sem acesso a esta campanha" }, 403);
 
     const provider = (campaign.provider as string) ?? "meta_official";
+    const channel = (campaign.channel as string) ?? "whatsapp";
     if (provider !== "meta_official" && provider !== "zernio") {
       return json({
         error: "Campanhas em massa só são permitidas na API Oficial (Meta) ou no Zernio.",
+      }, 400);
+    }
+    // A Graph API só entrega mensagem de negócio nesses três canais.
+    if (provider === "meta_official" && !["whatsapp", "instagram", "facebook"].includes(channel)) {
+      return json({
+        error: `A API Oficial (Meta) não entrega no canal ${channel}. Use o Zernio.`,
       }, 400);
     }
 
@@ -111,18 +120,23 @@ Deno.serve(async (req) => {
         .from("zernio_configs").select("api_key, profile_id").eq("org_id", campaign.org_id).maybeSingle();
       if (!config) return json({ error: "Zernio não configurado para esta organização." }, 400);
 
-      if (!campaign.template_name || !campaign.template_language) {
+      // Só o WhatsApp exige template: nos demais canais o Zernio abre a conversa
+      // com texto livre.
+      if (channel === "whatsapp" && (!campaign.template_name || !campaign.template_language)) {
         return json({
-          error: "Campanha do Zernio exige um template aprovado — o WhatsApp não permite "
-            + "mensagem livre para iniciar conversa.",
+          error: "Campanha de WhatsApp pelo Zernio exige um template aprovado — o WhatsApp "
+            + "não permite mensagem livre para iniciar conversa.",
         }, 400);
       }
 
-      const accountId = await zernioWhatsAppAccountId(
+      const accountId = await zernioAccountId(
         config.api_key as string,
         config.profile_id as string,
+        channel,
       );
-      if (!accountId) return json({ error: "Nenhuma conta de WhatsApp conectada no Zernio." }, 400);
+      if (!accountId) {
+        return json({ error: `Nenhuma conta de ${channel} conectada no Zernio.` }, 400);
+      }
       zernio = { apiKey: config.api_key as string, accountId };
     }
 
@@ -133,7 +147,7 @@ Deno.serve(async (req) => {
 
     const { data: recipients } = await admin
       .from("campaign_recipients")
-      .select("id, phone_number, contact:contacts(first_name, company:companies(name))")
+      .select("id, phone_number, channel_contact_id, contact:contacts(first_name, company:companies(name))")
       .eq("campaign_id", campaign_id)
       .eq("status", "pending");
 
@@ -148,6 +162,11 @@ Deno.serve(async (req) => {
       };
       const text = render(campaign.message_template, vars);
       const params = orderedParams(campaign.message_template, vars);
+      // WhatsApp continua endereçando por telefone; os demais canais usam o
+      // identificador da plataforma gravado na criação da campanha.
+      const destination = channel === "whatsapp"
+        ? recipient.phone_number
+        : (recipient.channel_contact_id ?? recipient.phone_number);
 
       let ok = false;
       let errorMsg: unknown = "Falha no envio";
@@ -156,7 +175,7 @@ Deno.serve(async (req) => {
         const body = campaign.template_name
           ? {
             messaging_product: "whatsapp",
-            to: recipient.phone_number,
+            to: destination,
             type: "template",
             template: {
               name: campaign.template_name,
@@ -173,7 +192,7 @@ Deno.serve(async (req) => {
           }
           : {
             messaging_product: "whatsapp",
-            to: recipient.phone_number,
+            to: destination,
             type: "text",
             text: { body: text },
           };
@@ -195,20 +214,27 @@ Deno.serve(async (req) => {
           errorMsg = err?.error?.error_user_msg ?? err?.error?.message ?? errorMsg;
         }
       } else {
-        // Zernio: abre (ou reusa) a conversa entregando o template aprovado.
+        // Zernio: abre (ou reusa) a conversa. No WhatsApp isso exige template
+        // aprovado; nos demais canais vai o texto renderizado.
+        const zernioBody: Record<string, unknown> = {
+          accountId: zernio!.accountId,
+          participantId: destination,
+        };
+        if (channel === "whatsapp") {
+          zernioBody.templateName = campaign.template_name;
+          zernioBody.templateLanguage = campaign.template_language;
+          if (params.length > 0) zernioBody.templateParams = params;
+        } else {
+          zernioBody.message = text;
+        }
+
         const resp = await fetch(`${ZERNIO_API}/inbox/conversations`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${zernio!.apiKey}`,
           },
-          body: JSON.stringify({
-            accountId: zernio!.accountId,
-            participantId: recipient.phone_number,
-            templateName: campaign.template_name,
-            templateLanguage: campaign.template_language,
-            ...(params.length > 0 ? { templateParams: params } : {}),
-          }),
+          body: JSON.stringify(zernioBody),
         });
         ok = resp.ok;
         if (!ok) {

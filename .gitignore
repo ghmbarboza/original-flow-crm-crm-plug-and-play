@@ -35,3 +35,12 @@ e2e/.auth/
 # Env / secrets (nunca versionar, nem templates)
 .env
 .env.*
+
+# Docs de planejamento de sprint: ficam no disco para referência, fora do
+# versionamento. Evita que `git add -A` os varra para dentro de commits de
+# código. Nota: FLOWCRM2_SPRINT7_MULTICANAL_ZERNIO.md já estava versionado antes
+# desta regra e continua rastreado — .gitignore não desrastreia o que já entrou.
+FLOWCRM2_SPRINT*.md
+
+# Spec OpenAPI do Zernio (39k linhas, referência de consulta).
+zernio-api-openapi.yaml
