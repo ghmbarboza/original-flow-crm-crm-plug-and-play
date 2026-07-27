@@ -208,3 +208,23 @@ BEGIN
   RETURN v_sent;
 END;
 $$;
+
+-- ---------------------------------------------------------------
+-- Agendamento: a varredura só tem valor se rodar sozinha. A cada 5 minutos.
+--
+-- A granularidade útil é limitada pelo próprio intervalo: um limite de 30 min
+-- configurado no canal vira, na prática, um aviso entre 30 e 35 minutos. Para
+-- limites bem menores que 5 min, encurte também este agendamento.
+--
+-- unschedule antes de schedule para a migration ser reexecutável sem duplicar
+-- o job (cron.schedule com o mesmo nome atualiza, mas em versões antigas do
+-- pg_cron não atualizava — ser explícito evita depender disso).
+-- ---------------------------------------------------------------
+SELECT cron.unschedule('notify-stale-conversations')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'notify-stale-conversations');
+
+SELECT cron.schedule(
+  'notify-stale-conversations',
+  '*/5 * * * *',
+  $$SELECT public.notify_stale_conversations()$$
+);
