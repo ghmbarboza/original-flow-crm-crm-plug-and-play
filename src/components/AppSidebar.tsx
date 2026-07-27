@@ -18,6 +18,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  Users2,
   Zap,
 } from "lucide-react";
 import {
@@ -68,6 +69,7 @@ export function AppSidebar() {
       items: [
         { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
         { title: "Email", url: "/inbox", icon: Mail },
+        { title: "Equipe", url: "/team", icon: Users2 },
       ],
     },
     {

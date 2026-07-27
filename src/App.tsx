@@ -171,8 +171,11 @@ const App = () => (
               <ProtectedRoute><Page name="Lead Scoring"><LeadScoringPage /></Page></ProtectedRoute>
             } />
 
+            {/* Sem allowedRoles: aquele filtro é por app_role (admin|member) e
+                barraria gerente/diretor, que precisam supervisionar. A própria
+                página checa crm_role e mostra o aviso de acesso restrito. */}
             <Route path="/team" element={
-              <ProtectedRoute allowedRoles={["admin"]}><Page name="Equipe"><TeamPage /></Page></ProtectedRoute>
+              <ProtectedRoute><Page name="Equipe"><TeamPage /></Page></ProtectedRoute>
             } />
             <Route path="/settings/*" element={
               <ProtectedRoute allowedRoles={["admin"]}><Page name="Configurações"><SettingsPage /></Page></ProtectedRoute>
