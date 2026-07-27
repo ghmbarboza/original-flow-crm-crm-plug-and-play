@@ -8,6 +8,17 @@ export interface ReportFilters {
   /** Fim do período (ISO). */
   to: string;
   ownerId?: string | null;
+  /** Canal das conversas. null = todos. */
+  channel?: string | null;
+}
+
+export interface ChannelConversion {
+  channel: string;
+  conversations: number;
+  /** Deals criados a partir de contatos que conversaram por este canal. */
+  deals: number;
+  /** deals / conversations, em porcentagem. */
+  rate: number;
 }
 
 export interface ReportData {
@@ -25,10 +36,17 @@ export interface ReportData {
     closed: number;
     ai: number;
     human: number;
+    /** Volume por canal, do maior para o menor. */
+    byChannel: { channel: string; count: number }[];
   };
   leads: {
     total: number;
     bySource: { source: string; count: number }[];
+  };
+  /** Conversão conversa → deal por canal, e qual canal converte melhor. */
+  conversion: {
+    byChannel: ChannelConversion[];
+    bestChannel: string | null;
   };
 }
 
@@ -47,22 +65,26 @@ export function useReports(filters: ReportFilters) {
     queryFn: async (): Promise<ReportData> => {
       const dealsQuery = supabase
         .from("deals")
-        .select("value, probability, status, stage:pipeline_stages(name, color), owner_id, created_at")
+        .select("value, probability, status, stage:pipeline_stages(name, color), owner_id, contact_id, created_at")
         .eq("org_id", orgId!)
         .gte("created_at", filters.from)
         .lte("created_at", filters.to);
 
+      // Conversas trazem contact_id para cruzar com deals na taxa de conversão.
+      let conversationsQuery = supabase
+        .from("conversations")
+        .select("status, channel, contact_id, created_at")
+        .eq("org_id", orgId!)
+        .gte("created_at", filters.from)
+        .lte("created_at", filters.to);
+      if (filters.channel) conversationsQuery = conversationsQuery.eq("channel", filters.channel);
+
       const [deals, conversations, contacts] = await Promise.all([
         filters.ownerId ? dealsQuery.eq("owner_id", filters.ownerId) : dealsQuery,
-        supabase
-          .from("conversations")
-          .select("status, created_at")
-          .eq("org_id", orgId!)
-          .gte("created_at", filters.from)
-          .lte("created_at", filters.to),
+        conversationsQuery,
         supabase
           .from("contacts")
-          .select("source, status, created_at")
+          .select("id, source, status, created_at")
           .eq("org_id", orgId!)
           .is("merged_into_id", null)
           .gte("created_at", filters.from)
@@ -88,14 +110,48 @@ export function useReports(filters: ReportFilters) {
         if (d.status === "lost") lost += 1;
       }
 
-      // Conversas.
+      // Conversas: totais, recorte por canal e contatos alcançados em cada canal.
       let cOpen = 0, cClosed = 0, ai = 0, human = 0;
+      const channelCount = new Map<string, number>();
+      const contactsByChannel = new Map<string, Set<string>>();
       for (const c of conversations.data ?? []) {
         if (c.status === "closed") cClosed += 1;
         else cOpen += 1;
         if (c.status === "ai_active") ai += 1;
         if (c.status === "human_takeover") human += 1;
+
+        const channel = c.channel ?? "whatsapp";
+        channelCount.set(channel, (channelCount.get(channel) ?? 0) + 1);
+        if (c.contact_id) {
+          const set = contactsByChannel.get(channel) ?? new Set<string>();
+          set.add(c.contact_id);
+          contactsByChannel.set(channel, set);
+        }
       }
+
+      // Conversão por canal: deals do período cujo contato conversou naquele
+      // canal. Um contato que falou por dois canais conta nos dois — a métrica
+      // é "qual canal participou de negócios", não atribuição exclusiva.
+      const dealContacts = new Set(
+        (deals.data ?? []).map((d) => d.contact_id).filter(Boolean) as string[],
+      );
+      const byChannelConversion: ChannelConversion[] = [...channelCount.entries()]
+        .map(([channel, count]) => {
+          const reached = contactsByChannel.get(channel) ?? new Set<string>();
+          let dealCount = 0;
+          for (const contactId of reached) if (dealContacts.has(contactId)) dealCount += 1;
+          return {
+            channel,
+            conversations: count,
+            deals: dealCount,
+            rate: count > 0 ? (dealCount / count) * 100 : 0,
+          };
+        })
+        .sort((a, b) => b.rate - a.rate);
+
+      // Só destaca "melhor canal" com volume mínimo: 1 conversa que virou deal
+      // daria 100% e enganaria a leitura.
+      const best = byChannelConversion.find((c) => c.conversations >= 5 && c.deals > 0) ?? null;
 
       // Leads por origem.
       const sourceMap = new Map<string, number>();
@@ -112,10 +168,17 @@ export function useReports(filters: ReportFilters) {
         conversations: {
           total: conversations.data?.length ?? 0,
           open: cOpen, closed: cClosed, ai, human,
+          byChannel: [...channelCount.entries()]
+            .map(([channel, count]) => ({ channel, count }))
+            .sort((a, b) => b.count - a.count),
         },
         leads: {
           total: contacts.data?.length ?? 0,
           bySource: [...sourceMap.entries()].map(([source, count]) => ({ source, count })),
+        },
+        conversion: {
+          byChannel: byChannelConversion,
+          bestChannel: best?.channel ?? null,
         },
       };
     },

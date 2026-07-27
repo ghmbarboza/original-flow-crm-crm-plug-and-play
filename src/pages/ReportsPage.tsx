@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { useReports } from "@/hooks/useReports";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
+import { ChannelBadge, channelMeta } from "@/components/whatsapp/ChannelBadge";
+import { CAMPAIGN_CHANNELS } from "@/lib/campaign-channels";
 import { VIA_CHART_COLORS, VIA } from "@/lib/via-colors";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { formatCurrency } from "@/lib/format";
@@ -47,12 +49,18 @@ export default function ReportsPage() {
   const { data: members } = useOrgMembers();
   const [period, setPeriod] = useState("30");
   const [owner, setOwner] = useState(ALL);
+  const [channel, setChannel] = useState(ALL);
 
   const filters = useMemo(() => {
     const to = new Date();
     const from = new Date(to.getTime() - Number(period) * 86400_000);
-    return { from: from.toISOString(), to: to.toISOString(), ownerId: owner === ALL ? null : owner };
-  }, [period, owner]);
+    return {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      ownerId: owner === ALL ? null : owner,
+      channel: channel === ALL ? null : channel,
+    };
+  }, [period, owner, channel]);
 
   const { data, isLoading, error } = useReports(filters);
 
@@ -99,6 +107,15 @@ export default function ReportsPage() {
               <SelectContent>
                 <SelectItem value={ALL}>Todos os owners</SelectItem>
                 {(members ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={channel} onValueChange={setChannel}>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Todos os canais</SelectItem>
+                {CAMPAIGN_CHANNELS.map((ch) => (
+                  <SelectItem key={ch} value={ch}>{channelMeta(ch).label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={exportCsv} className="gap-1.5">
@@ -190,6 +207,92 @@ export default function ReportsPage() {
                   <KPI label="Encerradas" value={String(data.conversations.closed)} />
                   <KPI label="Em atendimento humano" value={String(data.conversations.human)} />
                 </div>
+              </ChartCard>
+
+              <ChartCard title="Conversas por canal">
+                {data.conversations.byChannel.length === 0 ? (
+                  <p className="py-8 text-center text-sm" style={{ color: "var(--via-text-muted)" }}>
+                    Sem conversas no período.
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={data.conversations.byChannel} layout="vertical">
+                      <XAxis type="number" tick={{ fontSize: 12, fill: VIA.gray500 }} allowDecimals={false} />
+                      <YAxis
+                        type="category"
+                        dataKey="channel"
+                        width={100}
+                        tick={{ fontSize: 12, fill: VIA.gray500 }}
+                        tickFormatter={(ch: string) => channelMeta(ch).label}
+                      />
+                      <Tooltip
+                        formatter={(v: number) => [v, "Conversas"]}
+                        labelFormatter={(ch: string) => channelMeta(ch).label}
+                      />
+                      <Bar dataKey="count" name="Conversas" radius={[0, 4, 4, 0]}>
+                        {data.conversations.byChannel.map((_, i) => (
+                          <Cell key={i} fill={VIA_CHART_COLORS[i % VIA_CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </ChartCard>
+
+              <ChartCard title="Conversão por canal">
+                {data.conversion.byChannel.length === 0 ? (
+                  <p className="py-8 text-center text-sm" style={{ color: "var(--via-text-muted)" }}>
+                    Sem conversas no período.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {data.conversion.bestChannel && (
+                      <p className="text-xs" style={{ color: "var(--via-text-body)" }}>
+                        Melhor conversão: <strong>{channelMeta(data.conversion.bestChannel).label}</strong>
+                      </p>
+                    )}
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b" style={{ borderColor: "var(--via-border)" }}>
+                          <th className="py-1.5 text-left font-medium">Canal</th>
+                          <th className="py-1.5 text-right font-medium">Conversas</th>
+                          <th className="py-1.5 text-right font-medium">Negócios</th>
+                          <th className="py-1.5 text-right font-medium">Taxa</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.conversion.byChannel.map((c) => (
+                          <tr key={c.channel} className="border-b" style={{ borderColor: "var(--via-border)" }}>
+                            <td className="py-1.5">
+                              <span className="flex items-center gap-1.5">
+                                <ChannelBadge channel={c.channel} />
+                                {channelMeta(c.channel).label}
+                              </span>
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums">{c.conversations}</td>
+                            <td className="py-1.5 text-right tabular-nums">{c.deals}</td>
+                            <td
+                              className="py-1.5 text-right font-medium tabular-nums"
+                              style={{
+                                color: c.channel === data.conversion.bestChannel
+                                  ? "var(--via-success)"
+                                  : "var(--via-text-primary)",
+                              }}
+                            >
+                              {c.rate.toFixed(1)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                      Conta negócios do período cujo contato conversou pelo canal. Um contato que
+                      falou por dois canais aparece nos dois — a leitura é "qual canal participou
+                      de negócios", não atribuição exclusiva. O destaque exige ao menos 5 conversas,
+                      para uma única conversa convertida não virar 100%.
+                    </p>
+                  </div>
+                )}
               </ChartCard>
             </div>
           </>
