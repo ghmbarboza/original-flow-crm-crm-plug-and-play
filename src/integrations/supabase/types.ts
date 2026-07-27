@@ -708,6 +708,47 @@ export type Database = {
           },
         ]
       }
+      channel_distribution_configs: {
+        Row: {
+          channel: string
+          created_at: string
+          distribution_mode: Database["public"]["Enums"]["distribution_mode"]
+          id: string
+          max_conversations_per_agent: number | null
+          offline_timeout_minutes: number
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
+          id?: string
+          max_conversations_per_agent?: number | null
+          offline_timeout_minutes?: number
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
+          id?: string
+          max_conversations_per_agent?: number | null
+          offline_timeout_minutes?: number
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_distribution_configs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           created_at: string
@@ -1892,47 +1933,6 @@ export type Database = {
           },
         ]
       }
-      channel_distribution_configs: {
-        Row: {
-          channel: string
-          created_at: string
-          distribution_mode: Database["public"]["Enums"]["distribution_mode"]
-          id: string
-          max_conversations_per_agent: number | null
-          offline_timeout_minutes: number
-          org_id: string
-          updated_at: string
-        }
-        Insert: {
-          channel: string
-          created_at?: string
-          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
-          id?: string
-          max_conversations_per_agent?: number | null
-          offline_timeout_minutes?: number
-          org_id: string
-          updated_at?: string
-        }
-        Update: {
-          channel?: string
-          created_at?: string
-          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
-          id?: string
-          max_conversations_per_agent?: number | null
-          offline_timeout_minutes?: number
-          org_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "channel_distribution_configs_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       lead_score_history: {
         Row: {
           channel: string | null
@@ -2845,10 +2845,28 @@ export type Database = {
           org_id: string | null
           total_unread: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
+      apply_lead_score: {
+        Args: {
+          p_channel?: string
+          p_contact: string
+          p_event: string
+          p_org: string
+          p_reason?: string
+        }
+        Returns: number
+      }
       create_notification: {
         Args: {
           p_body: string
@@ -2875,20 +2893,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      apply_lead_score: {
-        Args: {
-          p_channel?: string
-          p_contact: string
-          p_event: string
-          p_org: string
-          p_reason?: string
-        }
-        Returns: number
-      }
-      pick_lead_scoring_rule: {
-        Args: { p_channel?: string; p_event: string; p_org: string }
-        Returns: number
-      }
       notify_org_admins: {
         Args: {
           p_body: string
@@ -2900,9 +2904,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      notify_stale_conversations: { Args: never; Returns: number }
       pick_agent_for_channel: {
         Args: { p_channel: string; p_org: string }
         Returns: string
+      }
+      pick_lead_scoring_rule: {
+        Args: { p_channel?: string; p_event: string; p_org: string }
+        Returns: number
       }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
     }
