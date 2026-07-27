@@ -11,9 +11,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Copy, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import type { AppRole } from "@/types/auth";
+import { AssignedChannelsCell } from "@/components/settings/AssignedChannelsCell";
 
 export default function TeamSettings() {
-  const { members, isLoading, approveMember, rejectMember, changeRole, deactivateMember, reactivateMember } = useTeamManagement();
+  const { members, isLoading, approveMember, rejectMember, changeRole, deactivateMember, reactivateMember, setAssignedChannels } = useTeamManagement();
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -70,15 +71,16 @@ export default function TeamSettings() {
               <TableHead>Nome</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Permissões</TableHead>
+              <TableHead>Canais</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Carregando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhum membro</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Nenhum membro</TableCell></TableRow>
             ) : filtered.map((m) => (
               <TableRow key={m.id}>
                 <TableCell>
@@ -101,6 +103,16 @@ export default function TeamSettings() {
                       <SelectItem value="member">member</SelectItem>
                     </SelectContent>
                   </Select>
+                </TableCell>
+                <TableCell>
+                  {m.is_approved && m.is_active ? (
+                    <AssignedChannelsCell
+                      channels={m.assigned_channels ?? []}
+                      onSave={(channels) => setAssignedChannels.mutate({ userId: m.id, channels })}
+                    />
+                  ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {!m.is_approved && <Badge className="bg-warning text-warning-foreground">Pendente</Badge>}

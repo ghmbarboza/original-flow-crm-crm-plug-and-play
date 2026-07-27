@@ -19,6 +19,8 @@ export interface Profile {
   org_id: string | null;
   crm_role: CrmRole | null;
   manager_id: string | null;
+  /** Canais que o agente atende na distribuição. Array vazio = sem restrição. */
+  assigned_channels: string[];
   created_at: string | null;
   updated_at: string | null;
 }

@@ -83,9 +83,22 @@ export function useTeamManagement() {
     onError: (e: any) => toast.error(e.message ?? "Erro"),
   });
 
+  // Canais que o agente atende. Array vazio = sem restrição (atende todos).
+  const setAssignedChannels = useMutation({
+    mutationFn: async ({ userId, channels }: { userId: string; channels: string[] }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ assigned_channels: channels, updated_at: new Date().toISOString() })
+        .eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Canais do agente atualizados"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message ?? "Erro"),
+  });
+
   return {
     members: membersQuery.data ?? [],
     isLoading: membersQuery.isLoading,
-    approveMember, rejectMember, changeRole, deactivateMember, reactivateMember,
+    approveMember, rejectMember, changeRole, deactivateMember, reactivateMember, setAssignedChannels,
   };
 }
