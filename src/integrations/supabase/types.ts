@@ -2797,6 +2797,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      pick_agent_for_channel: {
+        Args: { p_channel: string; p_org: string }
+        Returns: string
+      }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
     }
     Enums: {
