@@ -2,15 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-interface OnboardingProgress {
-  user_id: string;
-  completed_steps: string[];
-  is_completed: boolean;
+/**
+ * `completed_steps` é jsonb no banco, então chega como Json. Aqui ele é sempre
+ * uma lista de ids de passo — normalizamos na leitura para o resto do hook não
+ * precisar checar o formato.
+ */
+function toSteps(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
 
-// onboarding_progress is created by migration after the base types were generated;
-// cast through `as any` to bypass the generated typed surface until regen.
-const onboardingTable = () => (supabase as any).from("onboarding_progress");
+const onboardingTable = () => supabase.from("onboarding_progress");
 
 export function useOnboarding() {
   const { user } = useAuth();
@@ -27,23 +28,29 @@ export function useOnboarding() {
     }
     setIsLoading(true);
 
-    const { data } = await onboardingTable()
+    const { data, error } = await onboardingTable()
       .select("user_id, completed_steps, is_completed")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // Sem linha ainda: cria a do usuário. Um erro real na leitura não deve virar
+    // "vamos criar" — antes o código não distinguia os dois casos e engolia
+    // qualquer falha como se o usuário não tivesse progresso.
+    if (error) {
+      setIsLoading(false);
+      return;
+    }
 
     if (!data) {
       const { data: created } = await onboardingTable()
         .insert({ user_id: user.id, completed_steps: [], is_completed: false })
         .select("user_id, completed_steps, is_completed")
         .maybeSingle();
-      const row = created as OnboardingProgress | null;
-      setIsCompleted(row?.is_completed ?? false);
-      setCompletedSteps(row?.completed_steps ?? []);
+      setIsCompleted(created?.is_completed ?? false);
+      setCompletedSteps(toSteps(created?.completed_steps));
     } else {
-      const row = data as OnboardingProgress;
-      setIsCompleted(row.is_completed);
-      setCompletedSteps(row.completed_steps ?? []);
+      setIsCompleted(data.is_completed ?? false);
+      setCompletedSteps(toSteps(data.completed_steps));
     }
     setIsLoading(false);
   }, [user]);

@@ -101,7 +101,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
           body,
         });
-      } catch (_) {}
+      } catch {
+        // Best-effort: roda no beforeunload, quando a aba já está fechando.
+        // Falhar aqui não tem tratamento útil nem tela para mostrar erro.
+      }
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
@@ -171,7 +174,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     if (user) {
-      try { await supabase.from("profiles").update({ status: "offline" }).eq("id", user.id); } catch (_) {}
+      try {
+        await supabase.from("profiles").update({ status: "offline" }).eq("id", user.id);
+      } catch {
+        // Marcar offline é cortesia: se falhar, o logout precisa acontecer
+        // do mesmo jeito. Erro aqui não pode impedir o signOut abaixo.
+      }
     }
     await supabase.auth.signOut();
   };

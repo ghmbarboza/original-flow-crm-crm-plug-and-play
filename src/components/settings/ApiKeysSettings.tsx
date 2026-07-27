@@ -81,7 +81,7 @@ export default function ApiKeysSettings() {
   const test = async (s: string) => {
     setStatus((p) => ({ ...p, [s]: "checking" }));
     const { data } = await supabase.functions.invoke("validate-api-key", { body: { service_name: s } });
-    setStatus((p) => ({ ...p, [s]: (data?.status as any) ?? "invalid" }));
+    setStatus((p) => ({ ...p, [s]: (data?.status as Status[string]) ?? "invalid" }));
     if (data?.status === "valid") toast.success("Chave válida");
     else toast.error("Chave inválida");
   };

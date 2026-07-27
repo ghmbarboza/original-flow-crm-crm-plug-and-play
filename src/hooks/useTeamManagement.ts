@@ -19,8 +19,8 @@ export function useTeamManagement() {
         .from("profiles").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       const { data: roles } = await supabase.from("user_roles").select("user_id, role");
-      const map = new Map((roles ?? []).map((r: any) => [r.user_id, r.role as AppRole]));
-      return (profiles ?? []).map((p: any) => ({ ...(p as Profile), role: map.get(p.id) ?? null }));
+      const map = new Map((roles ?? []).map((r) => [r.user_id, r.role as AppRole]));
+      return (profiles ?? []).map((p) => ({ ...(p as Profile), role: map.get(p.id) ?? null }));
     },
   });
 
@@ -32,7 +32,7 @@ export function useTeamManagement() {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Usuário aprovado"); invalidate(); },
-    onError: (e: any) => toast.error(e.message ?? "Erro ao aprovar"),
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao aprovar"),
   });
 
   const rejectMember = useMutation({
@@ -44,7 +44,7 @@ export function useTeamManagement() {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Usuário rejeitado"); invalidate(); },
-    onError: (e: any) => toast.error(e.message ?? "Erro"),
+    onError: (e: Error) => toast.error(e.message ?? "Erro"),
   });
 
   const changeRole = useMutation({
@@ -57,11 +57,12 @@ export function useTeamManagement() {
         }
       }
       await supabase.from("user_roles").delete().eq("user_id", userId);
-      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole as any });
+      // AppRole é exatamente o enum app_role do banco — o cast era desnecessário.
+      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole });
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Role atualizado"); invalidate(); },
-    onError: (e: any) => toast.error(e.message ?? "Erro"),
+    onError: (e: Error) => toast.error(e.message ?? "Erro"),
   });
 
   const deactivateMember = useMutation({
@@ -71,7 +72,7 @@ export function useTeamManagement() {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Usuário desativado"); invalidate(); },
-    onError: (e: any) => toast.error(e.message ?? "Erro"),
+    onError: (e: Error) => toast.error(e.message ?? "Erro"),
   });
 
   const reactivateMember = useMutation({
@@ -80,7 +81,7 @@ export function useTeamManagement() {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Usuário reativado"); invalidate(); },
-    onError: (e: any) => toast.error(e.message ?? "Erro"),
+    onError: (e: Error) => toast.error(e.message ?? "Erro"),
   });
 
   // Canais que o agente atende. Array vazio = sem restrição (atende todos).
