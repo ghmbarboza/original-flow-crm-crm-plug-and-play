@@ -40,16 +40,15 @@ export default function OnboardingPage() {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, email, phone, company" as any)
+        .select("full_name, email, phone, company")
         .eq("id", user.id)
         .maybeSingle();
       if (cancelled) return;
-      const row = (data ?? {}) as any;
       setForm({
-        full_name: row.full_name ?? "",
-        email: row.email ?? user.email ?? "",
-        phone: row.phone ?? "",
-        company: row.company ?? "",
+        full_name: data?.full_name ?? "",
+        email: data?.email ?? user.email ?? "",
+        phone: data?.phone ?? "",
+        company: data?.company ?? "",
       });
       setLoadingProfile(false);
     })();
@@ -81,7 +80,7 @@ export default function OnboardingPage() {
         email: parsed.data.email,
         phone: parsed.data.phone || null,
         company: parsed.data.company || null,
-      } as any)
+      })
       .eq("id", user.id);
 
     if (error) {

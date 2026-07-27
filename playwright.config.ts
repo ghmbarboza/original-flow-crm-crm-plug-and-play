@@ -12,7 +12,12 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // 1 retry também localmente. O primeiro run depois de um tempo parado sobe o
+  // dev server frio: o Vite ainda transforma as rotas sob demanda e o timeout de
+  // 10s do expect estoura nos primeiros specs que criam registro. Medido: 53s no
+  // run frio contra 27s nos seguintes. Sem retry, isso vira falso alarme de
+  // regressão — foi o que quase aconteceu no fechamento do Sprint 8.
+  retries: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   timeout: 60_000,
   expect: { timeout: 10_000 },

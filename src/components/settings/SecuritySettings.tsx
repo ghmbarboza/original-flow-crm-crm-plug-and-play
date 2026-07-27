@@ -22,7 +22,7 @@ export default function SecuritySettings() {
     (async () => {
       const { data } = await supabase.from("project_config").select("key, value");
       const map: Record<string, string> = {};
-      (data ?? []).forEach((r: any) => { map[r.key] = r.value; });
+      (data ?? []).forEach((r) => { map[r.key] = r.value; });
       setRequireApproval(map.require_account_approval === "true");
       setRestrictDomain(map.restrict_signup_by_domain === "true");
       setDomains((map.allowed_email_domains ?? "").split(",").map((d) => d.trim()).filter(Boolean));

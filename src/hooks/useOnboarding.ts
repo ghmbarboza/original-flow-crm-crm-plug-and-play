@@ -8,8 +8,22 @@ interface OnboardingProgress {
   is_completed: boolean;
 }
 
-// onboarding_progress is created by migration after the base types were generated;
-// cast through `as any` to bypass the generated typed surface until regen.
+/**
+ * ATENÇÃO: a tabela `onboarding_progress` NÃO existe neste banco.
+ *
+ * A migration que a cria (20260501000002_onboarding_progress.sql) está no repo,
+ * mas nunca foi aplicada aqui — provavelmente não veio no remix do projeto base.
+ * Confirmado em information_schema.columns: zero linhas.
+ *
+ * Consequência: toda consulta abaixo falha com "relation does not exist", e o
+ * erro é engolido porque o código só desestrutura `data`, nunca `error`. O
+ * onboarding se comporta como se o usuário nunca tivesse progresso.
+ *
+ * O cast fica com disable explícito em vez de um tipo inventado: declarar um
+ * shape para uma tabela inexistente seria afirmar algo falso. Some quando a
+ * migration for aplicada e os tipos regenerados.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const onboardingTable = () => (supabase as any).from("onboarding_progress");
 
 export function useOnboarding() {
