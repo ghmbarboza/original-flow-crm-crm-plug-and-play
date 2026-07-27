@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
+  Megaphone,
   MessageCircle,
   Package,
   Settings,
@@ -72,6 +73,7 @@ export function AppSidebar() {
     {
       label: "Marketing",
       items: [
+        { title: "Campanhas", url: "/campaigns", icon: Megaphone },
         { title: "Automações", url: "/automations", icon: Zap },
         { title: "Sequências", url: "/email-sequences", icon: GitBranch },
         { title: "Templates", url: "/email-templates", icon: FileText },
