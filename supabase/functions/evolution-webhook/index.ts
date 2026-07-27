@@ -3,7 +3,7 @@
 // Recebe eventos do servidor Evolution: atualização de conexão/QR e mensagens
 // recebidas. Para cada mensagem inbound, resolve (ou cria) o contato e a conversa,
 // grava a mensagem e — se a conversa está com a IA ativa — dispara a resposta
-// automática (ai-whatsapp-reply).
+// automática (ai-reply).
 //
 // Endpoint público (a Evolution não envia auth). A segurança vem de resolver a
 // instância pelo instance_name: eventos de instâncias desconhecidas são ignorados.
@@ -18,7 +18,7 @@ function ok(body: unknown = { received: true }) {
 
 /** Dispara a resposta da IA sem bloquear a resposta ao provedor. */
 function triggerAI(conversationId: string) {
-  const call = fetch(`${SUPABASE_URL}/functions/v1/ai-whatsapp-reply`, {
+  const call = fetch(`${SUPABASE_URL}/functions/v1/ai-reply`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
