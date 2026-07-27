@@ -498,6 +498,7 @@ export type Database = {
       campaign_recipients: {
         Row: {
           campaign_id: string
+          channel_contact_id: string | null
           contact_id: string | null
           error_msg: string | null
           id: string
@@ -508,6 +509,7 @@ export type Database = {
         }
         Insert: {
           campaign_id: string
+          channel_contact_id?: string | null
           contact_id?: string | null
           error_msg?: string | null
           id?: string
@@ -518,6 +520,7 @@ export type Database = {
         }
         Update: {
           campaign_id?: string
+          channel_contact_id?: string | null
           contact_id?: string | null
           error_msg?: string | null
           id?: string
@@ -554,6 +557,7 @@ export type Database = {
         Row: {
           audience_config: Json
           audience_type: string
+          channel: string
           completed_at: string | null
           created_at: string
           created_by: string | null
@@ -576,6 +580,7 @@ export type Database = {
         Insert: {
           audience_config?: Json
           audience_type?: string
+          channel?: string
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -598,6 +603,7 @@ export type Database = {
         Update: {
           audience_config?: Json
           audience_type?: string
+          channel?: string
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -1886,8 +1892,50 @@ export type Database = {
           },
         ]
       }
+      channel_distribution_configs: {
+        Row: {
+          channel: string
+          created_at: string
+          distribution_mode: Database["public"]["Enums"]["distribution_mode"]
+          id: string
+          max_conversations_per_agent: number | null
+          offline_timeout_minutes: number
+          org_id: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
+          id?: string
+          max_conversations_per_agent?: number | null
+          offline_timeout_minutes?: number
+          org_id: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          distribution_mode?: Database["public"]["Enums"]["distribution_mode"]
+          id?: string
+          max_conversations_per_agent?: number | null
+          offline_timeout_minutes?: number
+          org_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_distribution_configs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_score_history: {
         Row: {
+          channel: string | null
           contact_id: string
           created_at: string
           id: string
@@ -1897,6 +1945,7 @@ export type Database = {
           reason: string
         }
         Insert: {
+          channel?: string | null
           contact_id: string
           created_at?: string
           id?: string
@@ -1906,6 +1955,7 @@ export type Database = {
           reason: string
         }
         Update: {
+          channel?: string | null
           contact_id?: string
           created_at?: string
           id?: string
@@ -1933,6 +1983,7 @@ export type Database = {
       }
       lead_scoring_rules: {
         Row: {
+          channel: string | null
           created_at: string
           event_type: string
           id: string
@@ -1942,6 +1993,7 @@ export type Database = {
           points: number
         }
         Insert: {
+          channel?: string | null
           created_at?: string
           event_type: string
           id?: string
@@ -1951,6 +2003,7 @@ export type Database = {
           points?: number
         }
         Update: {
+          channel?: string | null
           created_at?: string
           event_type?: string
           id?: string
@@ -2757,7 +2810,16 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      agent_conversation_load: {
+        Row: {
+          active_conversations: number | null
+          agent_id: string | null
+          channel: string | null
+          org_id: string | null
+          total_unread: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       create_notification: {
@@ -2785,6 +2847,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      pick_lead_scoring_rule: {
+        Args: { p_channel?: string; p_event: string; p_org: string }
+        Returns: number
       }
       notify_org_admins: {
         Args: {
