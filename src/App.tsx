@@ -139,9 +139,9 @@ const App = () => (
             <Route path="/whatsapp" element={
               <ProtectedRoute><Page name="WhatsApp"><WhatsAppPage /></Page></ProtectedRoute>
             } />
-            <Route path="/whatsapp/campaigns" element={
-              <ProtectedRoute><Page name="Campanhas"><CampaignsPage /></Page></ProtectedRoute>
-            } />
+            {/* Campanhas saiu de baixo de /whatsapp e virou item próprio em Marketing.
+                A rota antiga vira redirect para não quebrar link salvo. */}
+            <Route path="/whatsapp/campaigns" element={<Navigate to="/campaigns" replace />} />
             <Route path="/inbox" element={
               <ProtectedRoute><Page name="Email"><InboxPage /></Page></ProtectedRoute>
             } />
@@ -150,6 +150,9 @@ const App = () => (
             } />
 
             {/* Marketing */}
+            <Route path="/campaigns" element={
+              <ProtectedRoute><Page name="Campanhas"><CampaignsPage /></Page></ProtectedRoute>
+            } />
             <Route path="/automations" element={
               <ProtectedRoute><Page name="Automações"><AutomationsPage /></Page></ProtectedRoute>
             } />
