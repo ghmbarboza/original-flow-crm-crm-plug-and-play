@@ -134,6 +134,11 @@ Deno.serve(async (req) => {
   let conversationId = existingConversation?.id ?? null;
   let status = existingConversation?.status ?? "ai_active";
   if (!conversationId) {
+    // Distribuição por canal: pré-atribui um agente elegível (round-robin) ou null.
+    const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", {
+      p_org: orgId,
+      p_channel: "whatsapp",
+    });
     const { data: created } = await admin
       .from("conversations")
       .insert({
@@ -142,6 +147,7 @@ Deno.serve(async (req) => {
         contact_id: contactId,
         provider: "evolution",
         status: "ai_active",
+        assigned_to: assignedTo ?? null,
         last_message_at: new Date().toISOString(),
         last_message_preview: content.slice(0, 120),
         unread_count: 1,

@@ -61,6 +61,55 @@ interface Sender {
   phoneNumber?: string | null;
 }
 
+/**
+ * Resolve o contato do remetente em qualquer canal, criando um lead se não existir.
+ *
+ * WhatsApp casa pelo `whatsapp_phone` (compatibilidade com o fluxo antigo). Os demais
+ * canais não têm telefone, então casam pelo identificador da plataforma guardado em
+ * `custom_fields.channel_contact_id` — sempre em conjunto com `custom_fields.channel`,
+ * porque ids de plataformas diferentes podem colidir.
+ *
+ * O contato criado registra a origem no `source` (= canal) e guarda o identificador em
+ * `custom_fields`, até que um agente vincule manualmente um telefone.
+ */
+async function resolveContact(
+  admin: ReturnType<typeof createClient>,
+  orgId: string,
+  channel: string,
+  identifier: string,
+  channelContactId: string,
+  name: string | null,
+): Promise<string | null> {
+  if (channel === "whatsapp") {
+    const { data } = await admin
+      .from("contacts").select("id")
+      .eq("org_id", orgId).eq("whatsapp_phone", identifier)
+      .is("merged_into_id", null).maybeSingle();
+    if (data?.id) return data.id as string;
+  } else {
+    const { data } = await admin
+      .from("contacts").select("id")
+      .eq("org_id", orgId)
+      .eq("custom_fields->>channel_contact_id", channelContactId)
+      .eq("custom_fields->>channel", channel)
+      .is("merged_into_id", null).maybeSingle();
+    if (data?.id) return data.id as string;
+  }
+
+  const { data: created } = await admin
+    .from("contacts")
+    .insert({
+      org_id: orgId,
+      first_name: name ?? identifier,
+      whatsapp_phone: channel === "whatsapp" ? identifier : null,
+      status: "lead",
+      source: channel,
+      custom_fields: { channel_contact_id: channelContactId, channel },
+    })
+    .select("id").single();
+  return (created?.id as string | undefined) ?? null;
+}
+
 /** Cria/atualiza contato+conversa e grava a mensagem inbound. Devolve o status da conversa. */
 async function ingestInbound(
   admin: ReturnType<typeof createClient>,
@@ -91,27 +140,17 @@ async function ingestInbound(
   let contactId = (existing?.contact_id as string | null) ?? null;
 
   if (!conversationId) {
-    // Contato: para WhatsApp casa pelo whatsapp_phone; senão cria um lead do canal.
-    if (channel === "whatsapp") {
-      const { data: c } = await admin
-        .from("contacts").select("id")
-        .eq("org_id", orgId).eq("whatsapp_phone", identifier).is("merged_into_id", null).maybeSingle();
-      contactId = c?.id ?? null;
-    }
-    if (!contactId) {
-      const { data: created } = await admin
-        .from("contacts")
-        .insert({
-          org_id: orgId,
-          first_name: sender.name ?? sender.username ?? identifier,
-          whatsapp_phone: channel === "whatsapp" ? identifier : null,
-          status: "lead",
-          source: channel,
-        })
-        .select("id").single();
-      contactId = created?.id ?? null;
-    }
+    contactId = await resolveContact(
+      admin, orgId, channel, identifier,
+      sender.id ?? identifier,
+      sender.name ?? sender.username ?? null,
+    );
 
+    // Distribuição por canal: pré-atribui um agente elegível (round-robin) ou null.
+    const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", {
+      p_org: orgId,
+      p_channel: channel,
+    });
     const { data: conv } = await admin
       .from("conversations")
       .insert({
@@ -124,6 +163,7 @@ async function ingestInbound(
         contact_id: contactId,
         provider_conversation_id: providerConversationId,
         status: "ai_active",
+        assigned_to: assignedTo ?? null,
         last_message_at: now,
         last_message_preview: preview,
         unread_count: 1,
@@ -228,21 +268,20 @@ Deno.serve(async (req) => {
       .from("conversations").select("id")
       .eq("org_id", orgId).eq("channel", channel).eq("phone_number", identifier).maybeSingle();
     if (!existing) {
-      const { data: contact } = await admin
-        .from("contacts")
-        .insert({
-          org_id: orgId,
-          first_name: conv.participantName ?? identifier,
-          whatsapp_phone: channel === "whatsapp" ? identifier : null,
-          status: "lead",
-          source: channel,
-        })
-        .select("id").single();
+      const contactId = await resolveContact(
+        admin, orgId, channel, identifier, identifier, conv.participantName ?? null,
+      );
+      // Distribuição por canal: pré-atribui um agente elegível (round-robin) ou null.
+      const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", {
+        p_org: orgId,
+        p_channel: channel,
+      });
       await admin.from("conversations").insert({
         org_id: orgId, channel, provider: "zernio", phone_number: identifier,
         channel_contact_id: identifier, channel_contact_name: conv.participantName ?? null,
-        contact_id: contact?.id ?? null, provider_conversation_id: conv.id ?? null,
-        status: "ai_active", last_message_at: new Date().toISOString(), unread_count: 0,
+        contact_id: contactId, provider_conversation_id: conv.id ?? null,
+        status: "ai_active", assigned_to: assignedTo ?? null,
+        last_message_at: new Date().toISOString(), unread_count: 0,
       });
     }
     return ok();
