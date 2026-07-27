@@ -2848,6 +2848,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      apply_lead_score: {
+        Args: {
+          p_channel?: string
+          p_contact: string
+          p_event: string
+          p_org: string
+          p_reason?: string
+        }
+        Returns: number
+      }
       pick_lead_scoring_rule: {
         Args: { p_channel?: string; p_event: string; p_org: string }
         Returns: number

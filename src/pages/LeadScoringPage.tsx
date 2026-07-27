@@ -14,9 +14,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  SCORING_EVENTS, useDeleteScoringRule, useSaveScoringRule, useScoreHistory, useScoringRules,
+  ALL_CHANNELS, SCORING_EVENTS, useDeleteScoringRule, useSaveScoringRule,
+  useScoreHistory, useScoringRules,
 } from "@/hooks/useLeadScoring";
 import { useContacts } from "@/hooks/useContacts";
+import { ChannelBadge, channelMeta } from "@/components/whatsapp/ChannelBadge";
+import { CAMPAIGN_CHANNELS } from "@/lib/campaign-channels";
 import { formatDateTime } from "@/lib/format";
 
 function eventLabel(type: string) {
@@ -27,10 +30,11 @@ function RulesTab() {
   const { data: rules, isLoading } = useScoringRules();
   const saveRule = useSaveScoringRule();
   const deleteRule = useDeleteScoringRule();
-  const [draft, setDraft] = useState<{ label: string; event_type: string; points: string }>({
+  const [draft, setDraft] = useState({
     label: "",
-    event_type: SCORING_EVENTS[0].value,
+    event_type: SCORING_EVENTS[0].value as string,
     points: "10",
+    channel: ALL_CHANNELS,
   });
 
   const add = async () => {
@@ -43,9 +47,12 @@ function RulesTab() {
         label: draft.label.trim(),
         event_type: draft.event_type,
         points: Number(draft.points) || 0,
+        channel: draft.channel === ALL_CHANNELS ? null : draft.channel,
       });
       toast.success("Regra criada.");
-      setDraft({ label: "", event_type: SCORING_EVENTS[0].value, points: "10" });
+      setDraft({
+        label: "", event_type: SCORING_EVENTS[0].value, points: "10", channel: ALL_CHANNELS,
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível criar a regra.");
     }
@@ -64,6 +71,18 @@ function RulesTab() {
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               {SCORING_EVENTS.map((e) => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-44 space-y-1">
+          <label className="text-xs" style={{ color: "var(--via-text-muted)" }}>Canal</label>
+          <Select value={draft.channel} onValueChange={(v) => setDraft({ ...draft, channel: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CHANNELS}>Todos os canais</SelectItem>
+              {CAMPAIGN_CHANNELS.map((ch) => (
+                <SelectItem key={ch} value={ch}>{channelMeta(ch).label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -93,6 +112,7 @@ function RulesTab() {
               <TableRow>
                 <TableHead>Rótulo</TableHead>
                 <TableHead>Evento</TableHead>
+                <TableHead>Canal</TableHead>
                 <TableHead className="text-right">Pontos</TableHead>
                 <TableHead>Ativa</TableHead>
                 <TableHead className="w-10" />
@@ -103,6 +123,15 @@ function RulesTab() {
                 <TableRow key={rule.id}>
                   <TableCell className="font-medium">{rule.label}</TableCell>
                   <TableCell>{eventLabel(rule.event_type)}</TableCell>
+                  <TableCell>
+                    {rule.channel ? (
+                      <ChannelBadge channel={rule.channel} showLabel />
+                    ) : (
+                      <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                        Todos os canais
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{rule.points > 0 ? `+${rule.points}` : rule.points}</TableCell>
                   <TableCell>
                     <Switch
@@ -167,9 +196,12 @@ function HistoryTab() {
         <ul className="space-y-2">
           {(history ?? []).map((entry) => (
             <li key={entry.id} className="via-card flex items-center justify-between gap-3 p-3">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>{entry.reason}</p>
-                <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>{formatDateTime(entry.created_at)}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>{formatDateTime(entry.created_at)}</p>
+                  {entry.channel && <ChannelBadge channel={entry.channel} showLabel />}
+                </div>
               </div>
               <span
                 className="text-sm font-semibold tabular-nums"
