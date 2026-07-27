@@ -31,7 +31,9 @@ export function Inbox({ provider }: { provider: WhatsAppProvider }) {
       className="via-card grid overflow-hidden md:grid-cols-[minmax(280px,340px)_1fr]"
       style={{ height: "calc(100vh - 8rem)" }}
     >
-      <div className="border-r" style={{ borderColor: "var(--via-border)" }}>
+      {/* min-h-0 nos filhos do grid: sem isso o min-height:auto impede que a
+          coluna encolha abaixo do conteúdo, e o scroll interno nunca ativa. */}
+      <div className="min-h-0 overflow-hidden border-r" style={{ borderColor: "var(--via-border)" }}>
         <ConversationList
           conversations={conversations ?? []}
           isLoading={isLoading}
@@ -40,7 +42,7 @@ export function Inbox({ provider }: { provider: WhatsAppProvider }) {
         />
       </div>
 
-      <div className="hidden md:block">
+      <div className="hidden min-h-0 overflow-hidden md:block">
         {selected ? (
           <MessagePanel conversation={selected} provider={provider} />
         ) : (
@@ -58,7 +60,7 @@ export function Inbox({ provider }: { provider: WhatsAppProvider }) {
 
       {/* Mobile: quando há seleção, o painel ocupa a tela toda. */}
       {selected && (
-        <div className="md:hidden">
+        <div className="min-h-0 overflow-hidden md:hidden">
           <MessagePanel conversation={selected} provider={provider} />
         </div>
       )}

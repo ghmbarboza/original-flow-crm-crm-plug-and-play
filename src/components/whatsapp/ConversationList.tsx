@@ -50,7 +50,7 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
 
   return (
     <div className="flex h-full flex-col">
-      <div className="space-y-2 border-b p-3" style={{ borderColor: "var(--via-border)" }}>
+      <div className="shrink-0 space-y-2 border-b p-3" style={{ borderColor: "var(--via-border)" }}>
         <div className="relative">
           <Search
             className="absolute left-2.5 top-2.5 h-4 w-4"
@@ -65,8 +65,10 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
           />
         </div>
 
+        {/* Chips rolam na horizontal em vez de quebrar linha: com muitos canais
+            a quebra empurrava a lista de conversas para baixo. */}
         {channels.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="via-scroll-x flex flex-nowrap gap-1.5 pb-1">
             {[ALL_CHANNELS, ...channels].map((ch) => {
               const activeChip = channel === ch;
               const label = ch === ALL_CHANNELS ? "Todos" : channelMeta(ch).label;
@@ -75,7 +77,7 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
                   key={ch}
                   type="button"
                   onClick={() => setChannel(ch)}
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors"
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs transition-colors"
                   style={
                     activeChip
                       ? { background: "var(--via-navy)", color: "var(--via-white)" }
@@ -94,7 +96,7 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="via-scroll min-h-0 flex-1">
         {isLoading ? (
           <div className="space-y-2 p-3">
             <Skeleton className="h-16 w-full" />

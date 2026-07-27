@@ -93,7 +93,9 @@ export function MessagePanel({ conversation, provider }: Props) {
   }, [conversation.id]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // block:"nearest" mantém o auto-scroll dentro do histórico. Sem ele o
+    // navegador rola o ancestral rolável mais próximo — que antes era a página.
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
 
   const handleSend = async () => {
@@ -133,7 +135,7 @@ export function MessagePanel({ conversation, provider }: Props) {
   return (
     <div className="flex h-full flex-col">
       {/* Cabeçalho com status sempre visível + ações */}
-      <div className="border-b p-3" style={{ borderColor: "var(--via-border)" }}>
+      <div className="shrink-0 border-b p-3" style={{ borderColor: "var(--via-border)" }}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -199,8 +201,8 @@ export function MessagePanel({ conversation, provider }: Props) {
         )}
       </div>
 
-      {/* Histórico */}
-      <div className="flex-1 space-y-2 overflow-y-auto p-4">
+      {/* Histórico: única parte que rola. Cabeçalho e composer ficam fixos. */}
+      <div className="via-scroll min-h-0 flex-1 space-y-2 p-4">
         {isLoading ? (
           <div className="space-y-2">
             <Skeleton className="h-12 w-1/2" />
@@ -221,7 +223,7 @@ export function MessagePanel({ conversation, provider }: Props) {
 
       {/* Composer */}
       {conversation.status === "closed" ? (
-        <div className="border-t p-4 text-center" style={{ borderColor: "var(--via-border)" }}>
+        <div className="shrink-0 border-t p-4 text-center" style={{ borderColor: "var(--via-border)" }}>
           <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
             Conversa encerrada.{" "}
             <button
@@ -234,7 +236,7 @@ export function MessagePanel({ conversation, provider }: Props) {
           </p>
         </div>
       ) : (
-        <div className="border-t p-3" style={{ borderColor: "var(--via-border)" }}>
+        <div className="shrink-0 border-t p-3" style={{ borderColor: "var(--via-border)" }}>
           <div className="mb-2 flex items-center gap-2">
             <Button
               type="button"
