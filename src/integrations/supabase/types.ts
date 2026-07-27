@@ -561,11 +561,14 @@ export type Database = {
           message_template: string
           name: string
           org_id: string
+          provider: string
           scheduled_at: string | null
           sent_count: number
           source_tag_id: string | null
           started_at: string | null
           status: string
+          template_language: string | null
+          template_name: string | null
           total_recipients: number
           updated_at: string
           variables: Json
@@ -580,11 +583,14 @@ export type Database = {
           message_template: string
           name: string
           org_id: string
+          provider?: string
           scheduled_at?: string | null
           sent_count?: number
           source_tag_id?: string | null
           started_at?: string | null
           status?: string
+          template_language?: string | null
+          template_name?: string | null
           total_recipients?: number
           updated_at?: string
           variables?: Json
@@ -599,11 +605,14 @@ export type Database = {
           message_template?: string
           name?: string
           org_id?: string
+          provider?: string
           scheduled_at?: string | null
           sent_count?: number
           source_tag_id?: string | null
           started_at?: string | null
           status?: string
+          template_language?: string | null
+          template_name?: string | null
           total_recipients?: number
           updated_at?: string
           variables?: Json

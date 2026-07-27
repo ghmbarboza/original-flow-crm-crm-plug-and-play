@@ -8,7 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CampaignFormDialog } from "@/components/campaigns/CampaignFormDialog";
+import { TemplatesTab } from "@/components/campaigns/TemplatesTab";
 import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
 import {
   CAMPAIGN_STATUS_LABEL, useCampaigns, useCancelCampaign, useSendCampaign,
@@ -35,6 +37,10 @@ export default function CampaignsPage() {
   const cancelCampaign = useCancelCampaign();
   const [formOpen, setFormOpen] = useState(false);
 
+  // Campanhas em massa só nos provedores oficiais. Evolution fica de fora.
+  const campaignProvider =
+    setup?.provider === "meta_official" || setup?.provider === "zernio" ? setup.provider : null;
+
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3">
@@ -46,7 +52,7 @@ export default function CampaignsPage() {
           Campanhas
         </h1>
       </div>
-      {setup?.provider === "meta_official" && (
+      {campaignProvider && (
         <Button onClick={() => setFormOpen(true)} className="gap-1.5">
           <Plus className="h-4 w-4" strokeWidth={1.5} />
           Nova campanha
@@ -60,7 +66,7 @@ export default function CampaignsPage() {
   }
 
   // Evolution (ou sem provedor): campanhas em massa bloqueadas.
-  if (setup?.provider !== "meta_official") {
+  if (!campaignProvider) {
     return (
       <AppShell>
         <div className="space-y-6">
@@ -68,7 +74,7 @@ export default function CampaignsPage() {
           <div className="via-card mx-auto max-w-xl p-8 text-center">
             <Ban className="mx-auto mb-3 h-8 w-8" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
             <p className="text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
-              Campanhas exigem a API Oficial (Meta)
+              Campanhas exigem um provedor oficial
             </p>
             <p className="mt-1 text-sm" style={{ color: "var(--via-text-body)" }}>
               O envio de mensagens em massa só é permitido pela WhatsApp Business Platform oficial. A
@@ -76,7 +82,7 @@ export default function CampaignsPage() {
               ficam indisponíveis nesse modo.
             </p>
             <p className="mt-3 text-sm" style={{ color: "var(--via-text-muted)" }}>
-              Para liberar campanhas, configure o provedor Meta em WhatsApp.
+              Para liberar campanhas, configure a API Oficial (Meta) ou o Zernio em Canais.
             </p>
           </div>
         </div>
@@ -107,6 +113,15 @@ export default function CampaignsPage() {
       <div className="space-y-6">
         {header}
 
+        <Tabs defaultValue="campaigns" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="templates"><TemplatesTab /></TabsContent>
+
+          <TabsContent value="campaigns">
         {isLoading ? (
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
@@ -169,9 +184,11 @@ export default function CampaignsPage() {
             </Table>
           </div>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
 
-      <CampaignFormDialog open={formOpen} onOpenChange={setFormOpen} />
+      <CampaignFormDialog open={formOpen} onOpenChange={setFormOpen} provider={campaignProvider} />
     </AppShell>
   );
 }

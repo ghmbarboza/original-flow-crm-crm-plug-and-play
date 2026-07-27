@@ -1,0 +1,76 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useOrgId } from "@/hooks/useOrgId";
+
+export interface MessageTemplate {
+  id: string | null;
+  name: string;
+  status: "APPROVED" | "PENDING" | "REJECTED" | string;
+  category: string;
+  language: string;
+  body_text: string;
+  /** Quantas variáveis o corpo espera. A campanha precisa entregar exatamente isso. */
+  param_count: number;
+}
+
+export const TEMPLATE_STATUS_LABEL: Record<string, string> = {
+  APPROVED: "Aprovado",
+  PENDING: "Em revisão",
+  REJECTED: "Rejeitado",
+};
+
+export const TEMPLATE_CATEGORY_LABEL: Record<string, string> = {
+  MARKETING: "Marketing",
+  UTILITY: "Utilidade",
+  AUTHENTICATION: "Autenticação",
+};
+
+/**
+ * Templates de mensagem do provedor oficial configurado (Meta ou Zernio).
+ *
+ * A listagem vem direto do provedor a cada consulta — não há cópia no banco,
+ * porque o status muda do lado da Meta durante a revisão e uma cópia local
+ * ficaria desatualizada sem avisar.
+ */
+export function useMessageTemplates(enabled = true) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["message-templates", orgId],
+    enabled: !!orgId && enabled,
+    queryFn: async (): Promise<{ provider: string; templates: MessageTemplate[] }> => {
+      const { data, error } = await supabase.functions.invoke("message-templates", {
+        body: { action: "list" },
+      });
+      if (error) throw new Error(error.message ?? "Falha ao listar templates.");
+      if (data?.error) throw new Error(data.error);
+      return { provider: data?.provider ?? "", templates: data?.templates ?? [] };
+    },
+  });
+}
+
+export interface CreateTemplateInput {
+  name: string;
+  category: "MARKETING" | "UTILITY" | "AUTHENTICATION";
+  language: string;
+  body_text: string;
+  footer_text?: string;
+  /** Um valor de exemplo por placeholder posicional do corpo ({{1}}, {{2}}, ...). */
+  example_params: string[];
+}
+
+export function useCreateMessageTemplate() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateTemplateInput) => {
+      const { data, error } = await supabase.functions.invoke("message-templates", {
+        body: { action: "create", ...input },
+      });
+      if (error) throw new Error(error.message ?? "Falha ao criar o template.");
+      if (data?.error) throw new Error(data.error);
+      return data.template as { name: string; status: string };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["message-templates", orgId] }),
+  });
+}

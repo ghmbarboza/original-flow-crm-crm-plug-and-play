@@ -13,7 +13,7 @@ function ok(body: unknown = { received: true }) {
 }
 
 function triggerAI(conversationId: string) {
-  const call = fetch(`${SUPABASE_URL}/functions/v1/ai-whatsapp-reply`, {
+  const call = fetch(`${SUPABASE_URL}/functions/v1/ai-reply`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

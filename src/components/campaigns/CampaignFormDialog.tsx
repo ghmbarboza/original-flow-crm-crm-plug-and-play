@@ -12,18 +12,34 @@ import {
 } from "@/components/ui/select";
 import { useTags } from "@/hooks/useTags";
 import { useCreateCampaign } from "@/hooks/useCampaigns";
+import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 
 const ALL = "all";
 const TAG = "tag";
+const NO_TEMPLATE = "__none__";
+
+const PROVIDER_LABEL: Record<string, string> = {
+  meta_official: "API Oficial (Meta)",
+  zernio: "Zernio",
+};
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Provedor configurado na org — é quem entrega a campanha. */
+  provider: "meta_official" | "zernio";
 }
 
-export function CampaignFormDialog({ open, onOpenChange }: Props) {
+export function CampaignFormDialog({ open, onOpenChange, provider }: Props) {
   const { data: tags } = useTags();
   const createCampaign = useCreateCampaign();
+  // Só templates aprovados podem ser disparados.
+  const { data: templateData, isLoading: loadingTemplates } = useMessageTemplates(open);
+  const approved = (templateData?.templates ?? []).filter((t) => t.status === "APPROVED");
+
+  // No Zernio o template é obrigatório: o WhatsApp recusa mensagem livre para
+  // abrir conversa. Na Meta ele é opcional (texto livre entrega na janela de 24h).
+  const templateRequired = provider === "zernio";
 
   const [form, setForm] = useState({
     name: "",
@@ -31,11 +47,20 @@ export function CampaignFormDialog({ open, onOpenChange }: Props) {
     audience: ALL as "all" | "tag",
     tagId: "",
     scheduled: "",
+    templateName: NO_TEMPLATE,
   });
 
   useEffect(() => {
-    if (open) setForm({ name: "", message: "", audience: ALL, tagId: "", scheduled: "" });
+    if (open) {
+      setForm({
+        name: "", message: "", audience: ALL, tagId: "", scheduled: "",
+        templateName: NO_TEMPLATE,
+      });
+    }
   }, [open]);
+
+  const selectedTemplate = approved.find((t) => t.name === form.templateName) ?? null;
+  const paramCount = (form.message.match(/\{\{(\w+)\}\}/g) ?? []).length;
 
   const submit = async () => {
     if (!form.name.trim() || !form.message.trim()) {
@@ -46,6 +71,17 @@ export function CampaignFormDialog({ open, onOpenChange }: Props) {
       toast.error("Escolha a tag do público.");
       return;
     }
+    if (templateRequired && !selectedTemplate) {
+      toast.error("Campanhas pelo Zernio exigem um template aprovado.");
+      return;
+    }
+    if (selectedTemplate && selectedTemplate.param_count !== paramCount) {
+      toast.error(
+        `O template "${selectedTemplate.name}" espera ${selectedTemplate.param_count} variável(is), `
+        + `mas a mensagem tem ${paramCount}.`,
+      );
+      return;
+    }
     try {
       const { total } = await createCampaign.mutateAsync({
         name: form.name.trim(),
@@ -53,6 +89,9 @@ export function CampaignFormDialog({ open, onOpenChange }: Props) {
         audience_type: form.audience,
         source_tag_id: form.audience === TAG ? form.tagId : null,
         scheduled_at: form.scheduled ? new Date(form.scheduled).toISOString() : null,
+        provider,
+        template_name: selectedTemplate?.name ?? null,
+        template_language: selectedTemplate?.language ?? null,
       });
       toast.success(`Campanha criada com ${total} destinatário(s).`);
       onOpenChange(false);
@@ -67,14 +106,48 @@ export function CampaignFormDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>Nova campanha</DialogTitle>
           <DialogDescription>
-            Envie uma mensagem em massa via API oficial. Use variáveis como {"{{nome}}"} para personalizar.
+            Enviada por <strong>{PROVIDER_LABEL[provider] ?? provider}</strong>. Use variáveis como{" "}
+            {"{{nome}}"} e {"{{empresa}}"} para personalizar.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto py-2">
           <div className="space-y-2">
             <Label htmlFor="camp-name">Nome</Label>
             <Input id="camp-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="camp-template">
+              Template{templateRequired ? "" : " (opcional)"}
+            </Label>
+            <Select
+              value={form.templateName}
+              onValueChange={(v) => setForm({ ...form, templateName: v })}
+              disabled={loadingTemplates}
+            >
+              <SelectTrigger id="camp-template">
+                <SelectValue placeholder={loadingTemplates ? "Carregando…" : "Escolha o template"} />
+              </SelectTrigger>
+              <SelectContent>
+                {!templateRequired && <SelectItem value={NO_TEMPLATE}>Sem template (texto livre)</SelectItem>}
+                {approved.map((tpl) => (
+                  <SelectItem key={`${tpl.name}-${tpl.language}`} value={tpl.name}>
+                    {tpl.name} · {tpl.language} · {tpl.param_count} var.
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!loadingTemplates && approved.length === 0 && (
+              <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                Nenhum template aprovado ainda. Crie um na aba Templates.
+              </p>
+            )}
+            {templateRequired && (
+              <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                O WhatsApp não permite mensagem livre para iniciar conversa — o Zernio exige template.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -86,6 +159,12 @@ export function CampaignFormDialog({ open, onOpenChange }: Props) {
               onChange={(e) => setForm({ ...form, message: e.target.value })}
               placeholder="Olá {{nome}}, temos uma novidade para você…"
             />
+            {selectedTemplate && (
+              <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                As variáveis viram os valores do template, na ordem em que aparecem. O template
+                espera {selectedTemplate.param_count} — a mensagem tem {paramCount}.
+              </p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

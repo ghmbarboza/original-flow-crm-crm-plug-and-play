@@ -37,14 +37,19 @@ export interface CreateCampaignInput {
   audience_type: "all" | "tag";
   source_tag_id?: string | null;
   scheduled_at?: string | null;
+  /** Quem entrega a campanha. Vem do provedor configurado na org. */
+  provider: "meta_official" | "zernio";
+  /** Template aprovado. Obrigatório no Zernio, opcional na Meta. */
+  template_name?: string | null;
+  template_language?: string | null;
 }
 
 /**
  * Cria a campanha e materializa a lista de destinatários a partir do público.
  *
- * Só faz sentido para contas Meta (a API oficial permite envio em massa). Os
- * destinatários viram linhas em campaign_recipients; o disparo em si é feito
- * pela edge function campaign-dispatcher.
+ * Vale para os provedores oficiais (Meta e Zernio) — a Evolution não permite
+ * envio em massa. Os destinatários viram linhas em campaign_recipients; o
+ * disparo em si é feito pela edge function campaign-dispatcher.
  */
 export function useCreateCampaign() {
   const orgId = useOrgId();
@@ -89,6 +94,9 @@ export function useCreateCampaign() {
           scheduled_at: input.scheduled_at ?? null,
           status: input.scheduled_at ? "scheduled" : "draft",
           total_recipients: recipients.length,
+          provider: input.provider,
+          template_name: input.template_name ?? null,
+          template_language: input.template_language ?? null,
         })
         .select("id")
         .single();

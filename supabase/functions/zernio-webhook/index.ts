@@ -18,7 +18,7 @@ function ok(body: unknown = { received: true }) {
 
 /** Dispara a resposta da IA sem bloquear o 200 ao Zernio. */
 function triggerAI(conversationId: string) {
-  const call = fetch(`${SUPABASE_URL}/functions/v1/ai-whatsapp-reply`, {
+  const call = fetch(`${SUPABASE_URL}/functions/v1/ai-reply`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY },
     body: JSON.stringify({ conversation_id: conversationId }),
