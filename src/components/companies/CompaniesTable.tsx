@@ -106,6 +106,7 @@ export function CompaniesTable({
             {companies.map((company) => (
               <TableRow
                 key={company.id}
+                data-testid="company-row"
                 className="cursor-pointer"
                 onClick={() => onSelect(company.id)}
               >

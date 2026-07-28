@@ -200,6 +200,7 @@ function DistributionTab() {
               <button
                 key={d.value}
                 type="button"
+                data-testid="distribution-mode"
                 onClick={() => setMode(d.value)}
                 className="via-card flex items-start gap-3 p-3 text-left transition-colors"
                 style={active ? { borderColor: "var(--via-navy)", boxShadow: "0 0 0 1px var(--via-navy)" } : undefined}
@@ -232,7 +233,7 @@ function DistributionTab() {
         />
       </div>
 
-      <Button onClick={handleSave} disabled={save.isPending}>
+      <Button onClick={handleSave} disabled={save.isPending} data-testid="distribution-save">
         {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={1.5} />}
         Salvar distribuição
       </Button>

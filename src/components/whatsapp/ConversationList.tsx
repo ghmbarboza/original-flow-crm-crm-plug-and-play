@@ -68,7 +68,7 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
         {/* Chips rolam na horizontal em vez de quebrar linha: com muitos canais
             a quebra empurrava a lista de conversas para baixo. */}
         {channels.length > 1 && (
-          <div className="via-scroll-x flex flex-nowrap gap-1.5 pb-1">
+          <div className="via-scroll-x flex flex-nowrap gap-1.5 pb-1" data-testid="channel-chips">
             {[ALL_CHANNELS, ...channels].map((ch) => {
               const activeChip = channel === ch;
               const label = ch === ALL_CHANNELS ? "Todos" : channelMeta(ch).label;

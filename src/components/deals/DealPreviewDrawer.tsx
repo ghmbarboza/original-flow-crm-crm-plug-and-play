@@ -80,7 +80,7 @@ export function DealPreviewDrawer({ deal, onOpenChange, onEdit }: Props) {
 
               <Separator />
 
-              <Button className="w-full gap-1.5" onClick={() => navigate(`/deals/${deal.id}`)}>
+              <Button className="w-full gap-1.5" data-testid="deal-open-full" onClick={() => navigate(`/deals/${deal.id}`)}>
                 Abrir negócio completo
                 <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
               </Button>

@@ -76,7 +76,7 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" data-testid="product-dialog">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEdit ? "Editar produto" : "Novo produto"}</DialogTitle>
@@ -134,7 +134,7 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" disabled={isSaving} data-testid="product-submit">
               {isSaving ? "Salvando…" : isEdit ? "Salvar" : "Criar produto"}
             </Button>
           </DialogFooter>

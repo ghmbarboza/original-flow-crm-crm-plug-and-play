@@ -147,7 +147,7 @@ export default function DealDetailPage() {
                   </h1>
                   <DealStatusBadge status={deal.status} />
                 </div>
-                <p className="text-2xl font-semibold tabular-nums" style={{ color: "var(--via-text-primary)" }}>
+                <p className="text-2xl font-semibold tabular-nums" data-testid="deal-value" style={{ color: "var(--via-text-primary)" }}>
                   {formatCurrency(deal.value, deal.currency)}
                 </p>
               </div>
@@ -155,11 +155,11 @@ export default function DealDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 {deal.status === "open" ? (
                   <>
-                    <Button variant="outline" className="gap-1.5" onClick={markWon} disabled={updateDeal.isPending}>
+                    <Button variant="outline" className="gap-1.5" onClick={markWon} disabled={updateDeal.isPending} data-testid="deal-mark-won">
                       <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
                       Ganho
                     </Button>
-                    <Button variant="outline" className="gap-1.5" onClick={() => setLostOpen(true)}>
+                    <Button variant="outline" className="gap-1.5" onClick={() => setLostOpen(true)} data-testid="deal-mark-lost">
                       <XCircle className="h-4 w-4" strokeWidth={1.5} />
                       Perdido
                     </Button>
@@ -201,7 +201,7 @@ export default function DealDetailPage() {
                   onValueChange={handleStageChange}
                   disabled={deal.status !== "open"}
                 >
-                  <SelectTrigger className="w-56">
+                  <SelectTrigger className="w-56" data-testid="deal-stage-select">
                     <SelectValue placeholder="Sem etapa" />
                   </SelectTrigger>
                   <SelectContent>
@@ -242,7 +242,7 @@ export default function DealDetailPage() {
                 </DialogHeader>
                 <div className="py-2">
                   <Select value={lossReasonId} onValueChange={setLossReasonId}>
-                    <SelectTrigger>
+                    <SelectTrigger data-testid="deal-loss-reason">
                       <SelectValue placeholder="Motivo da perda" />
                     </SelectTrigger>
                     <SelectContent>
@@ -255,7 +255,7 @@ export default function DealDetailPage() {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setLostOpen(false)}>Cancelar</Button>
-                  <Button onClick={markLost} disabled={updateDeal.isPending}>
+                  <Button onClick={markLost} disabled={updateDeal.isPending} data-testid="deal-confirm-lost">
                     Confirmar perda
                   </Button>
                 </DialogFooter>

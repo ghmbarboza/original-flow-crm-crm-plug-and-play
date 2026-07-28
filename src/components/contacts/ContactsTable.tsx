@@ -121,6 +121,8 @@ export function ContactsTable({ contacts, isLoading, isFiltered, onSelect, onEdi
             {rows.map(({ contact, name }) => (
               <TableRow
                 key={contact.id}
+                data-testid="contact-row"
+                data-contact-name={name}
                 className="cursor-pointer"
                 onClick={() => onSelect(contact.id)}
               >
@@ -158,16 +160,21 @@ export function ContactsTable({ contacts, isLoading, isFiltered, onSelect, onEdi
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label={`Ações para ${name}`}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        data-testid="contact-row-actions"
+                        aria-label={`Ações para ${name}`}
+                      >
                         <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onEdit(contact)}>
+                      <DropdownMenuItem data-testid="contact-action-edit" onClick={() => onEdit(contact)}>
                         <Pencil className="mr-2 h-4 w-4" strokeWidth={1.5} />
                         Editar
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setPendingDelete(contact)}>
+                      <DropdownMenuItem data-testid="contact-action-delete" onClick={() => setPendingDelete(contact)}>
                         <Trash2 className="mr-2 h-4 w-4" strokeWidth={1.5} />
                         Excluir
                       </DropdownMenuItem>
@@ -191,7 +198,7 @@ export function ContactsTable({ contacts, isLoading, isFiltered, onSelect, onEdi
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Excluir</AlertDialogAction>
+            <AlertDialogAction data-testid="confirm-delete" onClick={handleDelete}>Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

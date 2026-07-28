@@ -63,7 +63,7 @@ export default function TasksPage() {
               Tarefas
             </h1>
           </div>
-          <Button onClick={openCreate} className="gap-1.5">
+          <Button onClick={openCreate} className="gap-1.5" data-testid="task-new">
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Nova tarefa
           </Button>

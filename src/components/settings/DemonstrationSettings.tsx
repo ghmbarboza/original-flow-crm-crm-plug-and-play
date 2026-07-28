@@ -85,7 +85,7 @@ export default function DemonstrationSettings() {
             </div>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button onClick={handleSeed} disabled={isLoading || busy || hasDemoData === true}>
+            <Button onClick={handleSeed} disabled={isLoading || busy || hasDemoData === true} data-testid="demo-seed">
               {seedDemo.isPending ? (
                 <Loader2 className="mr-1 h-4 w-4 animate-spin" />
               ) : (
@@ -95,6 +95,7 @@ export default function DemonstrationSettings() {
             </Button>
             <Button
               variant="outline"
+              data-testid="demo-clear"
               onClick={() => setConfirmOpen(true)}
               disabled={isLoading || busy || hasDemoData !== true}
               className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
@@ -121,7 +122,7 @@ export default function DemonstrationSettings() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClear}>Limpar</AlertDialogAction>
+            <AlertDialogAction data-testid="demo-clear-confirm" onClick={handleClear}>Limpar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

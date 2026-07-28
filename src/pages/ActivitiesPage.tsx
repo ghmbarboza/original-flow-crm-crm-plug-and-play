@@ -55,7 +55,7 @@ export default function ActivitiesPage() {
               Atividades
             </h1>
           </div>
-          <Button onClick={openCreate} className="gap-1.5">
+          <Button onClick={openCreate} className="gap-1.5" data-testid="activity-new">
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Nova atividade
           </Button>

@@ -85,7 +85,7 @@ export function DealProductsSection({ dealId, currency }: { dealId: string; curr
         <div className="min-w-48 flex-1 space-y-1">
           <label className="text-xs" style={{ color: "var(--via-text-muted)" }}>Produto</label>
           <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-            <SelectTrigger>
+            <SelectTrigger data-testid="deal-product-select">
               <SelectValue placeholder="Selecione um produto" />
             </SelectTrigger>
             <SelectContent>
@@ -108,11 +108,12 @@ export function DealProductsSection({ dealId, currency }: { dealId: string; curr
           <Input
             type="number"
             min="1"
+            data-testid="deal-product-qty"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
           />
         </div>
-        <Button onClick={handleAdd} disabled={addProduct.isPending || !selectedProduct} className="gap-1.5">
+        <Button onClick={handleAdd} disabled={addProduct.isPending || !selectedProduct} className="gap-1.5" data-testid="deal-product-add">
           <Plus className="h-4 w-4" strokeWidth={1.5} />
           Adicionar
         </Button>

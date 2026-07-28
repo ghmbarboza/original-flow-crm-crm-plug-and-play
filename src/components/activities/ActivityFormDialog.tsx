@@ -106,7 +106,7 @@ export function ActivityFormDialog({ open, onOpenChange, activity, presets, lock
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" data-testid="activity-dialog">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
@@ -212,7 +212,7 @@ export function ActivityFormDialog({ open, onOpenChange, activity, presets, lock
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" disabled={isSaving} data-testid="activity-submit">
               {isSaving ? "Salvando…" : isEdit ? "Salvar" : `Criar ${noun}`}
             </Button>
           </DialogFooter>

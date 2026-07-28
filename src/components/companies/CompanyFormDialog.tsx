@@ -91,7 +91,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" data-testid="company-dialog">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEdit ? "Editar empresa" : "Nova empresa"}</DialogTitle>
@@ -180,7 +180,7 @@ export function CompanyFormDialog({ open, onOpenChange, company }: Props) {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" disabled={isSaving} data-testid="company-submit">
               {isSaving ? "Salvando…" : isEdit ? "Salvar" : "Criar empresa"}
             </Button>
           </DialogFooter>

@@ -78,7 +78,7 @@ export default function CampaignsPage() {
       <AppShell>
         <div className="space-y-6">
           {header}
-          <div className="via-card mx-auto max-w-xl p-8 text-center">
+          <div className="via-card mx-auto max-w-xl p-8 text-center" data-testid="campaigns-blocked">
             <Ban className="mx-auto mb-3 h-8 w-8" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
             <p className="text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
               Campanhas exigem um provedor oficial

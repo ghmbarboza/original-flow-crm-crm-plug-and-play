@@ -115,7 +115,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultStageId }: Pro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" data-testid="deal-dialog">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEdit ? "Editar negócio" : "Novo negócio"}</DialogTitle>
@@ -235,7 +235,7 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultStageId }: Pro
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" disabled={isSaving} data-testid="deal-submit">
               {isSaving ? "Salvando…" : isEdit ? "Salvar" : "Criar negócio"}
             </Button>
           </DialogFooter>

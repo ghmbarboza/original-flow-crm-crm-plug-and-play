@@ -101,7 +101,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" data-testid="contact-dialog">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEdit ? "Editar contato" : "Novo contato"}</DialogTitle>
@@ -186,7 +186,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
                 value={form.company_id}
                 onValueChange={(value) => setForm({ ...form, company_id: value })}
               >
-                <SelectTrigger id="company">
+                <SelectTrigger id="company" data-testid="contact-company-select">
                   <SelectValue placeholder="Sem empresa" />
                 </SelectTrigger>
                 <SelectContent>
@@ -214,7 +214,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving}>
+            <Button type="submit" disabled={isSaving} data-testid="contact-submit">
               {isSaving ? "Salvando…" : isEdit ? "Salvar" : "Criar contato"}
             </Button>
           </DialogFooter>

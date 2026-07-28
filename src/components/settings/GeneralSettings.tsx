@@ -281,7 +281,7 @@ export default function GeneralSettings() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-end">
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving} data-testid="general-save">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar alterações
           </Button>

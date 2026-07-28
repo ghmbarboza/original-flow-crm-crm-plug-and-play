@@ -23,7 +23,7 @@ export function ErrorState({
   action?: ReactNode;
 }) {
   return (
-    <div className="via-card p-4">
+    <div className="via-card p-4" data-testid="error-state">
       <p className="text-sm font-medium text-via-coral">{title}</p>
       <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
         {message ?? messageOf(error)}

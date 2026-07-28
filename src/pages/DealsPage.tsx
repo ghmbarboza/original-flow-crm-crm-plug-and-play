@@ -68,7 +68,7 @@ export default function DealsPage() {
               Negócios
             </h1>
           </div>
-          <Button onClick={() => openCreate()} className="gap-1.5">
+          <Button onClick={() => openCreate()} className="gap-1.5" data-testid="deal-new">
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Novo negócio
           </Button>

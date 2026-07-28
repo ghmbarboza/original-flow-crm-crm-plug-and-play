@@ -46,7 +46,7 @@ export function Inbox({ provider }: { provider: WhatsAppProvider }) {
         {selected ? (
           <MessagePanel conversation={selected} provider={provider} />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center text-center">
+          <div className="flex h-full flex-col items-center justify-center text-center" data-testid="inbox-empty">
             <MessageCircle className="mb-3 h-8 w-8" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
             <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
               Selecione uma conversa
