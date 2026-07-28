@@ -36,7 +36,9 @@ export function SignupForm() {
       navigate("/pending-approval", { replace: true });
     } else if (isApproved === true) {
       toast.success("Conta criada com sucesso!");
-      navigate("/dashboard", { replace: true });
+      // Vai para o setup, não para o dashboard: conta nova cai numa tela vazia
+      // se não configurar empresa, IA e pipeline antes.
+      navigate("/setup", { replace: true });
     } else {
       // Fallback when profile not yet readable (email confirmation required)
       toast.info("Conta criada! Verifique seu email para confirmar o cadastro.");

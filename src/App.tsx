@@ -14,7 +14,6 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PendingApprovalPage from "./pages/PendingApprovalPage";
 import NotFound from "./pages/NotFound";
 
-const OnboardingPage = lazy(() => import("./pages/OnboardingPage"));
 const SetupPage = lazy(() => import("./pages/SetupPage"));
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -102,11 +101,16 @@ const App = () => (
             } />
 
             {/* Fullscreen, fora do AppLayout. */}
-            <Route path="/onboarding" element={
-              <ProtectedRoute><Page name="Onboarding"><OnboardingPage /></Page></ProtectedRoute>
-            } />
+            {/* O onboarding antigo coletava 4 campos de perfil e virou a etapa
+                "Empresa" do wizard. Mantido como redirect para não quebrar link
+                salvo nem o botão "Refazer onboarding" das Configurações. */}
+            <Route path="/onboarding" element={<Navigate to="/setup" replace />} />
+            {/* skipSetupGuard: é a própria rota de destino do guard. Sem isso o
+                redirect apontaria para si mesmo e entraria em laço. */}
             <Route path="/setup" element={
-              <ProtectedRoute allowedRoles={["admin"]}><Page name="Configuração inicial"><SetupPage /></Page></ProtectedRoute>
+              <ProtectedRoute allowedRoles={["admin"]} skipSetupGuard>
+                <Page name="Configuração inicial"><SetupPage /></Page>
+              </ProtectedRoute>
             } />
 
             {/* CRM */}
