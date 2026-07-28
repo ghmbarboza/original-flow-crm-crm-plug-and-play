@@ -19,6 +19,9 @@ export default defineConfig({
   // regressão — foi o que quase aconteceu no fechamento do Sprint 8.
   retries: 1,
   reporter: [["list"], ["html", { open: "never" }]],
+  // Garante que a org de teste já concluiu o setup: sem isso o guard do Sprint 9
+  // redirecionaria todos os specs para /setup. Ver o arquivo para o porquê.
+  globalSetup: "./e2e/global-setup.ts",
   // Remove os registros criados pela suíte ao final do run. Ver o arquivo para
   // as travas de segurança (só apaga o que tem o marcador "E2E", sempre por org).
   globalTeardown: "./e2e/global-teardown.ts",

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Bot, Clock, MessageSquare, Sliders } from "lucide-react";
+import { Bot, Clock, MessageSquare, Sliders, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ import {
   useImportObjections, useObjections, useSaveFAQ, useSaveObjection, useUpsertAIConfig,
   type HumanTriggerRules, type WorkingHours,
 } from "@/hooks/useAIConfig";
+import { useGenerateSystemPrompt } from "@/hooks/useGenerateSystemPrompt";
 import { formatCurrency } from "@/lib/format";
 
 function defaultWorkingHours(): WorkingHours {
@@ -32,6 +33,30 @@ function defaultWorkingHours(): WorkingHours {
 export default function AISettings() {
   const { data: config, isLoading } = useAIConfig();
   const upsert = useUpsertAIConfig();
+  const gerar = useGenerateSystemPrompt();
+  const [regenerando, setRegenerando] = useState(false);
+
+  /**
+   * Regenera o prompt a partir do contexto atual da organização.
+   *
+   * Só substitui o campo em tela — quem grava é o Salvar, que já versiona. Assim
+   * o usuário compara antes de assumir, e desistir é fechar sem salvar.
+   */
+  const regenerarPrompt = async () => {
+    if (form.system_prompt.trim() && !window.confirm(
+      "Isso substitui o prompt atual pelo gerado a partir do contexto da empresa. O prompt em tela será perdido se você não salvar. Continuar?",
+    )) return;
+    setRegenerando(true);
+    try {
+      const r = await gerar.mutateAsync(form.agent_name || undefined);
+      setForm((f) => ({ ...f, system_prompt: r.system_prompt }));
+      toast.success("Prompt regenerado. Revise e salve para criar a nova versão.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível regenerar o prompt.");
+    } finally {
+      setRegenerando(false);
+    }
+  };
 
   const { data: faqs, isLoading: loadingFaqs } = useFAQs();
   const { data: objections, isLoading: loadingObjections } = useObjections();
@@ -132,21 +157,40 @@ export default function AISettings() {
             <div className="space-y-2">
               <Label htmlFor="agent_name">Nome do agente</Label>
               <Input id="agent_name" value={form.agent_name} onChange={(e) => setForm({ ...form, agent_name: e.target.value })} placeholder="Sofia" />
+              <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Este nome aparece nas mensagens enviadas pela IA. Use o que faz sentido para sua marca.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="agent_tone">Tom</Label>
               <Input id="agent_tone" value={form.agent_tone} onChange={(e) => setForm({ ...form, agent_tone: e.target.value })} placeholder="Cordial e objetivo" />
+              <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Define a personalidade da IA: afeta vocabulário, formalidade e a forma de perguntar.</p>
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="agent_objective">Objetivo</Label>
             <Input id="agent_objective" value={form.agent_objective} onChange={(e) => setForm({ ...form, agent_objective: e.target.value })} placeholder="Qualificar leads e agendar demonstrações" />
+              <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Em uma frase: o que a IA deve conquistar na conversa?</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="system_prompt">Instruções (prompt do sistema)</Label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor="system_prompt">Instruções (prompt do sistema)</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                data-testid="ai-regenerate-prompt"
+                disabled={regenerando}
+                onClick={regenerarPrompt}
+              >
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {regenerando ? "Gerando…" : "Regenerar do contexto"}
+              </Button>
+            </div>
             <Textarea id="system_prompt" rows={6} value={form.system_prompt} onChange={(e) => setForm({ ...form, system_prompt: e.target.value })} placeholder="Descreva como a IA deve se comportar, o que pode e o que não pode fazer…" />
             <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-              Ao salvar com um prompt diferente, uma nova versão é registrada na aba Versões.
+              O conjunto completo de instruções da IA. Gerado no setup inicial, mas editável a
+              qualquer momento. Ao salvar com um prompt diferente, uma nova versão é registrada
+              na aba Versões.
             </p>
           </div>
           <div className="space-y-2">
@@ -170,7 +214,8 @@ export default function AISettings() {
               onValueChange={([v]) => setForm({ ...form, context_window_size: v })}
             />
             <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-              Quantas mensagens recentes a IA considera ao responder.
+              Quantas mensagens anteriores a IA lê antes de responder. Mais contexto melhora a
+              resposta e encarece a chamada. 20 é um bom ponto de partida.
             </p>
           </div>
 
@@ -218,6 +263,10 @@ export default function AISettings() {
               <Clock className="h-4 w-4" strokeWidth={1.5} />
               Horário de atendimento
             </Label>
+            <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+              Fora deste horário a IA não responde, em nenhum canal. As mensagens ficam na conversa
+              para a equipe atender no próximo período ativo.
+            </p>
             <div className="space-y-2">
               {WEEK_DAYS.map((day) => {
                 const wh = workingHours[day.key];
