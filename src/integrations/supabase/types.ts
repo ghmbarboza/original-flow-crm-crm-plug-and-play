@@ -2257,8 +2257,52 @@ export type Database = {
         }
         Relationships: []
       }
+      setup_progress: {
+        Row: {
+          completed_steps: string[] | null
+          created_at: string | null
+          current_step: string | null
+          id: string
+          org_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_steps?: string[] | null
+          created_at?: string | null
+          current_step?: string | null
+          id?: string
+          org_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_steps?: string[] | null
+          created_at?: string | null
+          current_step?: string | null
+          id?: string
+          org_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "setup_progress_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
+          ai_prohibitions: string | null
+          brand_tone: string | null
+          business_description: string | null
+          business_sector: string | null
+          good_response_example: string | null
+          main_problem_solved: string | null
+          setup_completed: boolean | null
+          setup_completed_at: string | null
+          target_audience: string | null
           created_at: string
           currency: string
           id: string
@@ -2268,6 +2312,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_prohibitions?: string | null
+          brand_tone?: string | null
+          business_description?: string | null
+          business_sector?: string | null
+          good_response_example?: string | null
+          main_problem_solved?: string | null
+          setup_completed?: boolean | null
+          setup_completed_at?: string | null
+          target_audience?: string | null
           created_at?: string
           currency?: string
           id?: string
@@ -2277,6 +2330,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_prohibitions?: string | null
+          brand_tone?: string | null
+          business_description?: string | null
+          business_sector?: string | null
+          good_response_example?: string | null
+          main_problem_solved?: string | null
+          setup_completed?: boolean | null
+          setup_completed_at?: string | null
+          target_audience?: string | null
           created_at?: string
           currency?: string
           id?: string
