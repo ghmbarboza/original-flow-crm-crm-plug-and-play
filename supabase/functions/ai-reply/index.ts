@@ -2,21 +2,20 @@
 //
 // Chamada pelos webhooks (evolution-webhook / meta-webhook) após uma mensagem
 // inbound, quando a conversa está com a IA ativa. Monta o contexto (personalidade,
-// base de conhecimento, produtos, janela de mensagens), chama a Claude Messages
-// API, grava a resposta e entrega pelo provedor.
+// base de conhecimento, produtos, janela de mensagens), chama o LLM, grava a
+// resposta e entrega pelo provedor.
 //
-// Requer o secret ANTHROPIC_API_KEY. O modelo é claude-opus-4-8 (o mais capaz);
-// thinking fica desligado para manter a latência baixa num chat, e o system prompt
-// pede resposta direta (sem raciocínio no corpo).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+// O provedor de IA é escolhido em _shared/ai.ts: Anthropic quando o secret
+// ANTHROPIC_API_KEY existir, senão o AI Gateway do Lovable. O system prompt pede
+// resposta direta, sem raciocínio no corpo, em qualquer um dos dois.
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { chamarIA, ErroIA, type MensagemIA } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-const ANTHROPIC_MODEL = "claude-opus-4-8";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -114,7 +113,10 @@ function dentroDoHorario(workingHours: unknown, timezone: string): boolean {
 }
 
 async function deliver(
-  admin: ReturnType<typeof createClient>,
+  // `ReturnType<typeof createClient>` resolve os genéricos como `never` e não
+  // aceita o cliente real (`SupabaseClient<any, "public", any>`), o que fazia
+  // `deno check` acusar erro nas duas chamadas. Tipar pela instância evita isso.
+  admin: SupabaseClient,
   provider: string,
   orgId: string,
   phone: string,
@@ -175,9 +177,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) return json({ error: "ANTHROPIC_API_KEY não configurada" }, 500);
-
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -312,43 +311,24 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join("\n");
 
-    const messages = ordered
+    const messages: MensagemIA[] = ordered
       .filter((m) => m.content)
       .map((m) => ({
-        role: m.direction === "inbound" ? "user" : "assistant",
+        role: m.direction === "inbound" ? "user" as const : "assistant" as const,
         content: m.content as string,
       }));
     if (messages.length === 0 || messages[0].role !== "user") {
-      // A Messages API exige começar com user.
+      // A Messages API da Anthropic exige começar com user.
       messages.unshift({ role: "user", content: lastInbound?.content ?? "Olá" });
     }
 
-    const aiResp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1024,
-        system: knowledge,
-        messages,
-      }),
+    const { texto } = await chamarIA({
+      tarefa: "chat",
+      maxTokens: 1024,
+      system: knowledge,
+      messages,
     });
-
-    if (!aiResp.ok) {
-      const err = await aiResp.text();
-      return json({ error: `Claude API: ${err.slice(0, 200)}` }, 502);
-    }
-
-    const payload = await aiResp.json();
-    const reply: string = (payload.content ?? [])
-      .filter((b: { type: string }) => b.type === "text")
-      .map((b: { text: string }) => b.text)
-      .join("")
-      .trim();
+    const reply = texto.trim();
 
     if (!reply) return json({ skipped: "IA não gerou resposta" });
 
@@ -386,6 +366,7 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, replied: reply });
   } catch (err) {
+    if (err instanceof ErroIA) return json({ error: err.publico }, err.status);
     return json({ error: err instanceof Error ? err.message : "Erro inesperado" }, 500);
   }
 });

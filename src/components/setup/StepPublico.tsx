@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,14 @@ export function StepPublico({ onNext, onBack }: { onNext: () => void; onBack: ()
     good_response_example: "",
   });
 
+  // Hidrata UMA vez. Sem a trava, cada refetch da organização sobrescrevia o
+  // formulário com os valores do servidor e apagava o que o usuário estava
+  // digitando: o passo anterior invalida a query, então há um refetch em voo
+  // justamente enquanto esta tela é preenchida.
+  const hidratado = useRef(false);
   useEffect(() => {
-    if (!org) return;
+    if (!org || hidratado.current) return;
+    hidratado.current = true;
     setForm({
       target_audience: org.target_audience ?? "",
       brand_tone: org.brand_tone ?? "profissional",

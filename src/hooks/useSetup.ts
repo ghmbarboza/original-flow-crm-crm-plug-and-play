@@ -308,6 +308,19 @@ export function useCompleteSetup() {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Escreve no cache ANTES de invalidar, e isso não é otimização.
+      //
+      // invalidateQueries marca a query como obsoleta mas não espera o refetch.
+      // Quem chama esta mutation navega para /dashboard na linha seguinte, e o
+      // ProtectedRoute renderiza lendo o cache — que ainda traria
+      // setup_completed: false. O guard então devolvia o usuário para /setup,
+      // logo depois de ele concluir o onboarding. Coberto por
+      // e2e/setup-wizard.spec.ts ("passo 6 conclui o setup").
+      queryClient.setQueryData(
+        ["organization", orgId],
+        (anterior: Record<string, unknown> | undefined) =>
+          anterior ? { ...anterior, setup_completed: true } : anterior,
+      );
       queryClient.invalidateQueries({ queryKey: ["organization", orgId] });
       queryClient.invalidateQueries({ queryKey: ["setup-progress", orgId] });
     },
