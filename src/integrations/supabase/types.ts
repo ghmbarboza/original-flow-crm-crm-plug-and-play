@@ -95,6 +95,7 @@ export type Database = {
         Row: {
           answer: string
           created_at: string
+          from_template_id: string | null
           id: string
           order: number
           org_id: string
@@ -103,6 +104,7 @@ export type Database = {
         Insert: {
           answer: string
           created_at?: string
+          from_template_id?: string | null
           id?: string
           order?: number
           org_id: string
@@ -111,12 +113,20 @@ export type Database = {
         Update: {
           answer?: string
           created_at?: string
+          from_template_id?: string | null
           id?: string
           order?: number
           org_id?: string
           question?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_knowledge_faqs_from_template_id_fkey"
+            columns: ["from_template_id"]
+            isOneToOne: false
+            referencedRelation: "library_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_knowledge_faqs_org_id_fkey"
             columns: ["org_id"]
@@ -129,6 +139,7 @@ export type Database = {
       ai_knowledge_objections: {
         Row: {
           created_at: string
+          from_template_id: string | null
           id: string
           objection: string
           order: number
@@ -137,6 +148,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          from_template_id?: string | null
           id?: string
           objection: string
           order?: number
@@ -145,6 +157,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          from_template_id?: string | null
           id?: string
           objection?: string
           order?: number
@@ -152,6 +165,13 @@ export type Database = {
           response?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_knowledge_objections_from_template_id_fkey"
+            columns: ["from_template_id"]
+            isOneToOne: false
+            referencedRelation: "library_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_knowledge_objections_org_id_fkey"
             columns: ["org_id"]
@@ -444,6 +464,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           error_count: number
+          from_template_id: string | null
           id: string
           is_active: boolean
           last_run_at: string | null
@@ -460,6 +481,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           error_count?: number
+          from_template_id?: string | null
           id?: string
           is_active?: boolean
           last_run_at?: string | null
@@ -476,6 +498,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           error_count?: number
+          from_template_id?: string | null
           id?: string
           is_active?: boolean
           last_run_at?: string | null
@@ -486,6 +509,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "automations_from_template_id_fkey"
+            columns: ["from_template_id"]
+            isOneToOne: false
+            referencedRelation: "library_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "automations_org_id_fkey"
             columns: ["org_id"]
@@ -1527,6 +1557,7 @@ export type Database = {
       email_sequences: {
         Row: {
           created_at: string
+          from_template_id: string | null
           id: string
           is_active: boolean
           name: string
@@ -1534,6 +1565,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          from_template_id?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -1541,12 +1573,20 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          from_template_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
           org_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "email_sequences_from_template_id_fkey"
+            columns: ["from_template_id"]
+            isOneToOne: false
+            referencedRelation: "library_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "email_sequences_org_id_fkey"
             columns: ["org_id"]
@@ -1561,6 +1601,7 @@ export type Database = {
           body_html: string
           created_at: string
           created_by: string | null
+          from_template_id: string | null
           id: string
           name: string
           org_id: string
@@ -1572,6 +1613,7 @@ export type Database = {
           body_html?: string
           created_at?: string
           created_by?: string | null
+          from_template_id?: string | null
           id?: string
           name: string
           org_id: string
@@ -1583,6 +1625,7 @@ export type Database = {
           body_html?: string
           created_at?: string
           created_by?: string | null
+          from_template_id?: string | null
           id?: string
           name?: string
           org_id?: string
@@ -1591,6 +1634,13 @@ export type Database = {
           variables?: Json
         }
         Relationships: [
+          {
+            foreignKeyName: "email_templates_from_template_id_fkey"
+            columns: ["from_template_id"]
+            isOneToOne: false
+            referencedRelation: "library_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "email_templates_org_id_fkey"
             columns: ["org_id"]
@@ -1738,6 +1788,7 @@ export type Database = {
       followup_configs: {
         Row: {
           created_at: string
+          from_template_id: string | null
           id: string
           is_active: boolean
           max_attempts: number
@@ -1747,6 +1798,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          from_template_id?: string | null
           id?: string
           is_active?: boolean
           max_attempts?: number
@@ -1756,6 +1808,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          from_template_id?: string | null
           id?: string
           is_active?: boolean
           max_attempts?: number
@@ -1764,6 +1817,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "followup_configs_from_template_id_fkey"
+            columns: ["from_template_id"]
+            isOneToOne: false
+            referencedRelation: "library_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "followup_configs_org_id_fkey"
             columns: ["org_id"]
@@ -2022,6 +2082,48 @@ export type Database = {
           },
         ]
       }
+      library_templates: {
+        Row: {
+          category: string
+          content: Json
+          created_at: string | null
+          description: string
+          id: string
+          is_active: boolean | null
+          preview: string | null
+          sort_order: number | null
+          subcategory: string
+          tags: string[] | null
+          title: string
+        }
+        Insert: {
+          category: string
+          content: Json
+          created_at?: string | null
+          description: string
+          id?: string
+          is_active?: boolean | null
+          preview?: string | null
+          sort_order?: number | null
+          subcategory: string
+          tags?: string[] | null
+          title: string
+        }
+        Update: {
+          category?: string
+          content?: Json
+          created_at?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean | null
+          preview?: string | null
+          sort_order?: number | null
+          subcategory?: string
+          tags?: string[] | null
+          title?: string
+        }
+        Relationships: []
+      }
       loss_reasons: {
         Row: {
           id: string
@@ -2259,29 +2361,56 @@ export type Database = {
       }
       organizations: {
         Row: {
+          ai_prohibitions: string | null
+          brand_tone: string | null
+          business_description: string | null
+          business_sector: string | null
           created_at: string
           currency: string
+          good_response_example: string | null
           id: string
           logo_url: string | null
+          main_problem_solved: string | null
           name: string
+          setup_completed: boolean | null
+          setup_completed_at: string | null
+          target_audience: string | null
           timezone: string
           updated_at: string
         }
         Insert: {
+          ai_prohibitions?: string | null
+          brand_tone?: string | null
+          business_description?: string | null
+          business_sector?: string | null
           created_at?: string
           currency?: string
+          good_response_example?: string | null
           id?: string
           logo_url?: string | null
+          main_problem_solved?: string | null
           name?: string
+          setup_completed?: boolean | null
+          setup_completed_at?: string | null
+          target_audience?: string | null
           timezone?: string
           updated_at?: string
         }
         Update: {
+          ai_prohibitions?: string | null
+          brand_tone?: string | null
+          business_description?: string | null
+          business_sector?: string | null
           created_at?: string
           currency?: string
+          good_response_example?: string | null
           id?: string
           logo_url?: string | null
+          main_problem_solved?: string | null
           name?: string
+          setup_completed?: boolean | null
+          setup_completed_at?: string | null
+          target_audience?: string | null
           timezone?: string
           updated_at?: string
         }
@@ -2563,6 +2692,41 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      setup_progress: {
+        Row: {
+          completed_steps: string[] | null
+          created_at: string | null
+          current_step: string | null
+          id: string
+          org_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_steps?: string[] | null
+          created_at?: string | null
+          current_step?: string | null
+          id?: string
+          org_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_steps?: string[] | null
+          created_at?: string | null
+          current_step?: string | null
+          id?: string
+          org_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "setup_progress_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
