@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  ArrowRightLeft, Bot, CheckCheck, Link2, MessageCircle, Send, StickyNote, UserCheck, X,
+  ArrowRightLeft, Bot, CheckCheck, Flag, Link2, MessageCircle, Send, StickyNote, UserCheck, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,15 +9,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { WhatsAppStatusBadge } from "@/components/whatsapp/WhatsAppStatusBadge";
 import { ChannelBadge } from "@/components/whatsapp/ChannelBadge";
 import { LinkContactDialog } from "@/components/whatsapp/LinkContactDialog";
+import { ReportAIResponseDialog } from "@/components/whatsapp/ReportAIResponseDialog";
 import { TransferDialog } from "@/components/whatsapp/TransferDialog";
 import {
   conversationName, useMarkRead, useMessages, useSendMessage,
   useUpdateConversation, type Conversation, type Message,
 } from "@/hooks/useConversations";
 import type { WhatsAppProvider } from "@/hooks/useWhatsAppConfig";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDateTime } from "@/lib/format";
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({
+  message,
+  onReport,
+}: {
+  message: Message;
+  /** Ausente quando o usuário não pode reportar (não é admin nem gestor). */
+  onReport?: (messageId: string) => void;
+}) {
   const outbound = message.direction === "outbound";
 
   if (message.is_internal_note) {
@@ -38,7 +47,22 @@ function MessageBubble({ message }: { message: Message }) {
   }
 
   return (
-    <div className={outbound ? "flex justify-end" : "flex justify-start"}>
+    <div className={`group flex items-center gap-1.5 ${outbound ? "justify-end" : "justify-start"}`}>
+      {/* Reportar fica antes da bolha em mensagem outbound, para não empurrar o
+          texto. Aparece no hover: presente o tempo todo viraria ruído visual. */}
+      {message.is_from_ai && onReport && (
+        <button
+          type="button"
+          data-testid="report-ai-message"
+          onClick={() => onReport(message.id)}
+          title="Reportar esta resposta"
+          aria-label="Reportar esta resposta da IA"
+          className="shrink-0 opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100"
+          style={{ color: "var(--via-text-muted)" }}
+        >
+          <Flag className="h-3.5 w-3.5" strokeWidth={1.5} />
+        </button>
+      )}
       <div
         className="max-w-[75%] space-y-1 rounded-2xl px-3 py-2"
         style={
@@ -84,6 +108,12 @@ export function MessagePanel({ conversation, provider }: Props) {
   const [isNote, setIsNote] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [reportando, setReportando] = useState<string | null>(null);
+
+  // Reportar é ação de quem cuida da qualidade do atendimento, não do agente
+  // que está na conversa.
+  const { isAdmin, profile } = useAuth();
+  const podeReportar = isAdmin || profile?.crm_role === "gerente" || profile?.crm_role === "diretor";
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Ao abrir/atualizar, zera não lidas e rola para o fim.
@@ -216,7 +246,13 @@ export function MessagePanel({ conversation, provider }: Props) {
             </p>
           </div>
         ) : (
-          (messages ?? []).map((message) => <MessageBubble key={message.id} message={message} />)
+          (messages ?? []).map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              onReport={podeReportar ? setReportando : undefined}
+            />
+          ))
         )}
         <div ref={bottomRef} />
       </div>
