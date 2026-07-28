@@ -45,21 +45,46 @@ cliente para não assinar a cada render de lista.
 
 ---
 
-## 2. Wizard de setup sem cobertura E2E
+## 2. A IA padrão não é Claude
 
-**Estado:** o wizard `/setup` (Sprint 9) tem `data-testid` em todas as etapas,
-mas não existe spec do Playwright exercitando o fluxo ponta a ponta.
+**Estado:** `supabase/functions/_shared/ai.ts` escolhe o provedor em tempo de
+execução: usa a API da Anthropic quando o secret `ANTHROPIC_API_KEY` existe e,
+sem ele, cai no AI Gateway do Lovable. Como o Gateway **não serve modelos
+Claude** (só Google e OpenAI), a configuração padrão do projeto roda em Gemini.
 
-**Por que:** a suíte E2E atual loga como admin de uma organização que o
-`global-setup.ts` marca com `setup_completed = true`, justamente para não cair
-no guard do wizard. Testar o wizard exige uma organização em estado oposto, ou
-seja, uma segunda fixture — e a etapa de IA chama a `generate-system-prompt`,
-que consome a API da Anthropic a cada execução.
+**Por que ficou assim:** as três functions de IA exigiam `ANTHROPIC_API_KEY`, que
+nunca foi configurada — as três respondiam 500 e o onboarding era intransponível
+no passo 3. A `LOVABLE_API_KEY` é provisionada automaticamente, então o Gateway
+funciona sem ninguém configurar nada.
 
-**O que dispararia a correção:** qualquer mudança na sequência de etapas ou na
-lógica de retomada por `setup_progress.current_step`. Hoje uma regressão aí só
-apareceria em teste manual.
+**Consequência prática:** os prompts das três functions são agnósticos de
+fornecedor (pedem JSON ou texto puro, e a estrutura é validada na volta), mas a
+redação muda de modelo para modelo. O `<sector_context>` gerado por Gemini não
+sai igual ao que sairia por Claude.
 
-**Correção quando for a hora:** organização dedicada criada no `global-setup`
-com `setup_completed = false`, e a chamada da IA dublada por variável de
-ambiente para não gastar crédito em CI.
+**O que dispararia a mudança:** avaliação de qualidade das respostas em produção,
+ou exigência de rodar em Claude por decisão de produto.
+
+**Como mudar:** cadastrar `ANTHROPIC_API_KEY` nos secrets do Supabase. As três
+functions passam a usar Claude na chamada seguinte, sem alteração de código nem
+de tela. Os modelos de cada provedor também são sobrescrevíveis sem redeploy,
+por `AI_GATEWAY_MODEL` e `AI_ANTHROPIC_MODEL`.
+
+---
+
+## 3. Passo 3 do wizard não tem caminho manual
+
+**Estado:** em `StepIA`, o botão de avançar é `disabled` enquanto não houver
+blocos gerados. Não existe opção de escrever o prompt à mão nem de pular a etapa.
+
+**Consequência:** qualquer indisponibilidade do provedor de IA — sem créditos,
+rate limit, provedor fora do ar — deixa o onboarding intransponível. O usuário vê
+"Não foi possível gerar" e não tem para onde ir. Coberto pelo teste
+"passo 3 sem IA mostra o erro e bloqueia o avanço" em `e2e/setup-wizard.spec.ts`,
+que documenta o comportamento atual em vez de fingir que ele não existe.
+
+**O que dispararia a correção:** o primeiro usuário travado aí.
+
+**Correção quando for a hora:** permitir avançar com um prompt mínimo montado
+localmente a partir do contexto já coletado nos passos 1 e 2, marcando a etapa
+como pendente para revisão em Configurações > IA.

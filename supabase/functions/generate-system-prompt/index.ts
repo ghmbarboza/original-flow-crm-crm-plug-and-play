@@ -9,11 +9,7 @@
 // tiraria dele essa chance e deixaria estado meio-salvo se ele desistir.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { NINA_REFERENCE } from "./nina-reference.ts";
-
-// Modelo atual da família Claude 5. A ai-reply ainda usa claude-opus-4-8; para
-// geração estruturada como esta, Sonnet entrega o mesmo resultado por uma
-// fração do custo.
-const ANTHROPIC_MODEL = "claude-sonnet-5";
+import { chamarIA, ErroIA, extrairJson } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -110,24 +106,6 @@ Responda SOMENTE com um JSON válido, sem cercas de código, neste formato:
 {"system_prompt":"<system_instruction>...</system_instruction>","faqs":[{"question":"","answer":""}],"objections":[{"objection":"","response":""}]}`;
 }
 
-/** Extrai o JSON da resposta, tolerando cercas de código que o modelo às vezes adiciona. */
-function extrairJson(texto: string): Record<string, unknown> | null {
-  const limpo = texto.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
-  try {
-    return JSON.parse(limpo);
-  } catch {
-    // Fallback: pega do primeiro { ao último } — cobre texto solto em volta.
-    const inicio = limpo.indexOf("{");
-    const fim = limpo.lastIndexOf("}");
-    if (inicio === -1 || fim <= inicio) return null;
-    try {
-      return JSON.parse(limpo.slice(inicio, fim + 1));
-    } catch {
-      return null;
-    }
-  }
-}
-
 const BLOCOS_OBRIGATORIOS = [
   "role", "company", "core_philosophy", "sector_context",
   "guidelines", "cognitive_process", "output_format", "examples",
@@ -137,9 +115,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) return json({ error: "ANTHROPIC_API_KEY não configurada" }, 500);
-
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -177,30 +152,11 @@ Deno.serve(async (req) => {
     const { agent_name } = await req.json().catch(() => ({}));
     const agentName = String(agent_name ?? "").trim() || "Assistente";
 
-    const aiResp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 8000,
-        messages: [{ role: "user", content: promptDoGerador(org as OrgContexto, agentName) }],
-      }),
+    const { texto } = await chamarIA({
+      tarefa: "estruturado",
+      maxTokens: 8000,
+      messages: [{ role: "user", content: promptDoGerador(org as OrgContexto, agentName) }],
     });
-
-    if (!aiResp.ok) {
-      const err = await aiResp.text();
-      return json({ error: `Claude API: ${err.slice(0, 200)}` }, 502);
-    }
-
-    const payload = await aiResp.json();
-    const texto: string = (payload.content ?? [])
-      .filter((b: { type: string }) => b.type === "text")
-      .map((b: { text: string }) => b.text)
-      .join("");
 
     const parsed = extrairJson(texto);
     if (!parsed || typeof parsed.system_prompt !== "string") {
@@ -232,6 +188,10 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, system_prompt: systemPrompt, faqs, objections });
   } catch (err) {
+    // ErroIA já traz status e um texto pensado para o usuário final (sem
+    // créditos, rate limit, credencial recusada). Achatar tudo em 500 faria a
+    // tela dizer "erro inesperado" para causas que têm ação clara.
+    if (err instanceof ErroIA) return json({ error: err.publico }, err.status);
     return json({ error: err instanceof Error ? err.message : "Erro inesperado" }, 500);
   }
 });

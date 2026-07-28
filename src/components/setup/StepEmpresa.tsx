@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,12 @@ export function StepEmpresa({ onNext }: { onNext: () => void }) {
     main_problem_solved: "",
   });
 
+  // Hidrata UMA vez — ver a mesma trava em StepPublico. Um refetch da
+  // organização no meio da digitação reverteria o formulário para o servidor.
+  const hidratado = useRef(false);
   useEffect(() => {
-    if (!org) return;
+    if (!org || hidratado.current) return;
+    hidratado.current = true;
     setForm({
       name: org.name ?? "",
       business_sector: org.business_sector ?? "",

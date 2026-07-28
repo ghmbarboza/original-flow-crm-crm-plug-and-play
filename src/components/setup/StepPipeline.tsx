@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, Info, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,13 @@ export function StepPipeline({ onNext, onBack }: { onNext: () => void; onBack: (
   const [novaEtapa, setNovaEtapa] = useState("");
   const [novoMotivo, setNovoMotivo] = useState("");
 
+  // Sugere UMA vez. Sem a trava, um refetch da organização descartava as etapas
+  // que o usuário tinha acabado de renomear, reordenar ou remover, voltando
+  // tudo para a sugestão padrão do setor.
+  const sugerido = useRef(false);
   useEffect(() => {
-    if (!org) return;
+    if (!org || sugerido.current) return;
+    sugerido.current = true;
     setEtapas(pipelineForSector(org.business_sector));
     setMotivos(lossReasonsForSector(org.business_sector));
   }, [org]);

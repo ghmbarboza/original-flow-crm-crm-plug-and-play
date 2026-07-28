@@ -9,8 +9,7 @@
 // resultado como sugestão a revisar, e aplicar sempre cria nova versão do
 // prompt, para poder desfazer.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const ANTHROPIC_MODEL = "claude-sonnet-5";
+import { chamarIA, ErroIA, extrairJson } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,29 +37,10 @@ const CATEGORIA_LABEL: Record<string, string> = {
   outro: "Outro",
 };
 
-function extrairJson(texto: string): Record<string, unknown> | null {
-  const limpo = texto.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
-  try {
-    return JSON.parse(limpo);
-  } catch {
-    const i = limpo.indexOf("{");
-    const f = limpo.lastIndexOf("}");
-    if (i === -1 || f <= i) return null;
-    try {
-      return JSON.parse(limpo.slice(i, f + 1));
-    } catch {
-      return null;
-    }
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!apiKey) return json({ error: "ANTHROPIC_API_KEY não configurada" }, 500);
-
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -150,30 +130,11 @@ REGRAS DA ANÁLISE
 Responda SOMENTE com JSON válido, sem cercas de código:
 {"bloco":"guidelines","causa":"explicação curta do que faltou ou falhou","sugestao":"trecho a inserir no bloco","confianca":"alta|media|baixa"}`;
 
-    const aiResp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1500,
-        messages: [{ role: "user", content: prompt }],
-      }),
+    const { texto } = await chamarIA({
+      tarefa: "estruturado",
+      maxTokens: 1500,
+      messages: [{ role: "user", content: prompt }],
     });
-
-    if (!aiResp.ok) {
-      const err = await aiResp.text();
-      return json({ error: `Claude API: ${err.slice(0, 200)}` }, 502);
-    }
-
-    const payload = await aiResp.json();
-    const texto: string = (payload.content ?? [])
-      .filter((b: { type: string }) => b.type === "text")
-      .map((b: { text: string }) => b.text)
-      .join("");
 
     const parsed = extrairJson(texto);
     if (!parsed) return json({ error: "A IA não devolveu um diagnóstico legível." }, 502);
@@ -191,6 +152,7 @@ Responda SOMENTE com JSON válido, sem cercas de código:
         : "baixa",
     });
   } catch (err) {
+    if (err instanceof ErroIA) return json({ error: err.publico }, err.status);
     return json({ error: err instanceof Error ? err.message : "Erro inesperado" }, 500);
   }
 });
