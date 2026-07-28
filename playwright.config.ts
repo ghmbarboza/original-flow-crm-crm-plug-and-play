@@ -19,6 +19,9 @@ export default defineConfig({
   // regressão — foi o que quase aconteceu no fechamento do Sprint 8.
   retries: 1,
   reporter: [["list"], ["html", { open: "never" }]],
+  // Remove os registros criados pela suíte ao final do run. Ver o arquivo para
+  // as travas de segurança (só apaga o que tem o marcador "E2E", sempre por org).
+  globalTeardown: "./e2e/global-teardown.ts",
   timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
