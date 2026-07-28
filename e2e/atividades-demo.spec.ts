@@ -40,24 +40,14 @@ test("tarefa: cria e aparece na lista", async ({ page }) => {
  * funciona partindo de qualquer estado inicial e devolve a org como encontrou.
  */
 /**
- * NÃO ENTREGUE — coberto no código, mas desligado na suíte.
+ * Ciclo de demonstração: popular, conferir que os dados aparecem, limpar.
  *
- * O ciclo popular → verificar → limpar não termina nem com 240s de timeout: as
- * edge functions de demo mexem em dezenas de registros e, neste ambiente, o
- * botão de popular não volta a habilitar dentro da janela. Sozinho, o teste já
- * levava 8 minutos.
- *
- * Manter ligado deixaria a suíte vermelha por lentidão de backend, não por
- * regressão de frontend — que é justamente o que estes testes existem para
- * detectar. O código fica aqui porque a lógica está certa; falta o backend
- * responder em tempo hábil ou a UI expor um sinal de conclusão mais direto que
- * o estado do botão.
- *
- * Para retomar: trocar `test.skip` por `test` e investigar quanto tempo
- * `demo-data` realmente leva (lovable_get_logs, type=functions).
+ * Medido: a edge function `demo-data` responde em ~4s tanto no seed quanto no
+ * clear. O gargalo não é backend — o timeout generoso abaixo cobre a cascata de
+ * refetch que o `invalidateQueries()` sem chave dispara após cada operação.
  */
-test.skip("demonstração: popula e limpa os dados", async ({ page }) => {
-  test.setTimeout(240_000);
+test("demonstração: popula e limpa os dados", async ({ page }) => {
+  test.setTimeout(120_000);
 
   const abrirAbaDemo = async () => {
     await gotoPage(page, "/settings", "Configurações");
@@ -65,7 +55,23 @@ test.skip("demonstração: popula e limpa os dados", async ({ page }) => {
     await expect(page.getByTestId("demo-seed")).toBeVisible();
   };
 
+  /**
+   * Espera o status de demo resolver.
+   *
+   * Enquanto a query carrega, `isLoading` deixa os DOIS botões desabilitados.
+   * Ramificar antes disso lê o estado errado e leva o teste a pular a limpeza
+   * para depois esperar para sempre por um botão que nunca habilita.
+   */
+  const esperarStatusResolver = async () => {
+    await expect(async () => {
+      const seedOn = await page.getByTestId("demo-seed").isEnabled();
+      const clearOn = await page.getByTestId("demo-clear").isEnabled();
+      expect(seedOn || clearOn).toBe(true);
+    }).toPass({ timeout: 30_000 });
+  };
+
   await abrirAbaDemo();
+  await esperarStatusResolver();
 
   // Parte de um estado conhecido: se já houver dados de demo, limpa antes.
   // O botão de popular fica desabilitado enquanto existirem dados, então é ele
@@ -73,14 +79,14 @@ test.skip("demonstração: popula e limpa os dados", async ({ page }) => {
   if (await page.getByTestId("demo-clear").isEnabled()) {
     await page.getByTestId("demo-clear").click();
     await page.getByTestId("demo-clear-confirm").click();
-    await expect(page.getByTestId("demo-seed")).toBeEnabled({ timeout: 90_000 });
+    await expect(page.getByTestId("demo-seed")).toBeEnabled({ timeout: 60_000 });
   }
 
   // ---- Popular ----
   await page.getByTestId("demo-seed").click();
   // Popular habilita o limpar: é o sinal de que os dados entraram, sem depender
   // do texto do toast.
-  await expect(page.getByTestId("demo-clear")).toBeEnabled({ timeout: 90_000 });
+  await expect(page.getByTestId("demo-clear")).toBeEnabled({ timeout: 60_000 });
 
   // Os dados aparecem de fato no CRM, não só no estado do botão.
   await gotoPage(page, "/contacts", "Contatos");
@@ -90,5 +96,5 @@ test.skip("demonstração: popula e limpa os dados", async ({ page }) => {
   await abrirAbaDemo();
   await page.getByTestId("demo-clear").click();
   await page.getByTestId("demo-clear-confirm").click();
-  await expect(page.getByTestId("demo-seed")).toBeEnabled({ timeout: 90_000 });
+  await expect(page.getByTestId("demo-seed")).toBeEnabled({ timeout: 60_000 });
 });
