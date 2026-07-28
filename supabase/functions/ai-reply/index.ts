@@ -40,6 +40,79 @@ function shouldEscalate(text: string, rules: TriggerRules, aiTurns: number, maxT
   return false;
 }
 
+interface WorkingDay {
+  enabled?: boolean;
+  start?: string;
+  end?: string;
+}
+/** Formato novo, gravado pela tela de IA: uma entrada por dia da semana. */
+type WorkingHoursPorDia = Record<string, WorkingDay>;
+/** Formato legado, que é o DEFAULT da coluna no banco. */
+interface WorkingHoursLegado {
+  days?: number[];
+  start?: string;
+  end?: string;
+}
+
+/** Ordem ISO: 1 = segunda ... 7 = domingo, casando com o formato legado. */
+const DIAS_ISO = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+/** Uma janela HH:MM contém o horário atual? Trata janela que vira o dia. */
+function dentroDaJanela(agora: string, inicio: string, fim: string): boolean {
+  if (inicio <= fim) return agora >= inicio && agora <= fim;
+  // Ex.: 22:00 às 02:00 é contínua, não vazia.
+  return agora >= inicio || agora <= fim;
+}
+
+/**
+ * A IA só responde dentro do horário de atendimento configurado.
+ *
+ * Fuso: usa organizations.timezone, não o do servidor. A edge function roda em
+ * UTC e comparar contra ele responderia no horário errado para qualquer org
+ * fora de Greenwich.
+ *
+ * DOIS FORMATOS convivem na coluna e ambos precisam funcionar:
+ *  - por dia   {"mon": {enabled, start, end}, ...} — o que a tela de IA grava
+ *  - legado    {"days": [1..5], "start", "end"}    — o DEFAULT da coluna
+ * Uma org que nunca abriu a tela tem o legado. Entender só o formato novo faria
+ * a IA responder 24h justamente para quem nunca configurou nada.
+ *
+ * Sem configuração reconhecível, atende: silenciar quem não configurou seria
+ * pior que o excesso.
+ */
+function dentroDoHorario(workingHours: unknown, timezone: string): boolean {
+  if (!workingHours || typeof workingHours !== "object") return true;
+
+  const partes = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const diaKey = partes.find((p) => p.type === "weekday")?.value.toLowerCase() ?? "";
+  const hora = partes.find((p) => p.type === "hour")?.value ?? "00";
+  const minuto = partes.find((p) => p.type === "minute")?.value ?? "00";
+  const agora = `${hora}:${minuto}`;
+
+  const legado = workingHours as WorkingHoursLegado;
+  if (Array.isArray(legado.days)) {
+    const isoHoje = DIAS_ISO.indexOf(diaKey) + 1; // 0 vira -1+1 = 0, nunca casa
+    if (!legado.days.includes(isoHoje)) return false;
+    return dentroDaJanela(agora, legado.start ?? "00:00", legado.end ?? "23:59");
+  }
+
+  const porDia = workingHours as WorkingHoursPorDia;
+  if (Object.keys(porDia).length === 0) return true;
+
+  const dia = porDia[diaKey];
+  // Dia ausente é tratado como não configurado, não como fechado.
+  if (!dia) return true;
+  if (dia.enabled === false) return false;
+  return dentroDaJanela(agora, dia.start ?? "00:00", dia.end ?? "23:59");
+}
+
 async function deliver(
   admin: ReturnType<typeof createClient>,
   provider: string,
@@ -130,6 +203,19 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!config || !config.is_active) return json({ skipped: "IA desativada para a organização" });
 
+    // Horário de atendimento: fora dele a IA fica em silêncio, em qualquer canal.
+    // A conversa segue aberta — quem responde é a equipe no próximo expediente.
+    const { data: org } = await admin
+      .from("organizations")
+      .select("timezone")
+      .eq("id", conversation.org_id)
+      .maybeSingle();
+    const timezone = (org?.timezone as string) || "America/Sao_Paulo";
+
+    if (!dentroDoHorario(config.working_hours, timezone)) {
+      return json({ skipped: "fora do horário de atendimento", timezone });
+    }
+
     // Janela de contexto: últimas N mensagens (não notas internas), em ordem.
     const windowSize = config.context_window_size ?? 20;
     const { data: history } = await admin
@@ -144,6 +230,22 @@ Deno.serve(async (req) => {
     const lastInbound = ordered.filter((m) => m.direction === "inbound").at(-1);
     const aiTurns = ordered.filter((m) => m.is_from_ai).length;
 
+    // Cooldown: se a IA acabou de responder, não responde de novo.
+    //
+    // Protege contra duplicação — o mesmo webhook reentregue, ou o cliente
+    // mandando várias mensagens seguidas, dispararia uma resposta por evento e
+    // o cliente receberia respostas repetidas em sequência.
+    const cooldown = Number(config.cooldown_ms ?? 0);
+    if (cooldown > 0) {
+      const ultimaIA = ordered.filter((m) => m.is_from_ai).at(-1);
+      if (ultimaIA?.sent_at) {
+        const desde = Date.now() - new Date(ultimaIA.sent_at as string).getTime();
+        if (desde < cooldown) {
+          return json({ skipped: "em cooldown", aguardando_ms: cooldown - desde });
+        }
+      }
+    }
+
     // Regras de escalonamento para humano.
     const rules = (config.human_trigger_rules ?? {}) as TriggerRules;
     if (
@@ -154,7 +256,38 @@ Deno.serve(async (req) => {
         .from("conversations")
         .update({ status: "human_takeover", updated_at: new Date().toISOString() })
         .eq("id", conversation_id);
-      return json({ escalated: true });
+
+      // Avisa o cliente que um humano vai assumir. Sem isso a conversa some do
+      // lado dele: a IA para de responder e nada explica o silêncio.
+      const fallback = (config.fallback_message as string | null)?.trim();
+      if (fallback) {
+        const fallbackMessageId = await deliver(
+          admin,
+          conversation.provider,
+          conversation.org_id,
+          conversation.phone_number,
+          fallback,
+        );
+        await admin.from("conversation_messages").insert({
+          conversation_id,
+          org_id: conversation.org_id,
+          direction: "outbound",
+          content: fallback,
+          is_from_ai: true,
+          provider_message_id: fallbackMessageId,
+          type: "text",
+          status: fallbackMessageId ? "sent" : "failed",
+        });
+        await admin
+          .from("conversations")
+          .update({
+            last_message_at: new Date().toISOString(),
+            last_message_preview: fallback.slice(0, 120),
+          })
+          .eq("id", conversation_id);
+      }
+
+      return json({ escalated: true, fallback_enviado: !!fallback });
     }
 
     // Base de conhecimento.

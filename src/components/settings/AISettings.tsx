@@ -52,6 +52,7 @@ export default function AISettings() {
     fallback_message: "",
     context_window_size: 20,
     response_delay_ms: 0,
+    cooldown_ms: 3000,
     max_ai_turns_before_human: 0,
   });
   const [workingHours, setWorkingHours] = useState<WorkingHours>(defaultWorkingHours());
@@ -69,6 +70,7 @@ export default function AISettings() {
       fallback_message: config.fallback_message ?? "",
       context_window_size: config.context_window_size ?? 20,
       response_delay_ms: config.response_delay_ms ?? 0,
+      cooldown_ms: config.cooldown_ms ?? 3000,
       max_ai_turns_before_human: config.max_ai_turns_before_human ?? 0,
     });
     const wh = (config.working_hours ?? {}) as unknown as Partial<WorkingHours>;
@@ -182,6 +184,13 @@ export default function AISettings() {
               <Label htmlFor="max_turns">Máx. respostas antes de humano</Label>
               <Input id="max_turns" type="number" min="0" value={form.max_ai_turns_before_human} onChange={(e) => setForm({ ...form, max_ai_turns_before_human: Number(e.target.value) })} />
               <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>0 = sem limite. Ao atingir, transfere para humano.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cooldown">Intervalo mínimo entre respostas (ms)</Label>
+              <Input id="cooldown" type="number" min="0" value={form.cooldown_ms} onChange={(e) => setForm({ ...form, cooldown_ms: Number(e.target.value) })} />
+              <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                Evita respostas duplicadas quando várias mensagens chegam seguidas. 0 = sem proteção.
+              </p>
             </div>
           </div>
 
