@@ -67,7 +67,7 @@ export default function CompaniesPage() {
               Empresas
             </h1>
           </div>
-          <Button onClick={openCreate} className="gap-1.5">
+          <Button onClick={openCreate} className="gap-1.5" data-testid="company-new">
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Nova empresa
           </Button>
@@ -93,6 +93,7 @@ export default function CompaniesPage() {
           />
           <Input
             className="pl-8"
+            data-testid="company-search"
             placeholder="Buscar por nome, domínio ou setor"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

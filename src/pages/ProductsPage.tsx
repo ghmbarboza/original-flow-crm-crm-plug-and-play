@@ -64,7 +64,7 @@ export default function ProductsPage() {
               <Upload className="h-4 w-4" strokeWidth={1.5} />
               Importar
             </Button>
-            <Button onClick={openCreate} className="gap-1.5">
+            <Button onClick={openCreate} className="gap-1.5" data-testid="product-new">
               <Plus className="h-4 w-4" strokeWidth={1.5} />
               Novo produto
             </Button>

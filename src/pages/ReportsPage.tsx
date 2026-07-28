@@ -97,7 +97,7 @@ export default function ReportsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-40" data-testid="reports-period"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
               </SelectContent>
@@ -110,7 +110,7 @@ export default function ReportsPage() {
               </SelectContent>
             </Select>
             <Select value={channel} onValueChange={setChannel}>
-              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-40" data-testid="reports-channel"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Todos os canais</SelectItem>
                 {CAMPAIGN_CHANNELS.map((ch) => (

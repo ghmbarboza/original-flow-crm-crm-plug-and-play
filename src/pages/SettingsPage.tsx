@@ -86,17 +86,17 @@ export default function SettingsPage() {
         <h1 className="text-3xl font-medium tracking-tight">Configurações</h1>
         <Tabs value={activeTab} onValueChange={handleChange}>
           <TabsList>
-            <TabsTrigger value="general">Geral</TabsTrigger>
-            <TabsTrigger value="notifications">Notificações</TabsTrigger>
-            {isAdmin && <TabsTrigger value="security">Segurança</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="channels">Canais</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="integrations">Integrações</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="capture">Captura de Leads</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="ia">IA</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="follow-up">Follow-up</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="team">Equipe</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="demonstration">Demonstração</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="onboarding">Onboarding</TabsTrigger>}
+            <TabsTrigger data-testid="settings-tab" value="general">Geral</TabsTrigger>
+            <TabsTrigger data-testid="settings-tab" value="notifications">Notificações</TabsTrigger>
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="security">Segurança</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="channels">Canais</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="integrations">Integrações</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="capture">Captura de Leads</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="ia">IA</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="follow-up">Follow-up</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="team">Equipe</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="demonstration">Demonstração</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="onboarding">Onboarding</TabsTrigger>}
           </TabsList>
           <div className="mt-6 mb-4">
             <h2 className="text-xl font-semibold">{meta.title}</h2>

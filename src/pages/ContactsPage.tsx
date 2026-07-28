@@ -112,7 +112,7 @@ export default function ContactsPage() {
               <Download className="h-4 w-4" strokeWidth={1.5} />
               Exportar
             </Button>
-            <Button onClick={openCreate} className="gap-1.5">
+            <Button onClick={openCreate} className="gap-1.5" data-testid="contact-new">
               <Plus className="h-4 w-4" strokeWidth={1.5} />
               Novo contato
             </Button>
@@ -148,6 +148,7 @@ export default function ContactsPage() {
                 />
                 <Input
                   className="pl-8"
+                  data-testid="contact-search"
                   placeholder="Buscar por nome, email, telefone ou empresa"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

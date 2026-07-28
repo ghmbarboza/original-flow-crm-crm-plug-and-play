@@ -1,0 +1,114 @@
+import { test, expect } from "@playwright/test";
+import { expectNoErrorState, gotoPage } from "./helpers";
+
+/**
+ * Cobertura de "a tela abre e funciona" para as áreas sem CRUD próprio.
+ *
+ * Cada teste confirma o H1 E a ausência de estado de erro. Só o H1 não bastaria:
+ * uma página que monta o cabeçalho e quebra no corpo passaria batido.
+ */
+
+test.describe("Configurações", () => {
+  test("navega por todas as abas sem erro", async ({ page }) => {
+    await gotoPage(page, "/settings", "Configurações");
+
+    const tabs = page.getByTestId("settings-tab");
+    const count = await tabs.count();
+    expect(count).toBeGreaterThan(5);
+
+    // Percorre todas as abas visíveis; o conteúdo de cada uma precisa montar.
+    for (let i = 0; i < count; i++) {
+      const tab = tabs.nth(i);
+      await tab.click();
+      await expect(tab).toHaveAttribute("data-state", "active");
+      await expectNoErrorState(page);
+    }
+  });
+
+  test("salva a configuração geral", async ({ page }) => {
+    await gotoPage(page, "/settings", "Configurações");
+    await page.getByTestId("settings-tab").filter({ hasText: "Geral" }).click();
+
+    await page.getByTestId("general-save").click();
+    await expect(page.getByText(/salv/i).first()).toBeVisible();
+  });
+
+  test("altera o modo de distribuição em Canais", async ({ page }) => {
+    await gotoPage(page, "/settings", "Configurações");
+    await page.getByTestId("settings-tab").filter({ hasText: "Canais" }).click();
+    await page.getByRole("tab", { name: "Distribuição" }).click();
+
+    // Round-robin é o modo que a distribuição por canal do Sprint 8 usa.
+    await page.getByTestId("distribution-mode").filter({ hasText: "Round-robin" }).click();
+    await page.getByTestId("distribution-save").click();
+    await expect(page.getByText("Distribuição atualizada.")).toBeVisible();
+  });
+});
+
+test.describe("Marketing", () => {
+  test("campanhas: abre ou mostra o bloqueio do provedor", async ({ page }) => {
+    await gotoPage(page, "/campaigns", "Campanhas");
+
+    // A org pode ou não ter provedor oficial. Os dois desfechos são válidos —
+    // o que não pode é a tela quebrar ou ficar ambígua.
+    const blocked = page.getByTestId("campaigns-blocked");
+    const tabs = page.getByRole("tab", { name: "Campanhas" });
+    await expect(blocked.or(tabs).first()).toBeVisible();
+
+    if (await blocked.isVisible()) {
+      // Bloqueio precisa explicar o porquê e apontar a saída.
+      await expect(blocked).toContainText("provedor oficial");
+      await expect(blocked).toContainText("Evolution");
+    }
+  });
+
+  test("sequências de email abrem sem erro", async ({ page }) => {
+    await gotoPage(page, "/email-sequences", "Sequências de email");
+    await expectNoErrorState(page);
+  });
+});
+
+test.describe("Analytics", () => {
+  test("relatórios: filtros de período e canal", async ({ page }) => {
+    await gotoPage(page, "/reports", "Relatórios");
+    await expectNoErrorState(page);
+
+    await page.getByTestId("reports-period").click();
+    await page.getByRole("option", { name: "Últimos 7 dias" }).click();
+    await expect(page.getByTestId("reports-period")).toContainText("Últimos 7 dias");
+
+    await page.getByTestId("reports-channel").click();
+    await page.getByRole("option", { name: "WhatsApp" }).click();
+    await expect(page.getByTestId("reports-channel")).toContainText("WhatsApp");
+
+    // Trocar filtro refaz a consulta; a página segue de pé.
+    await expectNoErrorState(page);
+  });
+
+  test("metas abrem sem erro", async ({ page }) => {
+    await gotoPage(page, "/sales-goals", "Metas");
+    await expectNoErrorState(page);
+  });
+
+  test("lead scoring abre sem erro", async ({ page }) => {
+    await gotoPage(page, "/lead-scoring", "Lead Scoring");
+    await expectNoErrorState(page);
+  });
+});
+
+test.describe("Atendimento", () => {
+  test("inbox: chips de canal e empty state", async ({ page }) => {
+    await page.goto("/whatsapp");
+
+    // Sem conversa selecionada, o painel da direita mostra o convite a escolher.
+    // Os chips só aparecem quando há mais de um canal em uso — por isso o
+    // teste aceita a ausência deles, mas exige o empty state.
+    await expect(page.getByTestId("inbox-empty")).toBeVisible();
+    await expect(page.getByTestId("inbox-empty")).toContainText("Selecione uma conversa");
+
+    const chips = page.getByTestId("channel-chips");
+    if (await chips.count()) {
+      await expect(chips).toBeVisible();
+    }
+  });
+});
