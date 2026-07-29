@@ -83,17 +83,29 @@ rate limit, provedor fora do ar — deixa o onboarding intransponível. O usuár
 "passo 3 sem IA mostra o erro e bloqueia o avanço" em `e2e/setup-wizard.spec.ts`,
 que documenta o comportamento atual em vez de fingir que ele não existe.
 
-**Já aconteceu (2026-07-29):** o orçamento diário de IA do projeto (5 créditos,
-~0,2 por geração) zerou durante os testes e o passo 3 ficou intransponível em
-produção, exatamente como descrito acima. Não foi um usuário real, mas deixou de
-ser hipótese. Agravante do dia: a tela mostrou `"Edge Function returned a
-non-2xx status code"` em vez de "Os créditos de IA do projeto acabaram", porque a
-mensagem real não chegava ao cliente — corrigido depois, em
-`src/integrations/supabase/functionError.ts`.
+**Já aconteceu (2026-07-29):** durante os testes em produção, a geração falhou e
+o passo 3 ficou intransponível, exatamente como descrito acima — o usuário vê
+"Não foi possível gerar" e o botão de avançar segue `disabled`. Não foi um
+usuário real, mas deixou de ser hipótese.
 
-**O que dispararia a correção:** o primeiro usuário travado aí. Considerando o
-limite diário de 5 créditos, isso é questão de quantos onboardings acontecem no
-mesmo dia — não de azar.
+A causa da falha **não foi identificada**. A hipótese mais provável é rate limit
+(429) por várias gerações em sequência curta; o que se descarta é falta de
+crédito, porque uma geração rodou com sucesso no mesmo período. Vale registrar
+por que não se sabe: a tela mostrou `"Edge Function returned a non-2xx status
+code"` em vez da mensagem da própria function, então a causa não estava
+disponível nem para quem investigava. Isso foi corrigido em
+`src/integrations/supabase/functionError.ts` — numa próxima ocorrência a causa
+aparece na tela.
+
+**Sobre crédito, para não repetir o diagnóstico errado:** o campo `daily_limit: 5`
+do saldo Lovable é um grão diário gratuito da conta, consumido por tudo
+(incluindo prompts ao agente do Lovable), e não um orçamento de IA do produto.
+Zerar não bloqueia nada enquanto houver saldo pago. O consumo da IA do produto é
+o `ai_gateway_usage` de `lovable_cloud_usage` — 492 créditos no mês contra 10.328
+disponíveis quando isto foi escrito. Crédito não é o gargalo hoje.
+
+**O que dispararia a correção:** o primeiro usuário travado aí. Qualquer 429,
+instabilidade do Gateway ou timeout basta — e já se viu acontecer.
 
 **Correção quando for a hora:** permitir avançar com um prompt mínimo montado
 localmente a partir do contexto já coletado nos passos 1 e 2, marcando a etapa
