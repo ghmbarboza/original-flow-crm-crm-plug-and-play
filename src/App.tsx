@@ -26,6 +26,7 @@ const TasksPage = lazy(() => import("./pages/TasksPage"));
 const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
+const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const InboxPage = lazy(() => import("./pages/InboxPage"));
 const EmailTemplatesPage = lazy(() => import("./pages/EmailTemplatesPage"));
 const EmailSequencesPage = lazy(() => import("./pages/EmailSequencesPage"));
@@ -156,6 +157,9 @@ const App = () => (
             {/* Marketing */}
             <Route path="/campaigns" element={
               <ProtectedRoute><Page name="Campanhas"><CampaignsPage /></Page></ProtectedRoute>
+            } />
+            <Route path="/library" element={
+              <ProtectedRoute><Page name="Biblioteca de Modelos"><LibraryPage /></Page></ProtectedRoute>
             } />
             <Route path="/automations" element={
               <ProtectedRoute><Page name="Automações"><AutomationsPage /></Page></ProtectedRoute>

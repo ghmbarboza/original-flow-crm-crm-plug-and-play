@@ -8,6 +8,7 @@ import {
   FileText,
   GitBranch,
   HelpCircle,
+  BookOpen,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -76,6 +77,7 @@ export function AppSidebar() {
       label: "Marketing",
       items: [
         { title: "Campanhas", url: "/campaigns", icon: Megaphone },
+        { title: "Biblioteca", url: "/library", icon: BookOpen },
         { title: "Automações", url: "/automations", icon: Zap },
         { title: "Sequências", url: "/email-sequences", icon: GitBranch },
         { title: "Templates", url: "/email-templates", icon: FileText },

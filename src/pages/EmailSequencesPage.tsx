@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { GitBranch, Plus, Trash2, Users } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
+import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,8 +85,13 @@ export default function EmailSequencesPage() {
           <EmptyState
             icon={GitBranch}
             title="Nenhuma sequência ainda"
-            description="Crie sequências de nutrição com etapas espaçadas por dias, cada uma com um template."
-            action={<Button onClick={() => setCreateOpen(true)}>Criar primeira sequência</Button>}
+            description="Comece do zero ou use um modelo pronto da Biblioteca."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={() => setCreateOpen(true)}>Criar sequência</Button>
+                <LinkBiblioteca categoria="email_sequence" />
+              </div>
+            }
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

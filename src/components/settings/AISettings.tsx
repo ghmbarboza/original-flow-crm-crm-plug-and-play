@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { Bot, Clock, MessageSquare, Sliders, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -316,7 +317,12 @@ export default function AISettings() {
                 isLoading={loadingFaqs}
                 labelA="Pergunta"
                 labelB="Resposta"
-                emptyLabel="Nenhuma FAQ ainda. Adicione perguntas frequentes para a IA responder com precisão."
+                emptyLabel={
+                  <span className="flex flex-col items-center gap-2">
+                    Nenhuma FAQ ainda. Comece do zero ou use um modelo pronto da Biblioteca.
+                    <LinkBiblioteca categoria="ai_faq" />
+                  </span>
+                }
                 onSave={(input) => saveFAQ.mutateAsync({ id: input.id, question: input.a, answer: input.b })}
                 onDelete={(id) => deleteFAQ.mutateAsync(id)}
                 onImport={(rows) => importFAQs.mutateAsync(rows.map((r) => ({ question: r.a, answer: r.b })))}
@@ -329,7 +335,12 @@ export default function AISettings() {
                 isLoading={loadingObjections}
                 labelA="Objeção"
                 labelB="Como contornar"
-                emptyLabel="Nenhuma objeção ainda. Ensine a IA a contornar objeções comuns de vendas."
+                emptyLabel={
+                  <span className="flex flex-col items-center gap-2">
+                    Nenhuma objeção ainda. Comece do zero ou use um modelo pronto da Biblioteca.
+                    <LinkBiblioteca categoria="ai_objection" />
+                  </span>
+                }
                 onSave={(input) => saveObjection.mutateAsync({ id: input.id, objection: input.a, response: input.b })}
                 onDelete={(id) => deleteObjection.mutateAsync(id)}
                 onImport={(rows) => importObjections.mutateAsync(rows.map((r) => ({ objection: r.a, response: r.b })))}

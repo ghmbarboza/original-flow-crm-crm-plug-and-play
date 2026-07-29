@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { Clock, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -204,9 +205,12 @@ export default function FollowupSettings() {
         {loadingSteps ? (
           <Skeleton className="h-24 w-full" />
         ) : (steps ?? []).length === 0 ? (
-          <p className="py-4 text-center text-sm" style={{ color: "var(--via-text-muted)" }}>
-            Nenhuma etapa ainda. Adicione a primeira mensagem da régua de follow-up.
-          </p>
+          <div className="flex flex-col items-center gap-2 py-4 text-center">
+            <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
+              Nenhuma etapa ainda. Comece do zero ou use uma régua pronta da Biblioteca.
+            </p>
+            <LinkBiblioteca categoria="followup" rotulo="Ver réguas prontas" />
+          </div>
         ) : (
           <div className="space-y-2">
             {(steps ?? []).map((step, index) => (
