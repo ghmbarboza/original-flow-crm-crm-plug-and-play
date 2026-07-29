@@ -27,8 +27,19 @@ export type TarefaIA = "chat" | "estruturado";
 
 // Modelos padrão por provedor e tarefa. Todos sobrescrevíveis por env para
 // trocar de modelo sem redeploy de código.
+//
+// POR QUE `estruturado` no Gateway NÃO é o gemini-2.5-pro: medido em produção,
+// a geração do system prompt no passo 3 do wizard levava 56,0s e 63,2s com o
+// pro, contra 18,5s a 29,0s com o flash. Um minuto de espera no meio do
+// onboarding é inaceitável, e a comparação das saídas não justificou o custo:
+// os dois entregaram os 8 blocos completos, 4 FAQs e 3 objeções, com a mesma
+// estrutura XML. O flash foi validado antes de virar default.
+//
+// Se a fidelidade ao formato passar a falhar em algum setor, o caminho é
+// `AI_GATEWAY_MODEL=google/gemini-2.5-pro`, que reverte sem redeploy — foi
+// exatamente assim que esta troca entrou, antes de ser fixada aqui.
 const PADRAO = {
-  gateway: { chat: "google/gemini-2.5-flash", estruturado: "google/gemini-2.5-pro" },
+  gateway: { chat: "google/gemini-2.5-flash", estruturado: "google/gemini-2.5-flash" },
   anthropic: { chat: "claude-opus-4-8", estruturado: "claude-sonnet-5" },
 } as const;
 
