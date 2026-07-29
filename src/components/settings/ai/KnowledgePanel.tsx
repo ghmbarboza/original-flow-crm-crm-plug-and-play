@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Download, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ interface Props {
   isLoading: boolean;
   labelA: string;
   labelB: string;
-  emptyLabel: string;
+  emptyLabel: ReactNode;
   onSave: (input: { id?: string; a: string; b: string }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onImport: (rows: { a: string; b: string }[]) => Promise<{ inserted: number }>;

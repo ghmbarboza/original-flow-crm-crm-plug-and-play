@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { History, Pencil, Plus, Trash2, Zap } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
+import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -124,8 +125,13 @@ export default function AutomationsPage() {
           <EmptyState
             icon={Zap}
             title="Nenhuma automação ainda"
-            description="Automatize tarefas repetitivas: gatilho, condições e ações, sem código."
-            action={<Button onClick={openCreate}>Criar primeira automação</Button>}
+            description="Comece do zero ou use um modelo pronto da Biblioteca."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={openCreate}>Criar automação</Button>
+                <LinkBiblioteca categoria="automation" />
+              </div>
+            }
           />
         ) : (
           <div className="space-y-2">

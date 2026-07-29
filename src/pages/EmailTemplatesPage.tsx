@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
+import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,8 +73,13 @@ export default function EmailTemplatesPage() {
           <EmptyState
             icon={FileText}
             title="Nenhum template ainda"
-            description="Crie templates reutilizáveis com variáveis para agilizar o envio de emails."
-            action={<Button onClick={openCreate}>Criar primeiro template</Button>}
+            description="Comece do zero ou use um modelo pronto da Biblioteca."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={openCreate}>Criar template</Button>
+                <LinkBiblioteca categoria="email_template" />
+              </div>
+            }
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

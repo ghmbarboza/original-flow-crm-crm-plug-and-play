@@ -183,7 +183,13 @@ test.afterAll(async () => {
     }
   }
 
-  await db.auth.signOut();
+  // Escopo local de propósito: o signOut padrão do Supabase é GLOBAL e revoga
+  // todas as sessões do usuário, inclusive a que o navegador carrega de
+  // e2e/.auth/user.json. As chamadas REST seguem funcionando (JWT é verificado
+  // stateless), mas as edge functions validam o token com getUser contra o
+  // servidor de auth e passam a responder 401 — quebrando specs posteriores por
+  // um motivo que não tem nada a ver com eles.
+  await db.auth.signOut({ scope: "local" });
 });
 
 /** Leva o wizard direto a um passo, pelo mesmo mecanismo de retomada da tela. */
