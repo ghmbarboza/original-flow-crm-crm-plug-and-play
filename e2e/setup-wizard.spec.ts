@@ -62,6 +62,27 @@ let orgAntes: OrgSnapshot;
 let etapasAntes: StageSnapshot[];
 let pipelineId: string | undefined;
 let iaDisponivel = false;
+// O passo 3 grava a configuração de IA e importa FAQs/objeções. Sem snapshot,
+// cada run sobrescrevia o agente da organização e acumulava base de
+// conhecimento: medido em 2026-07-29, 16 FAQs e 12 objeções deixadas para trás.
+let configAntes: Record<string, unknown> | null = null;
+let faqIdsAntes = new Set<string>();
+let objecaoIdsAntes = new Set<string>();
+
+async function idsDe(tabela: "ai_knowledge_faqs" | "ai_knowledge_objections"): Promise<Set<string>> {
+  const { data } = await db.from(tabela).select("id").eq("org_id", orgId);
+  return new Set((data ?? []).map((r) => r.id as string));
+}
+
+/** Apaga só o que este run criou, comparando com o snapshot inicial. */
+async function apagarNovos(
+  tabela: "ai_knowledge_faqs" | "ai_knowledge_objections",
+  antes: Set<string>,
+) {
+  const agora = await idsDe(tabela);
+  const novos = [...agora].filter((id) => !antes.has(id));
+  if (novos.length) await db.from(tabela).delete().in("id", novos);
+}
 
 test.describe.configure({ mode: "serial" });
 
@@ -104,6 +125,12 @@ test.beforeAll(async () => {
     etapasAntes = [];
   }
 
+  const { data: cfg } = await db
+    .from("ai_messaging_config").select("*").eq("org_id", orgId).maybeSingle();
+  configAntes = (cfg as Record<string, unknown> | null) ?? null;
+  faqIdsAntes = await idsDe("ai_knowledge_faqs");
+  objecaoIdsAntes = await idsDe("ai_knowledge_objections");
+
   // Descobre uma vez se a IA responde, para escolher qual cobertura do passo 3
   // faz sentido neste ambiente.
   const { data: sess } = await db.auth.getSession();
@@ -143,6 +170,19 @@ test.afterAll(async () => {
   }
 
   await db.from("setup_progress").delete().eq("org_id", orgId);
+
+  // Base de conhecimento e configuração de IA: devolve ao estado de antes.
+  await apagarNovos("ai_knowledge_faqs", faqIdsAntes);
+  await apagarNovos("ai_knowledge_objections", objecaoIdsAntes);
+  if (configAntes) {
+    await db.from("ai_messaging_config").update(configAntes).eq("org_id", orgId);
+    // As versões que o run gerou ficariam no histórico como se fossem do usuário.
+    const versaoAntes = configAntes.prompt_version as number | undefined;
+    if (typeof versaoAntes === "number") {
+      await db.from("ai_prompt_versions").delete().eq("org_id", orgId).gt("version", versaoAntes);
+    }
+  }
+
   await db.auth.signOut();
 });
 
@@ -208,14 +248,56 @@ test("passo 3 gera o prompt em blocos", async ({ page }) => {
   await expect(page.getByTestId("setup-step-pipeline")).toBeVisible();
 });
 
-test("passo 3 sem IA mostra o erro e bloqueia o avanço", async ({ page }) => {
-  test.skip(iaDisponivel, "a IA está disponível; o caminho feliz é coberto no teste acima");
+/**
+ * Falha da IA no passo 3 — o caminho que antes travava o onboarding.
+ *
+ * A falha é forçada interceptando a chamada, em vez de esperar que o provedor
+ * esteja fora. Isso troca um teste que só rodava por acidente de ambiente (o
+ * antigo dependia de `iaDisponivel === false`, e era pulado quase sempre) por um
+ * que roda a cada execução, é determinístico e não gasta crédito de IA.
+ */
+test("passo 3: falha da IA oferece rascunho e não trava o wizard", async ({ page }) => {
+  await page.route("**/functions/v1/generate-system-prompt", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "A IA não respondeu como esperado. Tente de novo." }),
+    }),
+  );
 
   await retomarEm(page, "ia");
 
-  // Documenta o comportamento real: erro visível e wizard intransponível.
-  await expect(page.getByTestId("setup-ia-error")).toBeVisible({ timeout: 60_000 });
+  // O erro aparece com a causa real vinda da function, não a genérica do client.
+  const erro = page.getByTestId("setup-ia-error");
+  await expect(erro).toBeVisible({ timeout: 30_000 });
+  await expect(erro).toContainText("A IA não respondeu como esperado");
+
+  // Sem blocos ainda não se avança — o rascunho é escolha explícita.
   await expect(page.getByTestId("setup-next")).toBeDisabled();
+
+  await page.getByTestId("setup-ia-rascunho").click();
+
+  // Rascunho montado localmente: avisado como rascunho e com todos os blocos.
+  await expect(page.getByTestId("setup-ia-rascunho-aviso")).toBeVisible();
+  await expect(page.getByTestId("setup-ia-rascunho-aviso")).toContainText("revise antes de ativar");
+  for (const bloco of ["role", "company", "core_philosophy", "sector_context",
+    "guidelines", "cognitive_process", "output_format", "examples"]) {
+    await expect(page.getByTestId(`setup-block-${bloco}`)).not.toBeEmpty();
+  }
+
+  // O que importa: dá para sair da etapa.
+  await page.getByTestId("setup-next").click();
+  await expect(page.getByTestId("setup-step-pipeline")).toBeVisible();
+
+  // E a IA não pode ter sido ativada por um prompt que ela não escreveu.
+  await expect(async () => {
+    const { data } = await db
+      .from("ai_messaging_config")
+      .select("is_active, system_prompt")
+      .eq("org_id", orgId).maybeSingle();
+    expect(data!.is_active).toBe(false);
+    expect(data!.system_prompt).toContain("<role>");
+  }).toPass({ timeout: 10_000 });
 });
 
 test("passo 4 sugere e aplica o pipeline do setor", async ({ page }) => {

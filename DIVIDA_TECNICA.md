@@ -72,41 +72,42 @@ por `AI_GATEWAY_MODEL` e `AI_ANTHROPIC_MODEL`.
 
 ---
 
-## 3. Passo 3 do wizard não tem caminho manual
+## 3. ~~Passo 3 do wizard não tem caminho manual~~ — RESOLVIDA em 2026-07-29
 
-**Estado:** em `StepIA`, o botão de avançar é `disabled` enquanto não houver
-blocos gerados. Não existe opção de escrever o prompt à mão nem de pular a etapa.
+**Era:** em `StepIA`, o botão de avançar era `disabled` enquanto não houvesse
+blocos gerados. Não existia opção de escrever o prompt à mão nem de pular a
+etapa, então qualquer indisponibilidade do provedor — 429, timeout, Gateway fora
+— deixava o onboarding intransponível. O usuário via "Não foi possível gerar" e
+não tinha para onde ir.
 
-**Consequência:** qualquer indisponibilidade do provedor de IA — sem créditos,
-rate limit, provedor fora do ar — deixa o onboarding intransponível. O usuário vê
-"Não foi possível gerar" e não tem para onde ir. Coberto pelo teste
-"passo 3 sem IA mostra o erro e bloqueia o avanço" em `e2e/setup-wizard.spec.ts`,
-que documenta o comportamento atual em vez de fingir que ele não existe.
+**Aconteceu em produção em 2026-07-29**, antes da correção: a geração falhou e o
+passo 3 travou. A causa da falha nunca foi identificada, provavelmente 429 por
+gerações em sequência curta.
 
-**Já aconteceu (2026-07-29):** durante os testes em produção, a geração falhou e
-o passo 3 ficou intransponível, exatamente como descrito acima — o usuário vê
-"Não foi possível gerar" e o botão de avançar segue `disabled`. Não foi um
-usuário real, mas deixou de ser hipótese.
+**Como foi resolvida:** quando a geração falha, a tela oferece "Continuar com um
+rascunho". `src/lib/promptRascunho.ts` monta os 8 blocos a partir do contexto já
+coletado nos passos 1 e 2, sem chamar a IA, e o usuário revisa e avança
+normalmente.
 
-A causa da falha **não foi identificada**. A hipótese mais provável é rate limit
-(429) por várias gerações em sequência curta; o que se descarta é falta de
-crédito, porque uma geração rodou com sucesso no mesmo período. Vale registrar
-por que não se sabe: a tela mostrou `"Edge Function returned a non-2xx status
-code"` em vez da mensagem da própria function, então a causa não estava
-disponível nem para quem investigava. Isso foi corrigido em
-`src/integrations/supabase/functionError.ts` — numa próxima ocorrência a causa
-aparece na tela.
+Duas decisões que fazem o rascunho ser aceitável:
 
-**Sobre crédito, para não repetir o diagnóstico errado:** o campo `daily_limit: 5`
-do saldo Lovable é um grão diário gratuito da conta, consumido por tudo
-(incluindo prompts ao agente do Lovable), e não um orçamento de IA do produto.
-Zerar não bloqueia nada enquanto houver saldo pago. O consumo da IA do produto é
-o `ai_gateway_usage` de `lovable_cloud_usage` — 492 créditos no mês contra 10.328
-disponíveis quando isto foi escrito. Crédito não é o gargalo hoje.
+1. **Não inventa.** O módulo não tem conhecimento de setor nenhum: reorganiza o
+   que o usuário informou e marca `[COMPLETAR]` onde falta, dizendo o que
+   preencher. Um template que fabricasse regras de financiamento imobiliário ou
+   protocolos de saúde seria pior que não gerar nada — o usuário ativaria a IA
+   confiando num texto que ninguém escreveu. Há teste unitário que falha se o
+   rascunho mencionar termos de setor não fornecidos.
+2. **Não ativa a IA.** Salvar por este caminho grava `is_active: false` de forma
+   explícita (não confiando no default da coluna) e anota a versão como
+   "Rascunho montado no setup sem IA — revise antes de ativar". Um prompt que a
+   IA não escreveu não começa a atender cliente sozinho.
 
-**O que dispararia a correção:** o primeiro usuário travado aí. Qualquer 429,
-instabilidade do Gateway ou timeout basta — e já se viu acontecer.
+**Cobertura:** 11 testes unitários em `src/lib/promptRascunho.test.ts` e o e2e
+"passo 3: falha da IA oferece rascunho e não trava o wizard". O e2e força a falha
+interceptando a chamada, em vez de depender de o provedor estar fora — o teste
+antigo só rodava quando a IA estava indisponível e por isso era pulado quase
+sempre.
 
-**Correção quando for a hora:** permitir avançar com um prompt mínimo montado
-localmente a partir do contexto já coletado nos passos 1 e 2, marcando a etapa
-como pendente para revisão em Configurações > IA.
+**O que ficou pendente:** o rascunho não importa FAQs nem objeções, porque essas
+vinham do modelo. O usuário começa com base de conhecimento vazia e a preenche em
+Configurações > IA.
