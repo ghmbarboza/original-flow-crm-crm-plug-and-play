@@ -187,6 +187,13 @@ test("passos 1 e 2 gravam o contexto da empresa", async ({ page }) => {
 test("passo 3 gera o prompt em blocos", async ({ page }) => {
   test.skip(!iaDisponivel, "generate-system-prompt indisponível neste ambiente");
 
+  // O expect abaixo pede 90s, mas o `timeout` do config é 60s POR TESTE — e o
+  // orçamento do teste vence primeiro, então a janela de 90s nunca fechava.
+  // Medido em produção pelo AI Gateway (gemini-2.5-pro na tarefa "estruturado"):
+  // 63s só na chamada. Com 60s o teste falhava sempre, ora esperando os blocos,
+  // ora já no passo seguinte — e não por regressão do produto.
+  test.setTimeout(180_000);
+
   await retomarEm(page, "ia");
   await page.getByTestId("setup-agent-name").fill("Sofia");
 
