@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +65,8 @@ export default function ApiKeysSettings() {
       body: { service_name: sn, api_key: apiKey, label: sn },
     });
     setApiKey(""); // clear immediately
-    if (error || !data?.success) { toast.error("Falha ao salvar chave"); return; }
+    if (error) { toast.error((await erroDeFunction(error, "Falha ao salvar chave.")).message); return; }
+    if (!data?.success) { toast.error(data?.error ?? "Falha ao salvar chave."); return; }
     toast.success("Chave armazenada com segurança");
     setOpen(false);
     load();
@@ -72,15 +74,26 @@ export default function ApiKeysSettings() {
 
   const remove = async (s: string) => {
     const { error } = await supabase.functions.invoke("delete-api-key", { body: { service_name: s } });
-    if (error) { toast.error("Falha ao remover"); return; }
+    if (error) { toast.error((await erroDeFunction(error, "Falha ao remover a chave.")).message); return; }
     toast.success("Chave removida");
     setConfirmDel(null);
     load();
   };
 
   const test = async (s: string) => {
+    const anterior = status[s];
     setStatus((p) => ({ ...p, [s]: "checking" }));
-    const { data } = await supabase.functions.invoke("validate-api-key", { body: { service_name: s } });
+    const { data, error } = await supabase.functions.invoke("validate-api-key", { body: { service_name: s } });
+
+    // Falha da function não é veredito sobre a chave. Marcar "invalid" aqui
+    // afirmava que a chave do usuário estava errada quando o que quebrou foi a
+    // validação — então o status anterior é restaurado e o erro real aparece.
+    if (error) {
+      setStatus((p) => ({ ...p, [s]: anterior }));
+      toast.error((await erroDeFunction(error, "Não foi possível validar a chave.")).message);
+      return;
+    }
+
     setStatus((p) => ({ ...p, [s]: (data?.status as Status[string]) ?? "invalid" }));
     if (data?.status === "valid") toast.success("Chave válida");
     else toast.error("Chave inválida");

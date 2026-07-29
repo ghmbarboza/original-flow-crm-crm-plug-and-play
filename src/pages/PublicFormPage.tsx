@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CheckCircle2, ClipboardList, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,7 +85,7 @@ export default function PublicFormPage() {
       const { data, error } = await supabase.functions.invoke("submit-capture-form", {
         body: { action: "submit", slug, values },
       });
-      if (error) throw new Error(error.message ?? "Falha no envio.");
+      if (error) throw await erroDeFunction(error, "Falha no envio.");
       if (data?.error) throw new Error(data.error);
       setStatus("done");
     } catch (err) {

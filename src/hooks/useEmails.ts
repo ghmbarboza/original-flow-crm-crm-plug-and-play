@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -93,7 +94,7 @@ export function useSendEmail() {
       thread_id?: string | null;
     }) => {
       const { data, error } = await supabase.functions.invoke("send-email", { body: input });
-      if (error) throw new Error(error.message ?? "Falha ao enviar o email.");
+      if (error) throw await erroDeFunction(error, "Falha ao enviar o email.");
       if (data?.error) throw new Error(data.error);
       return data;
     },

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -132,7 +133,7 @@ export function useConnectEvolution() {
       display_name?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke("evolution-connect", { body: input });
-      if (error) throw new Error(error.message ?? "Falha ao conectar à Evolution.");
+      if (error) throw await erroDeFunction(error, "Falha ao conectar à Evolution.");
       if (data?.error) throw new Error(data.error);
       return data as { instance_id: string; qr_code: string | null; status: string };
     },
@@ -158,7 +159,7 @@ export function useVerifyMeta() {
       display_name?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke("meta-verify", { body: input });
-      if (error) throw new Error(error.message ?? "Falha ao verificar a conta Meta.");
+      if (error) throw await erroDeFunction(error, "Falha ao verificar a conta Meta.");
       if (data?.error) throw new Error(data.error);
       return data as { instance_id: string; phone_number: string | null; webhook_verified: boolean };
     },

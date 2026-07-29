@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
 import type { Database } from "@/integrations/supabase/types";
 import type { CampaignChannel, CampaignProvider } from "@/lib/campaign-channels";
@@ -199,7 +200,7 @@ export function useSendCampaign() {
       const { data, error } = await supabase.functions.invoke("campaign-dispatcher", {
         body: { campaign_id: campaignId },
       });
-      if (error) throw new Error(error.message ?? "Falha ao disparar a campanha.");
+      if (error) throw await erroDeFunction(error, "Falha ao disparar a campanha.");
       if (data?.error) throw new Error(data.error);
       return data;
     },

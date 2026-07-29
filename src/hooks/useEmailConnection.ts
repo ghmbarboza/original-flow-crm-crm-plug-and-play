@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -41,7 +42,7 @@ export function useConnectGmail() {
       const { data, error } = await supabase.functions.invoke("gmail-auth-url", {
         body: { redirect_path: "/inbox" },
       });
-      if (error) throw new Error(error.message ?? "Não foi possível iniciar a conexão.");
+      if (error) throw await erroDeFunction(error, "Não foi possível iniciar a conexão.");
       if (data?.error) throw new Error(data.error);
       if (!data?.url) throw new Error("URL de autenticação não retornada.");
       window.location.href = data.url as string;
@@ -68,7 +69,7 @@ export function useSyncGmail() {
   return useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("gmail-sync", { body: {} });
-      if (error) throw new Error(error.message ?? "Falha ao sincronizar.");
+      if (error) throw await erroDeFunction(error, "Falha ao sincronizar.");
       if (data?.error) throw new Error(data.error);
       return data as { synced: number };
     },

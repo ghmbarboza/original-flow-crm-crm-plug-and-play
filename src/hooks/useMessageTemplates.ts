@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
 
 export interface MessageTemplate {
@@ -41,7 +42,7 @@ export function useMessageTemplates(enabled = true) {
       const { data, error } = await supabase.functions.invoke("message-templates", {
         body: { action: "list" },
       });
-      if (error) throw new Error(error.message ?? "Falha ao listar templates.");
+      if (error) throw await erroDeFunction(error, "Falha ao listar templates.");
       if (data?.error) throw new Error(data.error);
       return { provider: data?.provider ?? "", templates: data?.templates ?? [] };
     },
@@ -67,7 +68,7 @@ export function useCreateMessageTemplate() {
       const { data, error } = await supabase.functions.invoke("message-templates", {
         body: { action: "create", ...input },
       });
-      if (error) throw new Error(error.message ?? "Falha ao criar o template.");
+      if (error) throw await erroDeFunction(error, "Falha ao criar o template.");
       if (data?.error) throw new Error(data.error);
       return data.template as { name: string; status: string };
     },
