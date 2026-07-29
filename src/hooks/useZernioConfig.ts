@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -69,7 +70,7 @@ export function useZernioAccounts(enabled: boolean) {
     enabled: !!orgId && enabled,
     queryFn: async (): Promise<ZernioAccount[]> => {
       const { data, error } = await supabase.functions.invoke("zernio-list-accounts", { body: {} });
-      if (error) throw new Error(error.message ?? "Falha ao listar contas do Zernio.");
+      if (error) throw await erroDeFunction(error, "Falha ao listar contas do Zernio.");
       if (data?.error) throw new Error(data.error);
       return (data?.accounts ?? []) as ZernioAccount[];
     },
@@ -83,7 +84,7 @@ export function useConnectZernioChannel() {
       const { data, error } = await supabase.functions.invoke("zernio-connect-channel", {
         body: { channel, redirect_url: `${window.location.origin}/whatsapp` },
       });
-      if (error) throw new Error(error.message ?? "Falha ao conectar o canal.");
+      if (error) throw await erroDeFunction(error, "Falha ao conectar o canal.");
       if (data?.error) throw new Error(data.error);
       if (!data?.authUrl) throw new Error("Zernio não retornou a URL de autorização.");
       return data.authUrl as string;

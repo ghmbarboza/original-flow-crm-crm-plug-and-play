@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { PROMPT_BLOCKS, joinBlocks, splitBlocks } from "@/hooks/useGenerateSystemPrompt";
 import type { BlockKey } from "@/hooks/useGenerateSystemPrompt";
 
@@ -37,7 +38,7 @@ export function useDiagnoseAIError() {
           descricao: input.descricao,
         },
       });
-      if (error) throw new Error(error.message ?? "Falha ao diagnosticar.");
+      if (error) throw await erroDeFunction(error, "Falha ao diagnosticar.");
       if (data?.error) throw new Error(data.error);
       return data as Diagnostico;
     },

@@ -1,6 +1,7 @@
 import { useEffect, useId } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -165,7 +166,7 @@ export function useSendMessage() {
       const { data, error } = await supabase.functions.invoke(fn, {
         body: { conversation_id: input.conversationId, content: input.content },
       });
-      if (error) throw new Error(error.message ?? "Falha ao enviar a mensagem.");
+      if (error) throw await erroDeFunction(error, "Falha ao enviar a mensagem.");
       if (data?.error) throw new Error(data.error);
     },
     onSuccess: (_data, input) => {

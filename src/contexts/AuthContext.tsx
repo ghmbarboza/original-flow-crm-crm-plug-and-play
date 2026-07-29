@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import type { AppRole, AuthContextValue, Profile } from "@/types/auth";
 import { AuthContext } from "@/contexts/auth-context";
 
@@ -136,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp: AuthContextValue["signUp"] = async (fullName, email, password) => {
     const { data: vd, error: vErr } = await supabase.functions.invoke("validate-signup", { body: { email } });
-    if (vErr) return { error: "Falha ao validar cadastro." };
+    if (vErr) return { error: (await erroDeFunction(vErr, "Falha ao validar cadastro.")).message };
     if (vd && vd.allowed === false) return { error: vd.message ?? "Cadastro não permitido." };
 
     const redirectUrl = `${window.location.origin}/`;

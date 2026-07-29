@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
 
 type DemoAction = "seed" | "clear";
@@ -41,7 +42,7 @@ async function invokeDemo(action: DemoAction): Promise<DemoResponse> {
   const { data, error } = await supabase.functions.invoke<DemoResponse>("demo-data", {
     body: { action },
   });
-  if (error) throw error;
+  if (error) throw await erroDeFunction(error, "A operação de demonstração falhou.");
   if (!data?.ok) throw new Error(data?.error ?? "A operação de demonstração falhou.");
   return data;
 }

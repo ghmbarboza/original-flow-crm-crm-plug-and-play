@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 
 export interface FaqGerada {
   question: string;
@@ -66,7 +67,7 @@ export function useGenerateSystemPrompt() {
       const { data, error } = await supabase.functions.invoke("generate-system-prompt", {
         body: { agent_name: agentName },
       });
-      if (error) throw new Error(error.message ?? "Falha ao gerar o prompt.");
+      if (error) throw await erroDeFunction(error, "Falha ao gerar o prompt.");
       if (data?.error) throw new Error(data.error);
       return {
         system_prompt: data.system_prompt as string,
