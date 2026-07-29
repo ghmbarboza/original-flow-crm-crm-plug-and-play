@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, FileText, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,9 @@ import {
   type FaqGerada, type ObjecaoGerada,
 } from "@/hooks/useGenerateSystemPrompt";
 import { useImportFAQs, useImportObjections, useUpsertAIConfig } from "@/hooks/useAIConfig";
+import {
+  contarPendencias, montarPromptRascunho, MARCA_PENDENTE, RASCUNHO_NOTA,
+} from "@/lib/promptRascunho";
 
 export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const { data: org } = useOrganization();
@@ -27,6 +30,9 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
   const [objecoes, setObjecoes] = useState<ObjecaoGerada[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Rascunho = blocos montados localmente, sem IA. Muda o texto da tela, a nota
+  // da versão e mantém a IA desativada ao salvar.
+  const [rascunho, setRascunho] = useState(false);
 
   // Gera uma vez ao entrar na etapa. Regerar é ação explícita — a geração custa
   // uma chamada ao modelo e o usuário pode já ter editado os blocos.
@@ -43,9 +49,23 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
       setBlocos(splitBlocks(resultado.system_prompt));
       setFaqs(resultado.faqs);
       setObjecoes(resultado.objections);
+      setRascunho(false);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível gerar o prompt.");
     }
+  };
+
+  /**
+   * Saída do beco sem saída: monta os blocos a partir do contexto dos passos 1 e
+   * 2, sem chamar a IA. Não é substituto da geração — é o que impede o
+   * onboarding de ficar intransponível quando o provedor não responde.
+   */
+  const montarRascunho = () => {
+    setBlocos(montarPromptRascunho(org, agentName));
+    setFaqs([]);
+    setObjecoes([]);
+    setRascunho(true);
+    setErro(null);
   };
 
   const salvarEAvancar = async () => {
@@ -54,12 +74,18 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
     try {
       // O upsert cuida do versionamento: prompt novo incrementa prompt_version
       // e grava em ai_prompt_versions com a nota abaixo.
+      //
+      // `is_active: false` no rascunho é explícito de propósito. O default da
+      // coluna já é false, mas deixar implícito faria a segurança do rascunho
+      // depender de um default que alguém pode mudar. Um prompt que a IA não
+      // escreveu não pode começar a atender cliente sozinho.
       await upsertConfig.mutateAsync({
         agent_name: agentName.trim() || "Assistente",
         agent_tone: org?.brand_tone ?? "profissional",
         agent_objective: org?.main_problem_solved ?? "",
         system_prompt: joinBlocks(blocos),
-        versionNote: "Gerado no setup inicial",
+        versionNote: rascunho ? RASCUNHO_NOTA : "Gerado no setup inicial",
+        ...(rascunho ? { is_active: false } : {}),
       });
 
       // Base de conhecimento de partida. Falhar aqui não desfaz o prompt — o
@@ -69,6 +95,9 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
       if (objecoes.length) await importarObjecoes.mutateAsync(objecoes);
 
       await salvarEtapa.mutateAsync({ step: "ia" });
+      if (rascunho) {
+        toast.warning("Rascunho salvo. A IA fica desativada até você revisar em Configurações > IA.");
+      }
       onNext();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar a configuração da IA.");
@@ -124,18 +153,49 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
             Não foi possível gerar
           </p>
           <p className="text-sm" style={{ color: "var(--via-text-body)" }}>{erro}</p>
-          <Button variant="outline" className="gap-1.5" onClick={() => executarGeracao(agentName)}>
-            <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
-            Tentar de novo
-          </Button>
+          <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+            Você não precisa parar aqui: dá para seguir com um rascunho montado a partir
+            do que você já contou e ajustar depois.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="gap-1.5" onClick={() => executarGeracao(agentName)}>
+              <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
+              Tentar de novo
+            </Button>
+            <Button className="gap-1.5" onClick={montarRascunho} data-testid="setup-ia-rascunho">
+              <FileText className="h-4 w-4" strokeWidth={1.5} />
+              Continuar com um rascunho
+            </Button>
+          </div>
         </div>
       )}
 
       {blocos && !gerar.isPending && (
         <>
+          {rascunho && (
+            <div className="via-card space-y-2 p-4" data-testid="setup-ia-rascunho-aviso">
+              <p className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+                <FileText className="h-4 w-4" strokeWidth={1.5} />
+                Rascunho — revise antes de ativar
+              </p>
+              <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+                Montamos a partir do que você contou, sem a IA. Os trechos marcados com{" "}
+                <code className="rounded px-1 text-xs" style={{ background: "var(--via-surface-2, #00000010)" }}>
+                  {MARCA_PENDENTE}
+                </code>{" "}
+                precisam do seu conhecimento do setor — é o que a IA teria escrito.
+                {contarPendencias(blocos) > 0 && ` Faltam ${contarPendencias(blocos)} bloco(s).`}
+              </p>
+              <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+                A IA fica <strong>desativada</strong> até você revisar e ativar em
+                Configurações &gt; IA. Você pode avançar agora e voltar depois.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
-              Perfil gerado
+              {rascunho ? "Rascunho do perfil" : "Perfil gerado"}
             </p>
             <Button
               variant="outline"
@@ -146,7 +206,7 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
               data-testid="setup-regenerate"
             >
               <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-              Gerar de novo
+              {rascunho ? "Tentar gerar com IA" : "Gerar de novo"}
             </Button>
           </div>
 
@@ -189,7 +249,7 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
           disabled={!blocos || salvando || gerar.isPending}
           data-testid="setup-next"
         >
-          {salvando ? "Salvando…" : "Parece bom, avançar"}
+          {salvando ? "Salvando…" : rascunho ? "Avançar com o rascunho" : "Parece bom, avançar"}
         </Button>
       </div>
     </div>
