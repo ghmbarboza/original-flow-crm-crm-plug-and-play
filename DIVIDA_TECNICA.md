@@ -83,7 +83,17 @@ rate limit, provedor fora do ar — deixa o onboarding intransponível. O usuár
 "passo 3 sem IA mostra o erro e bloqueia o avanço" em `e2e/setup-wizard.spec.ts`,
 que documenta o comportamento atual em vez de fingir que ele não existe.
 
-**O que dispararia a correção:** o primeiro usuário travado aí.
+**Já aconteceu (2026-07-29):** o orçamento diário de IA do projeto (5 créditos,
+~0,2 por geração) zerou durante os testes e o passo 3 ficou intransponível em
+produção, exatamente como descrito acima. Não foi um usuário real, mas deixou de
+ser hipótese. Agravante do dia: a tela mostrou `"Edge Function returned a
+non-2xx status code"` em vez de "Os créditos de IA do projeto acabaram", porque a
+mensagem real não chegava ao cliente — corrigido depois, em
+`src/integrations/supabase/functionError.ts`.
+
+**O que dispararia a correção:** o primeiro usuário travado aí. Considerando o
+limite diário de 5 créditos, isso é questão de quantos onboardings acontecem no
+mesmo dia — não de azar.
 
 **Correção quando for a hora:** permitir avançar com um prompt mínimo montado
 localmente a partir do contexto já coletado nos passos 1 e 2, marcando a etapa
