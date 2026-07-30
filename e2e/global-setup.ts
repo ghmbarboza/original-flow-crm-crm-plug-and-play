@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { credencial as env } from "./helpers";
 
 /**
  * Pré-condição da suíte: a organização de teste já concluiu o setup inicial.
@@ -13,28 +13,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  * wizard em si é coberto pelo próprio spec de setup, que reverte o flag no
  * início e o restaura no fim.
  *
- * Credenciais seguem a mesma regra do teardown: SUPABASE_SERVICE_ROLE_KEY do
- * ambiente quando existir, senão a sessão do usuário do E2E. Nunca no código.
+ * Credenciais seguem a mesma regra do teardown: SUPABASE_SERVICE_ROLE_KEY quando
+ * existir, senão a sessão do usuário do E2E. Vêm do ambiente ou do `.env` local
+ * (que é gitignored) — nunca do código versionado. Ver `credencial` em helpers.
  */
-
-function fromDotenv(key: string): string | undefined {
-  try {
-    const line = readFileSync(".env", "utf8")
-      .split(/\r?\n/)
-      .find((l) => l.startsWith(`${key}=`));
-    return line?.slice(key.length + 1).trim().replace(/^["']|["']$/g, "");
-  } catch {
-    return undefined;
-  }
-}
-
-function env(...keys: string[]): string | undefined {
-  for (const k of keys) {
-    const v = process.env[k] ?? fromDotenv(k);
-    if (v) return v;
-  }
-  return undefined;
-}
 
 async function marcarSetupConcluido(client: SupabaseClient, orgId: string) {
   const { error } = await client
@@ -59,8 +41,8 @@ export default async function globalSetup() {
     return;
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const email = process.env.E2E_EMAIL ?? "sabrina@viverdeia.ai";
+  const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
+  const email = env("E2E_EMAIL") ?? "sabrina@viverdeia.ai";
 
   if (serviceKey) {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
@@ -71,7 +53,7 @@ export default async function globalSetup() {
   }
 
   const anonKey = env("VITE_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY");
-  const password = process.env.E2E_PASSWORD;
+  const password = env("E2E_PASSWORD");
   if (!anonKey || !password) {
     // eslint-disable-next-line no-console
     console.warn("[e2e setup] sem credenciais; pré-condição não aplicada.");

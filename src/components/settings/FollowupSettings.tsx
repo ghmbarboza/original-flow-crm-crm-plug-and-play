@@ -154,7 +154,11 @@ export default function FollowupSettings() {
             </p>
           </div>
         </div>
-        <Switch checked={form.is_active} onCheckedChange={(v) => saveConfig({ is_active: v })} />
+        <Switch
+          aria-label="Ativar o follow-up automático"
+          checked={form.is_active}
+          onCheckedChange={(v) => saveConfig({ is_active: v })}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

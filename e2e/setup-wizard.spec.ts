@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { credencial as env } from "./helpers";
 
 /**
  * Wizard de configuração inicial (/setup).
@@ -37,25 +37,6 @@ const ORG_FIELDS = [
 type OrgSnapshot = Record<string, unknown>;
 type StageSnapshot = Record<string, unknown>;
 
-function fromDotenv(key: string): string | undefined {
-  try {
-    const line = readFileSync(".env", "utf8")
-      .split(/\r?\n/)
-      .find((l) => l.startsWith(`${key}=`));
-    return line?.slice(key.length + 1).trim().replace(/^["']|["']$/g, "");
-  } catch {
-    return undefined;
-  }
-}
-
-function env(...keys: string[]): string | undefined {
-  for (const k of keys) {
-    const v = process.env[k] ?? fromDotenv(k);
-    if (v) return v;
-  }
-  return undefined;
-}
-
 let db: SupabaseClient;
 let orgId: string;
 let orgAntes: OrgSnapshot;
@@ -89,8 +70,8 @@ test.describe.configure({ mode: "serial" });
 test.beforeAll(async () => {
   const url = env("SUPABASE_URL", "VITE_SUPABASE_URL");
   const anonKey = env("VITE_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY");
-  const email = process.env.E2E_EMAIL ?? "sabrina@viverdeia.ai";
-  const password = process.env.E2E_PASSWORD;
+  const email = env("E2E_EMAIL") ?? "sabrina@viverdeia.ai";
+  const password = env("E2E_PASSWORD");
 
   // Sem credenciais o spec não tem como restaurar o estado depois. Falhar aqui é
   // melhor que rodar e deixar a organização suja.

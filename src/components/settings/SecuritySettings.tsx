@@ -76,7 +76,11 @@ export default function SecuritySettings() {
                 Quando ativo, novos usuários precisarão ser aprovados por um administrador antes de acessar a plataforma.
               </CardDescription>
             </div>
-            <Switch checked={requireApproval} onCheckedChange={onToggleApproval} />
+            <Switch
+              aria-label="Exigir aprovação para novas contas"
+              checked={requireApproval}
+              onCheckedChange={onToggleApproval}
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -96,7 +100,11 @@ export default function SecuritySettings() {
               <CardTitle className="text-base font-semibold">Restringir cadastro por domínio de email</CardTitle>
               <CardDescription className="text-sm">Apenas emails com os domínios listados poderão se cadastrar.</CardDescription>
             </div>
-            <Switch checked={restrictDomain} onCheckedChange={onToggleDomain} />
+            <Switch
+              aria-label="Restringir cadastro por domínio de email"
+              checked={restrictDomain}
+              onCheckedChange={onToggleDomain}
+            />
           </div>
         </CardHeader>
         {restrictDomain && (

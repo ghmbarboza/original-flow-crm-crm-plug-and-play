@@ -12,7 +12,11 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center rounded-md border border-border bg-background p-1 text-muted-foreground",
+      // max-w-full + overflow-x-auto: em telas estreitas a lista rola em vez de
+      // cortar as abas (em /settings, 7 das 11 ficavam inalcançáveis no mobile).
+      // justify-start, não center: numa lista centrada que estoura o contêiner,
+      // o início fica fora do alcance da rolagem.
+      "inline-flex h-10 max-w-full items-center justify-start overflow-x-auto rounded-md border border-border bg-background p-1 text-muted-foreground",
       className,
     )}
     {...props}

@@ -97,20 +97,20 @@ export default function ReportsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-40" data-testid="reports-period"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-40" data-testid="reports-period" aria-label="Período do relatório"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={owner} onValueChange={setOwner}>
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-44" aria-label="Filtrar por responsável"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Todos os owners</SelectItem>
                 {(members ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={channel} onValueChange={setChannel}>
-              <SelectTrigger className="w-40" data-testid="reports-channel"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-40" data-testid="reports-channel" aria-label="Filtrar por canal"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Todos os canais</SelectItem>
                 {CAMPAIGN_CHANNELS.map((ch) => (
@@ -174,8 +174,13 @@ export default function ReportsPage() {
                 ) : (
                   <ResponsiveContainer width="100%" height={260}>
                     <PieChart>
+                      {/* aria-label em cada Cell: o recharts marca o setor com
+                          role="img", e sem nome isso reprova no axe (svg-img-alt).
+                          O Cell repassa atributos SVG ao <path> do setor. */}
                       <Pie data={conversationPie} dataKey="value" nameKey="name" outerRadius={90} label>
-                        {conversationPie.map((d, i) => <Cell key={i} fill={d.color} />)}
+                        {conversationPie.map((d, i) => (
+                          <Cell key={i} fill={d.color} aria-label={`${d.name}: ${d.value}`} />
+                        ))}
                       </Pie>
                       <Tooltip />
                     </PieChart>

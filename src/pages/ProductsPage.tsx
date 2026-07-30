@@ -97,7 +97,7 @@ export default function ProductsPage() {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40" aria-label="Filtrar por status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

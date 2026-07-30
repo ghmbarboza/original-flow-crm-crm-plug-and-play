@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { gotoPage } from "./helpers";
+import { credencial as env, gotoPage } from "./helpers";
 
 /**
  * Biblioteca de Modelos (/library).
@@ -16,25 +15,6 @@ import { gotoPage } from "./helpers";
  * substituiria a régua da organização, e isso não cabe num teste automatizado.
  */
 
-function fromDotenv(key: string): string | undefined {
-  try {
-    const line = readFileSync(".env", "utf8")
-      .split(/\r?\n/)
-      .find((l) => l.startsWith(`${key}=`));
-    return line?.slice(key.length + 1).trim().replace(/^["']|["']$/g, "");
-  } catch {
-    return undefined;
-  }
-}
-
-function env(...keys: string[]): string | undefined {
-  for (const k of keys) {
-    const v = process.env[k] ?? fromDotenv(k);
-    if (v) return v;
-  }
-  return undefined;
-}
-
 let db: SupabaseClient;
 let orgId: string;
 let templateIdsAntes = new Set<string>();
@@ -44,13 +24,13 @@ test.describe.configure({ mode: "serial" });
 test.beforeAll(async () => {
   const url = env("SUPABASE_URL", "VITE_SUPABASE_URL");
   const anonKey = env("VITE_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY");
-  const password = process.env.E2E_PASSWORD;
+  const password = env("E2E_PASSWORD");
   expect(url, "SUPABASE_URL ausente").toBeTruthy();
   expect(password, "E2E_PASSWORD ausente").toBeTruthy();
 
   db = createClient(url!, anonKey!, { auth: { persistSession: false } });
   const { data: auth, error } = await db.auth.signInWithPassword({
-    email: process.env.E2E_EMAIL ?? "sabrina@viverdeia.ai",
+    email: env("E2E_EMAIL") ?? "sabrina@viverdeia.ai",
     password: password!,
   });
   expect(error, `login falhou: ${error?.message}`).toBeNull();

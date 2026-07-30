@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -94,13 +94,13 @@ export default function SalesGoalsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-28" aria-label="Mês da meta"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-28" aria-label="Ano da meta"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
               </SelectContent>
@@ -165,21 +165,28 @@ export default function SalesGoalsPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Nova meta · {MONTHS[month - 1]}/{year}</DialogTitle>
+            <DialogDescription>
+              A meta vale para o mês selecionado acima e pode ser do time inteiro ou de uma
+              pessoa.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Os Select do Radix renderizam um <button>, e <label for> não nomeia botão.
+                A associação correta é o trigger apontar para o texto do rótulo com
+                aria-labelledby — sem isso o leitor de tela anuncia só o valor atual. */}
             <div className="space-y-2">
-              <Label>Tipo</Label>
+              <Label id="goal-type-label">Tipo</Label>
               <Select value={form.goal_type} onValueChange={(v) => setForm({ ...form, goal_type: v as GoalType })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-labelledby="goal-type-label"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {GOAL_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Responsável</Label>
+              <Label id="goal-assignee-label">Responsável</Label>
               <Select value={form.assignee} onValueChange={(v) => setForm({ ...form, assignee: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-labelledby="goal-assignee-label"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_MEMBER}>Time inteiro</SelectItem>
                   {(members ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}

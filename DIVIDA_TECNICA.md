@@ -111,3 +111,26 @@ sempre.
 **O que ficou pendente:** o rascunho não importa FAQs nem objeções, porque essas
 vinham do modelo. O usuário começa com base de conhecimento vazia e a preenche em
 Configurações > IA.
+
+---
+
+## 4. Conexão Gmail sem credencial OAuth configurada
+
+**Estado:** o botão "Conectar Gmail" em `/inbox` falha com "GOOGLE_CLIENT_ID não
+configurado". As functions `gmail-auth-url`, `gmail-oauth-callback` e
+`_shared/google.ts` estão prontas, mas os secrets `GOOGLE_CLIENT_ID` /
+`GOOGLE_CLIENT_SECRET` nunca foram cadastrados no Supabase.
+
+**Reportado como:** `http-500` na auditoria automatizada de 2026-07-30 — a
+varredura clicou o botão e capturou a resposta.
+
+**Por que não é defeito de código:** o frontend mostra a causa real num toast
+(via `erroDeFunction`, da PR #22) e a function responde 500 com mensagem
+explicativa em vez de quebrar. O fluxo inteiro depende de credencial criada no
+Google Cloud Console (OAuth consent + client web), que é decisão de configuração
+do produto, não de implementação.
+
+**O que dispararia a correção:** decisão de ativar o canal de email para
+clientes. Aí: criar o OAuth client no Google Cloud Console com o redirect
+`<SUPABASE_URL>/functions/v1/gmail-oauth-callback`, cadastrar os dois secrets e
+o `APP_URL` no Supabase, e testar o ciclo conectar → sincronizar → enviar.

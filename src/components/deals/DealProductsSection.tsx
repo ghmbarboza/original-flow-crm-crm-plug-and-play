@@ -83,9 +83,9 @@ export function DealProductsSection({ dealId, currency }: { dealId: string; curr
 
       <div className="mb-4 flex flex-wrap items-end gap-2">
         <div className="min-w-48 flex-1 space-y-1">
-          <label className="text-xs" style={{ color: "var(--via-text-muted)" }}>Produto</label>
+          <label id="deal-produto-label" className="text-xs block" style={{ color: "var(--via-text-muted)" }}>Produto</label>
           <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-            <SelectTrigger data-testid="deal-product-select">
+            <SelectTrigger data-testid="deal-product-select" aria-labelledby="deal-produto-label">
               <SelectValue placeholder="Selecione um produto" />
             </SelectTrigger>
             <SelectContent>
@@ -104,8 +104,9 @@ export function DealProductsSection({ dealId, currency }: { dealId: string; curr
           </Select>
         </div>
         <div className="w-24 space-y-1">
-          <label className="text-xs" style={{ color: "var(--via-text-muted)" }}>Qtd</label>
+          <label htmlFor="deal-produto-qtd" className="text-xs block" style={{ color: "var(--via-text-muted)" }}>Qtd</label>
           <Input
+            id="deal-produto-qtd"
             type="number"
             min="1"
             data-testid="deal-product-qty"

@@ -155,7 +155,7 @@ export default function ContactsPage() {
                 />
               </div>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-44">
+                <SelectTrigger className="w-44" aria-label="Filtrar por status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

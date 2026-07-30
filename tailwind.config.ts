@@ -59,6 +59,9 @@ export default {
             600: "#475467", 700: "#344054", 800: "#1D2939", 900: "#101828",
           },
           coral:   "#B85C5C",
+          // Fundo para texto branco: coral puro dá 3.7:1 (reprova WCAG AA);
+          // o deep dá 5.9:1. Mesmo valor de --via-coral-deep no index.css.
+          "coral-deep": "#A14848",
           success: "#1F8A5B",
           danger:  "#B83A3A",
         },

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -133,8 +133,13 @@ export default function EmailSequencesPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Nova sequência</DialogTitle>
+            <DialogDescription>
+              Dê um nome à sequência. As etapas de email são adicionadas depois, e nada é
+              enviado enquanto você não ativá-la.
+            </DialogDescription>
           </DialogHeader>
           <Input
+            aria-label="Nome da sequência"
             placeholder="Ex.: Onboarding de novos leads"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}

@@ -73,8 +73,11 @@ export default function ActivitiesPage() {
         )}
 
         <div className="flex flex-wrap gap-2">
+          {/* Estes filtros não têm rótulo visível, e o combobox do Radix não tira
+              nome acessível do valor selecionado (era o button-name critical do
+              axe em 6 telas). aria-label em todos. */}
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-44" aria-label="Filtrar por tipo de atividade">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -85,7 +88,7 @@ export default function ActivitiesPage() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40" aria-label="Filtrar por status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

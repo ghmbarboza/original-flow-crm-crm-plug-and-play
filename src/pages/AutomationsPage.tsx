@@ -55,7 +55,7 @@ function LogsSheet({ automation, onOpenChange }: { automation: Automation | null
                         className="rounded-full px-2 py-0.5 text-xs font-medium"
                         style={log.status === "success"
                           ? { background: "var(--via-success)", color: "var(--via-white)" }
-                          : { background: "var(--via-coral)", color: "var(--via-white)" }}
+                          : { background: "var(--via-coral-deep)", color: "var(--via-white)" }}
                       >
                         {log.status === "success" ? "Sucesso" : "Erro"}
                       </span>

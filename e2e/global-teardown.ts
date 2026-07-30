@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { credencial as env } from "./helpers";
 
 /**
  * Limpeza dos registros criados pela suíte E2E.
@@ -13,9 +13,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  *     carimba em tudo que a suíte cria. Nada sem esse marcador é tocado.
  *  2. Sempre escopado por org_id, resolvido da sessão/credencial em uso.
  *
- * CREDENCIAIS — nunca no código:
- *  - Preferência: SUPABASE_SERVICE_ROLE_KEY no ambiente (ignora RLS, mais
- *    confiável quando um registro ficou órfão de outro usuário).
+ * CREDENCIAIS — do ambiente ou do `.env` local (gitignored), nunca do código:
+ *  - Preferência: SUPABASE_SERVICE_ROLE_KEY (ignora RLS, mais confiável quando
+ *    um registro ficou órfão de outro usuário).
  *  - Sem ela: autentica como o usuário do E2E e apaga pelas próprias policies.
  *    Funciona porque a suíte só cria registros da própria organização.
  *  - Sem nenhuma das duas: avisa e não apaga nada. Um teardown que não consegue
@@ -23,26 +23,6 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  */
 
 const MARKER = "E2E";
-
-/** Lê uma chave do .env sem depender de dotenv (não é dependência do projeto). */
-function fromDotenv(key: string): string | undefined {
-  try {
-    const line = readFileSync(".env", "utf8")
-      .split(/\r?\n/)
-      .find((l) => l.startsWith(`${key}=`));
-    return line?.slice(key.length + 1).trim().replace(/^["']|["']$/g, "");
-  } catch {
-    return undefined;
-  }
-}
-
-function env(...keys: string[]): string | undefined {
-  for (const k of keys) {
-    const v = process.env[k] ?? fromDotenv(k);
-    if (v) return v;
-  }
-  return undefined;
-}
 
 /**
  * Ordem de exclusão ditada pelas foreign keys.
@@ -90,13 +70,13 @@ export default async function globalTeardown() {
     return;
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
 
   // ---- Caminho 1: service role (do ambiente, nunca do código) ----
   if (serviceKey) {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
     // Sem sessão de usuário, a org vem do profile do e-mail usado pela suíte.
-    const email = process.env.E2E_EMAIL ?? "sabrina@viverdeia.ai";
+    const email = env("E2E_EMAIL") ?? "sabrina@viverdeia.ai";
     const { data: profile } = await admin
       .from("profiles").select("org_id").eq("email", email).maybeSingle();
     if (!profile?.org_id) {
@@ -110,7 +90,7 @@ export default async function globalTeardown() {
 
   // ---- Caminho 2: sessão do próprio usuário do E2E ----
   const anonKey = env("VITE_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY");
-  const password = process.env.E2E_PASSWORD;
+  const password = env("E2E_PASSWORD");
   if (!anonKey || !password) {
     // eslint-disable-next-line no-console
     console.warn(
@@ -121,7 +101,7 @@ export default async function globalTeardown() {
 
   const client = createClient(url, anonKey, { auth: { persistSession: false } });
   const { data: auth, error: authError } = await client.auth.signInWithPassword({
-    email: process.env.E2E_EMAIL ?? "sabrina@viverdeia.ai",
+    email: env("E2E_EMAIL") ?? "sabrina@viverdeia.ai",
     password,
   });
   if (authError || !auth.user) {

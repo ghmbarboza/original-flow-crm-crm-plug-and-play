@@ -32,6 +32,13 @@ dist-ssr
 /playwright/.cache/
 e2e/.auth/
 
+# Auditoria (e2e/_auditoria.spec.ts): o relatório auditoria/auditoria.md é
+# versionado como evidência; os parciais, as capturas e a galeria são
+# regeneráveis e pesados.
+/auditoria/parciais/
+/auditoria/telas/
+/auditoria/galeria.html
+
 # Env / secrets (nunca versionar, nem templates)
 .env
 .env.*

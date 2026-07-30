@@ -390,8 +390,11 @@ function CaptureFormBuilder({ open, onOpenChange, form }: BuilderProps) {
                   </Select>
                 </div>
                 <div className="flex items-center justify-between">
+                  {/* O Switch do Radix é <button>, e envolver botão em <label> não
+                      lhe dá nome acessível — só o clique. Daí o aria-label. */}
                   <label className="flex items-center gap-2 text-xs" style={{ color: "var(--via-text-body)" }}>
                     <Switch
+                      aria-label={`Tornar o campo "${field.label || `nº ${i + 1}`}" obrigatório`}
                       checked={field.required}
                       onCheckedChange={(v) => setField(i, { required: v })}
                     />
@@ -500,7 +503,11 @@ function CaptureFormBuilder({ open, onOpenChange, form }: BuilderProps) {
           </div>
 
           <label className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
+            <Switch
+              aria-label="Formulário ativo (link público aceita envios)"
+              checked={isActive}
+              onCheckedChange={setIsActive}
+            />
             Formulário ativo (link público aceita envios)
           </label>
         </div>
