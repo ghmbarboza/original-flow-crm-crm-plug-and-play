@@ -11,6 +11,8 @@ import { ChannelBadge } from "@/components/whatsapp/ChannelBadge";
 import { LinkContactDialog } from "@/components/whatsapp/LinkContactDialog";
 import { ReportAIResponseDialog } from "@/components/whatsapp/ReportAIResponseDialog";
 import { TransferDialog } from "@/components/whatsapp/TransferDialog";
+import { QuickReplyPicker, type QuickReplyPickerHandle } from "@/components/whatsapp/QuickReplyPicker";
+import { aplicarVariaveis, type QuickReply } from "@/hooks/useQuickReplies";
 import {
   conversationName, useMarkRead, useMessages, useSendMessage,
   useUpdateConversation, type Conversation, type Message,
@@ -106,6 +108,11 @@ export function MessagePanel({ conversation, provider }: Props) {
 
   const [text, setText] = useState("");
   const [isNote, setIsNote] = useState(false);
+  // Respostas rápidas: "/..." no início do composer abre a lista; o handler de
+  // teclado vem do picker via ref para as setas/Enter não enviarem a mensagem.
+  const [pickerFechado, setPickerFechado] = useState(false);
+  const pickerRef = useRef<QuickReplyPickerHandle | null>(null);
+  const pickerAberto = !isNote && !pickerFechado && text.startsWith("/") && !text.includes("\n");
   const [transferOpen, setTransferOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [reportando, setReportando] = useState<string | null>(null);
@@ -127,6 +134,19 @@ export function MessagePanel({ conversation, provider }: Props) {
     // navegador rola o ancestral rolável mais próximo — que antes era a página.
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
+
+  const usarResposta = (r: QuickReply) => {
+    // O texto substitui o campo inteiro, com as variáveis do contato resolvidas.
+    // O agente ainda revisa antes de enviar — nada vai automático.
+    setText(aplicarVariaveis(r.message, {
+      "contact.first_name": conversation.contact?.first_name,
+      "contact.last_name": conversation.contact?.last_name,
+      "contact.name": conversation.contact
+        ? [conversation.contact.first_name, conversation.contact.last_name].filter(Boolean).join(" ")
+        : conversation.channel_contact_name,
+    }));
+    setPickerFechado(true);
+  };
 
   const handleSend = async () => {
     const content = text.trim();
@@ -290,13 +310,35 @@ export function MessagePanel({ conversation, provider }: Props) {
               </span>
             )}
           </div>
-          <div className="flex items-end gap-2">
+          <div className="relative flex items-end gap-2">
+            {pickerAberto && (
+              <QuickReplyPicker
+                busca={text.slice(1)}
+                onSelect={usarResposta}
+                onRegister={(h) => { pickerRef.current = h; }}
+              />
+            )}
             <Textarea
               rows={2}
-              placeholder={isNote ? "Escreva uma nota interna…" : "Escreva uma mensagem…"}
+              placeholder={isNote ? "Escreva uma nota interna…" : "Escreva uma mensagem… ( / para respostas rápidas )"}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                // Reabrir a lista ao digitar de novo depois de um Esc.
+                if (!e.target.value.startsWith("/")) setPickerFechado(false);
+              }}
               onKeyDown={(e) => {
+                if (pickerAberto) {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setPickerFechado(true);
+                    return;
+                  }
+                  if (pickerRef.current?.handleKey(e)) {
+                    e.preventDefault();
+                    return;
+                  }
+                }
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
