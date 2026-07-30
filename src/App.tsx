@@ -18,6 +18,7 @@ const SetupPage = lazy(() => import("./pages/SetupPage"));
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ContactsPage = lazy(() => import("./pages/ContactsPage"));
+const ContactDetailPage = lazy(() => import("./pages/ContactDetailPage"));
 const CompaniesPage = lazy(() => import("./pages/CompaniesPage"));
 const DealsPage = lazy(() => import("./pages/DealsPage"));
 const DealDetailPage = lazy(() => import("./pages/DealDetailPage"));
@@ -121,6 +122,9 @@ const App = () => (
             } />
             <Route path="/contacts" element={
               <ProtectedRoute><Page name="Contatos"><ContactsPage /></Page></ProtectedRoute>
+            } />
+            <Route path="/contacts/:id" element={
+              <ProtectedRoute><Page name="Contato"><ContactDetailPage /></Page></ProtectedRoute>
             } />
             <Route path="/companies" element={
               <ProtectedRoute><Page name="Empresas"><CompaniesPage /></Page></ProtectedRoute>

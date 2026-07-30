@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Activity as ActivityIcon, Building2, Check, Mail, MessageCircle, Pencil,
-  Phone, TrendingUp, User,
+  Phone, TrendingUp, User, UserRound,
 } from "lucide-react";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
@@ -136,10 +137,20 @@ export function ContactDrawer({ contactId, onOpenChange, onEdit }: Props) {
             <SheetHeader className="space-y-2 pr-8 text-left">
               <div className="flex items-start justify-between gap-2">
                 <SheetTitle className="text-xl">{fullName}</SheetTitle>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onEdit(contact)}>
-                  <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Editar
-                </Button>
+                <div className="flex gap-1.5">
+                  {/* O drawer é triagem rápida; o histórico completo (timeline,
+                      anotações) mora na ficha em /contacts/:id. */}
+                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                    <Link to={`/contacts/${contact.id}`} data-testid="contact-ver-ficha">
+                      <UserRound className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      Ver ficha completa
+                    </Link>
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onEdit(contact)}>
+                    <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    Editar
+                  </Button>
+                </div>
               </div>
               <SheetDescription className="flex flex-wrap items-center gap-2">
                 <ContactStatusBadge status={contact.status} />
