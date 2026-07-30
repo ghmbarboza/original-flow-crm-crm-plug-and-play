@@ -105,7 +105,7 @@ export default function ReportsPage() {
             <Select value={owner} onValueChange={setOwner}>
               <SelectTrigger className="w-44" aria-label="Filtrar por responsável"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>Todos os owners</SelectItem>
+                <SelectItem value={ALL}>Todos os usuários</SelectItem>
                 {(members ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
               </SelectContent>
             </Select>

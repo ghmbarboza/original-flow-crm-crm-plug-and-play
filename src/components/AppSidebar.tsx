@@ -5,6 +5,7 @@ import {
   BarChart2,
   Building2,
   CheckSquare,
+  Clock,
   FileText,
   GitBranch,
   HelpCircle,
@@ -74,13 +75,23 @@ export function AppSidebar() {
       ],
     },
     {
+      // Automação separada de Marketing: automações, régua de follow-up e
+      // sequências operam o relacionamento contínuo; campanha e biblioteca são
+      // aquisição. Follow-up aqui é a tela de USO (/followup) — a configuração
+      // da régua continua em Configurações > Follow-up.
+      label: "Automação",
+      items: [
+        { title: "Automações", url: "/automations", icon: Zap },
+        { title: "Follow-up", url: "/followup", icon: Clock },
+        { title: "Sequências", url: "/email-sequences", icon: GitBranch },
+        { title: "Templates de Email", url: "/email-templates", icon: FileText },
+      ],
+    },
+    {
       label: "Marketing",
       items: [
         { title: "Campanhas", url: "/campaigns", icon: Megaphone },
         { title: "Biblioteca", url: "/library", icon: BookOpen },
-        { title: "Automações", url: "/automations", icon: Zap },
-        { title: "Sequências", url: "/email-sequences", icon: GitBranch },
-        { title: "Templates", url: "/email-templates", icon: FileText },
       ],
     },
     {

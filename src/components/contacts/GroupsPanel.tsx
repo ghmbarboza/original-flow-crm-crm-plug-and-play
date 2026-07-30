@@ -233,11 +233,18 @@ export function GroupsPanel() {
     }
   };
 
+  const vazio = !isLoading && (groups ?? []).length === 0;
+
   return (
     <div className="max-w-3xl space-y-4">
-      <div className="flex justify-end">
-        <NewGroupDialog />
-      </div>
+      {/* Com a lista vazia, a ação única mora DENTRO do card (padrão de
+          Atividades) — um botão sozinho no canto de uma tela vazia é fácil de
+          não ver. Com grupos na lista, ele volta ao topo. */}
+      {!vazio && (
+        <div className="flex justify-end">
+          <NewGroupDialog />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-2">
@@ -250,10 +257,13 @@ export function GroupsPanel() {
           <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
             Nenhum grupo ainda
           </p>
-          <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
+          <p className="mb-4 text-sm" style={{ color: "var(--via-text-muted)" }}>
             Grupos alimentam campanhas, distribuição de conversas e filtros de relatório.
             Um grupo dinâmico se mantém sozinho conforme os contatos mudam.
           </p>
+          <div className="flex justify-center">
+            <NewGroupDialog />
+          </div>
         </div>
       ) : (
         <ul className="space-y-2">

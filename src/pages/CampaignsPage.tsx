@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Ban, Plus, Send, XCircle } from "lucide-react";
+import { ArrowRight, Ban, Plus, Send, XCircle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { EmptyState } from "@/components/EmptyState";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -78,19 +80,29 @@ export default function CampaignsPage() {
       <AppShell>
         <div className="space-y-6">
           {header}
-          <div className="via-card mx-auto max-w-xl p-8 text-center" data-testid="campaigns-blocked">
-            <Ban className="mx-auto mb-3 h-8 w-8" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-            <p className="text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
-              Campanhas exigem um provedor oficial
-            </p>
-            <p className="mt-1 text-sm" style={{ color: "var(--via-text-body)" }}>
-              O envio de mensagens em massa só é permitido pela WhatsApp Business Platform oficial. A
-              Evolution API conecta um número comum, sujeito a bloqueios por spam — por isso campanhas
-              ficam indisponíveis nesse modo.
-            </p>
-            <p className="mt-3 text-sm" style={{ color: "var(--via-text-muted)" }}>
-              Para liberar campanhas, configure a API Oficial (Meta) ou o Zernio em Canais.
-            </p>
+          {/* EmptyState em vez de card estreito (max-w-xl mx-auto): mesma
+              largura dos estados vazios do resto da plataforma. A saída do
+              bloqueio agora é um link, não uma instrução para navegar à mão. */}
+          <div data-testid="campaigns-blocked">
+          <EmptyState
+            icon={Ban}
+            title="Campanhas exigem um provedor oficial"
+            description={
+              <>
+                O envio de mensagens em massa só é permitido pela WhatsApp Business Platform oficial.
+                A Evolution API conecta um número comum, sujeito a bloqueios por spam — por isso
+                campanhas ficam indisponíveis nesse modo.
+              </>
+            }
+            action={
+              <Button asChild variant="outline" className="gap-1.5">
+                <Link to="/settings/channels" data-testid="campaigns-blocked-link">
+                  Configurar canais
+                  <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                </Link>
+              </Button>
+            }
+          />
           </div>
         </div>
       </AppShell>

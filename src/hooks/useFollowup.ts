@@ -47,6 +47,49 @@ export function useFollowupSteps() {
   });
 }
 
+/** Execução da régua numa conversa, com o contato resolvido para exibição. */
+export type FollowupExecution = Database["public"]["Tables"]["followup_executions"]["Row"] & {
+  conversation: {
+    phone_number: string | null;
+    channel_contact_name: string | null;
+    contact: { first_name: string | null; last_name: string | null } | null;
+  } | null;
+};
+
+/**
+ * Execuções do follow-up da organização, mais recentes primeiro.
+ *
+ * Alimenta a tela de USO (/followup) — o que a régua está fazendo agora —
+ * separada da configuração (Configurações > Follow-up), que define mensagens e
+ * parâmetros. Limite de 100: a tela é um painel de acompanhamento, não um
+ * histórico completo.
+ */
+export function useFollowupExecutions() {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["followup-executions", orgId],
+    enabled: !!orgId,
+    queryFn: async (): Promise<FollowupExecution[]> => {
+      const { data, error } = await supabase
+        .from("followup_executions")
+        .select("*, conversation:conversations(phone_number, channel_contact_name, contact:contacts(first_name, last_name))")
+        .eq("org_id", orgId!)
+        .order("updated_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return (data ?? []) as FollowupExecution[];
+    },
+  });
+}
+
+/** Nome exibível do contato de uma execução: contato do CRM > nome do canal > telefone. */
+export function nomeDaExecucao(e: FollowupExecution): string {
+  const c = e.conversation;
+  if (!c) return "Conversa removida";
+  const doContato = [c.contact?.first_name, c.contact?.last_name].filter(Boolean).join(" ");
+  return doContato || c.channel_contact_name || c.phone_number || "Sem identificação";
+}
+
 export function useUpsertFollowupConfig() {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
