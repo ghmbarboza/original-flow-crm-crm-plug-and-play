@@ -132,10 +132,12 @@ export default function ContactsPage() {
         )}
 
         <Tabs defaultValue="list">
+          {/* w-24 em cada aba: os três rótulos têm larguras diferentes e as abas
+              ficavam desiguais; largura fixa as equaliza. */}
           <TabsList>
-            <TabsTrigger value="list">Lista</TabsTrigger>
-            <TabsTrigger value="groups">Grupos</TabsTrigger>
-            <TabsTrigger value="tags">Tags</TabsTrigger>
+            <TabsTrigger value="list" className="w-24">Lista</TabsTrigger>
+            <TabsTrigger value="groups" className="w-24">Grupos</TabsTrigger>
+            <TabsTrigger value="tags" className="w-24">Tags</TabsTrigger>
           </TabsList>
 
           <TabsContent value="list" className="space-y-4 pt-4">

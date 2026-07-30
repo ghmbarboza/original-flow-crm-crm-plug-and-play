@@ -19,8 +19,10 @@ export function LinkBiblioteca({
   rotulo?: string;
 }) {
   const destino = categoria ? `/library?categoria=${categoria}` : "/library";
+  // Tamanho default, não sm: este botão aparece lado a lado com ações primárias
+  // de tamanho default nos empty states, e o par desalinhado parecia defeito.
   return (
-    <Button asChild variant="outline" size="sm" className="gap-1.5">
+    <Button asChild variant="outline" className="gap-1.5">
       <Link to={destino} data-testid="link-biblioteca">
         {rotulo}
         <ArrowRight className="h-4 w-4" strokeWidth={1.5} />

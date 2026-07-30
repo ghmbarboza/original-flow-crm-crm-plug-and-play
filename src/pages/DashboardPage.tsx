@@ -47,10 +47,13 @@ function KPI({
 }
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  // h-full + flex-col: no grid, os dois cards da linha ("Negócios por etapa" e
+  // "Atendimento") passam a ter a mesma altura, com o conteúdo preenchendo o
+  // espaço em vez de cada card parar onde o conteúdo acaba.
   return (
-    <div className="via-card p-5">
+    <div className="via-card flex h-full flex-col p-5">
       <h2 className="mb-3 text-base font-medium" style={{ color: "var(--via-text-primary)" }}>{title}</h2>
-      {children}
+      <div className="flex flex-1 flex-col justify-center">{children}</div>
     </div>
   );
 }
@@ -186,7 +189,10 @@ export default function DashboardPage() {
                 </div>
 
                 <ChartCard title="Atendimento">
-                  <div className="divide-y" style={{ borderColor: "var(--via-border)" }}>
+                  {/* flex-1: as linhas ocupam a altura que o card ganhou do
+                      alinhamento e o botão fica no rodapé, alinhado com a base
+                      do gráfico ao lado. */}
+                  <div className="flex-1 divide-y" style={{ borderColor: "var(--via-border)" }}>
                     <StatRow label="Conversas" value={data.conversations.total} icon={MessageCircle} />
                     <StatRow label="Em aberto" value={data.conversations.open} icon={MessageCircle} />
                     <StatRow label="IA ativa" value={data.conversations.ai} icon={Bot} />

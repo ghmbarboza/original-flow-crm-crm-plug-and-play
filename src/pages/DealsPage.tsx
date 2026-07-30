@@ -119,7 +119,7 @@ export default function DealsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL}>Todos os owners</SelectItem>
+                  <SelectItem value={ALL}>Todos os usuários</SelectItem>
                   {(members ?? []).map((member) => (
                     <SelectItem key={member.id} value={member.id}>{member.full_name}</SelectItem>
                   ))}

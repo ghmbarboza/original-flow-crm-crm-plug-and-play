@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Mail, Plug, Plus, RefreshCw } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { EmptyState } from "@/components/EmptyState";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -94,17 +95,19 @@ export default function InboxPage() {
               Email
             </h1>
           </div>
-          <div className="via-card mx-auto max-w-xl p-8 text-center">
-            <Plug className="mx-auto mb-3 h-8 w-8" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-            <p className="text-base font-medium" style={{ color: "var(--via-text-primary)" }}>Conecte seu Gmail</p>
-            <p className="mb-4 mt-1 text-sm" style={{ color: "var(--via-text-body)" }}>
-              Sincronize suas conversas de email e envie mensagens direto do CRM, com histórico por contato.
-            </p>
-            <Button onClick={handleConnect} disabled={connectGmail.isPending} className="gap-1.5">
-              <Plug className="h-4 w-4" strokeWidth={1.5} />
-              {connectGmail.isPending ? "Redirecionando…" : "Conectar Gmail"}
-            </Button>
-          </div>
+          {/* EmptyState em vez de card estreito (max-w-xl mx-auto): mesmo
+              componente e largura dos estados vazios do resto da plataforma. */}
+          <EmptyState
+            icon={Plug}
+            title="Conecte seu Gmail"
+            description="Sincronize suas conversas de email e envie mensagens direto do CRM, com histórico por contato."
+            action={
+              <Button onClick={handleConnect} disabled={connectGmail.isPending} className="gap-1.5">
+                <Plug className="h-4 w-4" strokeWidth={1.5} />
+                {connectGmail.isPending ? "Redirecionando…" : "Conectar Gmail"}
+              </Button>
+            }
+          />
         </div>
       </AppShell>
     );

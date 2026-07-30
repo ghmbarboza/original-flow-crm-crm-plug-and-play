@@ -31,6 +31,7 @@ const InboxPage = lazy(() => import("./pages/InboxPage"));
 const EmailTemplatesPage = lazy(() => import("./pages/EmailTemplatesPage"));
 const EmailSequencesPage = lazy(() => import("./pages/EmailSequencesPage"));
 const AutomationsPage = lazy(() => import("./pages/AutomationsPage"));
+const FollowupPage = lazy(() => import("./pages/FollowupPage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const SalesGoalsPage = lazy(() => import("./pages/SalesGoalsPage"));
 const LeadScoringPage = lazy(() => import("./pages/LeadScoringPage"));
@@ -163,6 +164,9 @@ const App = () => (
             } />
             <Route path="/automations" element={
               <ProtectedRoute><Page name="Automações"><AutomationsPage /></Page></ProtectedRoute>
+            } />
+            <Route path="/followup" element={
+              <ProtectedRoute><Page name="Follow-up"><FollowupPage /></Page></ProtectedRoute>
             } />
             <Route path="/email-sequences" element={
               <ProtectedRoute><Page name="Sequências de email"><EmailSequencesPage /></Page></ProtectedRoute>

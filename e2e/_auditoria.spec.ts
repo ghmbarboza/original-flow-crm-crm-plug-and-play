@@ -58,8 +58,8 @@ import AxeBuilder from "@axe-core/playwright";
 const ROTAS = [
   "/dashboard", "/contacts", "/companies", "/deals", "/activities", "/tasks",
   "/products", "/whatsapp", "/inbox", "/email-templates", "/campaigns",
-  "/library", "/automations", "/email-sequences", "/reports", "/sales-goals",
-  "/lead-scoring", "/team", "/settings", "/help",
+  "/library", "/automations", "/followup", "/email-sequences", "/reports",
+  "/sales-goals", "/lead-scoring", "/team", "/settings", "/help",
 ];
 
 /** Nunca clicar: apaga, desconecta ou tira o usuário da sessão. */

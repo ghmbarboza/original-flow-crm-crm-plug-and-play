@@ -85,18 +85,21 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <h1 className="text-3xl font-medium tracking-tight">Configurações</h1>
         <Tabs value={activeTab} onValueChange={handleChange}>
+          {/* Ordem definida na validação de UX de 2026-07-30: conta e acesso
+              primeiro (Geral, Segurança, Equipe, Notificações), integração no
+              meio, operação (IA, Follow-up) depois, e utilitários no fim. */}
           <TabsList>
             <TabsTrigger data-testid="settings-tab" value="general">Geral</TabsTrigger>
-            <TabsTrigger data-testid="settings-tab" value="notifications">Notificações</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="security">Segurança</TabsTrigger>}
-            {isAdmin && <TabsTrigger data-testid="settings-tab" value="channels">Canais</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="team">Equipe</TabsTrigger>}
+            <TabsTrigger data-testid="settings-tab" value="notifications">Notificações</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="integrations">Integrações</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="channels">Canais</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="capture">Captura de Leads</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="ia">IA</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="follow-up">Follow-up</TabsTrigger>}
-            {isAdmin && <TabsTrigger data-testid="settings-tab" value="team">Equipe</TabsTrigger>}
-            {isAdmin && <TabsTrigger data-testid="settings-tab" value="demonstration">Demonstração</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="onboarding">Onboarding</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="demonstration">Demonstração</TabsTrigger>}
           </TabsList>
           <div className="mt-6 mb-4">
             <h2 className="text-xl font-semibold">{meta.title}</h2>
