@@ -9,7 +9,8 @@ const STATUS_CLASS: Record<ContactStatus, string> = {
   lead: "bg-via-gray-200 text-via-gray-700",
   prospect: "bg-via-blue text-white",
   customer: "bg-via-success text-white",
-  churned: "bg-via-coral text-white",
+  // coral-deep: branco sobre o coral puro fica abaixo de 4.5:1 (WCAG AA).
+  churned: "bg-via-coral-deep text-white",
 };
 
 export function ContactStatusBadge({ status }: { status: ContactStatus }) {

@@ -94,13 +94,13 @@ export default function SalesGoalsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-28" aria-label="Mês da meta"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-28" aria-label="Ano da meta"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
               </SelectContent>

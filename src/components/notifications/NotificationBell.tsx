@@ -76,8 +76,12 @@ export function NotificationBell() {
           <Bell className="h-5 w-5" strokeWidth={1.5} />
           {unread > 0 && (
             <span
+              // coral-deep, não coral: branco em 10px sobre o coral puro dá
+              // 3.7:1 e era a única falha de contraste do axe — em 19 telas,
+              // porque o sino está em todas. Não usar --via-coral-dark: no tema
+              // escuro ele vira rosa-claro (é token de TEXTO) e pioraria tudo.
               className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white"
-              style={{ backgroundColor: "var(--via-coral, #ef4444)" }}
+              style={{ backgroundColor: "var(--via-coral-deep, #A14848)" }}
             >
               {unread > 9 ? "9+" : unread}
             </span>

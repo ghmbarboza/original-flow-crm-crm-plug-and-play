@@ -6,7 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
  * VARREDURA, NÃO TESTE DE REGRESSÃO.
  *
  * Este arquivo não afirma comportamento — ele percorre o sistema e produz um
- * relatório para humano ler, em test-results/auditoria.md. Por isso não roda na
+ * relatório para humano ler, em auditoria/auditoria.md. Por isso não roda na
  * suíte normal: todo teste aqui é pulado sem AUDIT=1.
  *
  * O que ele encontra bem: erro de console, request 4xx/5xx, botão sem efeito
@@ -38,9 +38,15 @@ import AxeBuilder from "@axe-core/playwright";
  * (ou `npm run audit:varredura`, `audit:axe`, `audit:galeria`, `audit:relatorio`.)
  *
  * Para isso funcionar entre processos, cada teste GRAVA seus achados em
- * test-results/auditoria/*.json e o relatório LÊ o diretório. Estado em memória
+ * auditoria/parciais/*.json e o relatório LÊ o diretório. Estado em memória
  * não serviria: o Playwright derruba o worker quando um teste estoura o timeout,
  * e levaria junto tudo que as rotas anteriores encontraram.
+ *
+ * Tudo mora em `auditoria/`, NÃO em `test-results/`: o Playwright limpa o
+ * outputDir no início de CADA invocação, então com as fases em execuções
+ * separadas cada fase apagava os artefatos da anterior — a do relatório
+ * apagava tudo e não encontrava nada (aconteceu em 2026-07-30, as três fases
+ * "passaram" e o relatório falhou de mãos vazias).
  *
  * NÃO DESTRUTIVO por construção: só clica em elementos que não casam com a lista
  * de padrões destrutivos abaixo, e nunca submete formulário. O relatório lista o
@@ -71,7 +77,7 @@ const RUIDO_CONSOLE = [
   /Failed to fetch/i,
 ];
 
-const DIR = "test-results/auditoria";
+const DIR = "auditoria/parciais";
 
 interface Achado { rota: string; tipo: string; detalhe: string }
 /** Violação de acessibilidade encontrada pelo axe. */
@@ -351,7 +357,7 @@ for (const rota of ROTAS) {
 
     const c = new Coletor("galeria", rota);
     try {
-      mkdirSync("test-results/telas", { recursive: true });
+      mkdirSync("auditoria/telas", { recursive: true });
       const nome = slug(rota);
       const modos = [
         { modo: "desktop", largura: 1280, altura: 800 },
@@ -366,7 +372,7 @@ for (const rota of ROTAS) {
         // Deixa a animação de entrada terminar, senão a captura pega meio fade.
         await page.waitForTimeout(400);
         await page
-          .screenshot({ path: `test-results/telas/${nome}-${modo}.png`, fullPage: true })
+          .screenshot({ path: `auditoria/telas/${nome}-${modo}.png`, fullPage: true })
           .catch(() => c.anota("captura-falhou", `nao foi possivel capturar em ${modo}`));
 
         // Overflow horizontal só importa em mobile, e é o defeito de layout
@@ -433,7 +439,7 @@ test("relatorio da auditoria", async () => {
     `Achados mecanicos: ${achados.length} · violacoes de acessibilidade: ${violacoes.length}`,
     "",
     "**Lista de candidatos, nao veredito.** Usabilidade nao esta aqui — ver",
-    "`TESTE_MANUAL.md`. Galeria de telas: `test-results/galeria.html`.",
+    "`TESTE_MANUAL.md`. Galeria de telas: `auditoria/galeria.html`.",
     "",
   ];
 
@@ -483,8 +489,8 @@ test("relatorio da auditoria", async () => {
   }
   L.push("");
 
-  mkdirSync("test-results", { recursive: true });
-  writeFileSync("test-results/auditoria.md", L.join("\n"), "utf8");
+  mkdirSync("auditoria", { recursive: true });
+  writeFileSync("auditoria/auditoria.md", L.join("\n"), "utf8");
 
   const cards = capturas
     .sort((a, b) => ROTAS.indexOf(a.rota) - ROTAS.indexOf(b.rota))
@@ -523,12 +529,12 @@ test("relatorio da auditoria", async () => {
     cards,
     "</body></html>",
   ].join("\n");
-  writeFileSync("test-results/galeria.html", html, "utf8");
+  writeFileSync("auditoria/galeria.html", html, "utf8");
 
   console.log(`\n[auditoria] ${cobertura}`);
   console.log(`[auditoria] ${achados.length} achado(s) mecanico(s), ${violacoes.length} violacao(oes) de a11y, ${capturas.length} tela(s).`);
-  console.log("[auditoria] test-results/auditoria.md");
-  console.log("[auditoria] test-results/galeria.html\n");
+  console.log("[auditoria] auditoria/auditoria.md");
+  console.log("[auditoria] auditoria/galeria.html\n");
   for (const [tipo, itens] of ordem) console.log(`  ${String(itens.length).padStart(3)} x ${tipo}`);
   const contagem = new Map<string, number>();
   for (const v of violacoes) contagem.set(v.impacto, (contagem.get(v.impacto) ?? 0) + 1);

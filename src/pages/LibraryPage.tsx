@@ -66,10 +66,14 @@ export default function LibraryPage() {
         </p>
       </div>
 
+      {/* aria-pressed: o estado do filtro era só visual (variant), invisível
+          para leitor de tela — e a varredura acusava "Todos" como botão sem
+          efeito ao clicá-lo já ativo. */}
       <div className="flex flex-wrap gap-2" data-testid="library-filtros">
         <Button
           size="sm"
           variant={categoria === null ? "default" : "outline"}
+          aria-pressed={categoria === null}
           onClick={() => setCategoria(null)}
           data-testid="library-filtro-todos"
         >
@@ -80,6 +84,7 @@ export default function LibraryPage() {
             key={c.value}
             size="sm"
             variant={categoria === c.value ? "default" : "outline"}
+            aria-pressed={categoria === c.value}
             onClick={() => setCategoria(c.value)}
             data-testid={`library-filtro-${c.value}`}
           >

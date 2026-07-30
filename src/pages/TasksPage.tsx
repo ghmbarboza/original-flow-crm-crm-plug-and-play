@@ -81,8 +81,9 @@ export default function TasksPage() {
         )}
 
         <div className="flex flex-wrap gap-2">
+          {/* aria-label porque o combobox do Radix não tira nome do valor (axe: button-name). */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40" aria-label="Filtrar por status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -92,7 +93,7 @@ export default function TasksPage() {
             </SelectContent>
           </Select>
           <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
-            <SelectTrigger className="w-52">
+            <SelectTrigger className="w-52" aria-label="Ordenar tarefas">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

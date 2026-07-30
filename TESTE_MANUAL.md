@@ -10,13 +10,15 @@ label — está em `e2e/_auditoria.spec.ts`. Rode antes de começar:
 npm run audit:varredura    # botões, console, rede, links (o mais demorado)
 npm run audit:axe          # WCAG 2.1 AA por tela
 npm run audit:galeria      # capturas desktop + mobile
-npm run audit:relatorio    # junta tudo em test-results/auditoria.md
+npm run audit:relatorio    # junta tudo em auditoria/auditoria.md
 ```
 
 São quatro execuções porque a varredura inteira num teste só estourava o timeout
 e derrubava as outras fases junto. Cada fase grava o que achou em
-`test-results/auditoria/`, e o relatório lê esse diretório — dá para rodar só
-uma fase de novo sem perder o resto. O relatório diz no topo quantas rotas cada
+`auditoria/parciais/`, e o relatório lê esse diretório — dá para rodar só
+uma fase de novo sem perder o resto. Os artefatos moram em `auditoria/`, não em
+`test-results/`, porque o Playwright limpa o `test-results/` no início de cada
+invocação e apagaria o que as fases anteriores gravaram. O relatório diz no topo quantas rotas cada
 fase cobriu, para "0 violações" não ser confundido com "não rodou".
 
 Precisa de `E2E_PASSWORD` no ambiente ou no `.env` da raiz (que é gitignored).

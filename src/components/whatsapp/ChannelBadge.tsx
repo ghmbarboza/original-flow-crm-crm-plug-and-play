@@ -42,10 +42,13 @@ export function ChannelBadge({
     );
   }
   return (
+    // role="img": aria-label em <span> sem role é atributo proibido pela ARIA
+    // (axe: aria-prohibited-attr). Com role, o ícone vira imagem nomeada.
     <span
       className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${className}`}
       style={{ background: "var(--via-surface)", color: "var(--via-text-muted)" }}
       title={label}
+      role="img"
       aria-label={label}
     >
       <Icon className="h-3 w-3" strokeWidth={1.5} />
