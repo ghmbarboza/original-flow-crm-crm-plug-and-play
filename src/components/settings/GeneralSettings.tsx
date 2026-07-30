@@ -9,9 +9,6 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-// Tamanho mínimo da nova senha (política de front; o backend pode ser mais estrito).
-const MIN_PASSWORD_LENGTH = 8;
-
 function getInitials(name?: string | null) {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -35,9 +32,9 @@ export default function GeneralSettings() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Troca de senha pela própria plataforma.
-  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
-  const [changingPw, setChangingPw] = useState(false);
+  // Redefinição de senha: só por link de email — a troca na tela foi removida
+  // na validação de UX de 2026-07-30 (dois caminhos confundiam, e o link
+  // funciona inclusive para quem não sabe a senha atual).
   const [sendingReset, setSendingReset] = useState(false);
 
   useEffect(() => {
@@ -117,57 +114,6 @@ export default function GeneralSettings() {
     await refreshProfile();
     setSaving(false);
     toast.success("Informações atualizadas com sucesso.");
-  };
-
-  const handleChangePassword = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const { current, next, confirm } = pwForm;
-
-    if (!current || !next || !confirm) {
-      toast.error("Preencha a senha atual, a nova senha e a confirmação.");
-      return;
-    }
-    if (next.length < MIN_PASSWORD_LENGTH) {
-      toast.error(`A nova senha deve ter ao menos ${MIN_PASSWORD_LENGTH} caracteres.`);
-      return;
-    }
-    if (next !== confirm) {
-      toast.error("A confirmação não coincide com a nova senha.");
-      return;
-    }
-    if (next === current) {
-      toast.error("A nova senha deve ser diferente da atual.");
-      return;
-    }
-    if (!user?.email) {
-      toast.error("Sessão inválida. Entre novamente para alterar a senha.");
-      return;
-    }
-
-    setChangingPw(true);
-    try {
-      // A API updateUser não valida a senha atual. Reautenticamos com ela para
-      // confirmar que quem troca conhece a senha vigente (boa prática de segurança/UX).
-      const { error: reauthError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: current,
-      });
-      if (reauthError) {
-        toast.error("A senha atual está incorreta.");
-        return;
-      }
-
-      const { error } = await supabase.auth.updateUser({ password: next });
-      if (error) {
-        toast.error(error.message || "Não foi possível alterar a senha.");
-        return;
-      }
-
-      setPwForm({ current: "", next: "", confirm: "" });
-      toast.success("Senha alterada com sucesso.");
-    } finally {
-      setChangingPw(false);
-    }
   };
 
   const handleSendResetLink = async () => {
@@ -288,55 +234,9 @@ export default function GeneralSettings() {
         </CardFooter>
       </Card>
 
-      <Card>
-        <form onSubmit={handleChangePassword}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Alterar senha</CardTitle>
-            <CardDescription className="text-sm">
-              Defina uma nova senha de acesso. Use ao menos {MIN_PASSWORD_LENGTH} caracteres, combinando letras e números.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:max-w-md">
-            <div className="space-y-2">
-              <Label htmlFor="current_password">Senha atual</Label>
-              <Input
-                id="current_password"
-                type="password"
-                autoComplete="current-password"
-                value={pwForm.current}
-                onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new_password">Nova senha</Label>
-              <Input
-                id="new_password"
-                type="password"
-                autoComplete="new-password"
-                value={pwForm.next}
-                onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm_password">Confirmar nova senha</Label>
-              <Input
-                id="confirm_password"
-                type="password"
-                autoComplete="new-password"
-                value={pwForm.confirm}
-                onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))}
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={changingPw}>
-              {changingPw && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Alterar senha
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-
+      {/* A troca de senha na tela foi removida (validação de UX 2026-07-30):
+          dois caminhos para a mesma coisa confundiam, e o link por email é o
+          único que funciona também para quem esqueceu a senha atual. */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-4">

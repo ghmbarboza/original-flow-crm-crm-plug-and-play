@@ -16,7 +16,13 @@ const TabsList = React.forwardRef<
       // cortar as abas (em /settings, 7 das 11 ficavam inalcançáveis no mobile).
       // justify-start, não center: numa lista centrada que estoura o contêiner,
       // o início fica fora do alcance da rolagem.
-      "inline-flex h-10 max-w-full items-center justify-start overflow-x-auto rounded-md border border-border bg-background p-1 text-muted-foreground",
+      //
+      // Scrollbar invisível + overflow-y-hidden: a barra horizontal nativa
+      // consome altura DENTRO do h-10 e empurrava as abas para um scroll
+      // vertical — todas as telas com TabsList rolavam para baixo em vez de
+      // mostrar as abas. A rolagem horizontal continua (roda do mouse, arrasto,
+      // teclado); só a barra some.
+      "inline-flex h-10 max-w-full items-center justify-start overflow-x-auto overflow-y-hidden rounded-md border border-border bg-background p-1 text-muted-foreground [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
       className,
     )}
     {...props}
