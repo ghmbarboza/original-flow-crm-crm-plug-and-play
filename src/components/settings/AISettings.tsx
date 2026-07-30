@@ -141,7 +141,11 @@ export default function AISettings() {
             </p>
           </div>
         </div>
-        <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+        <Switch
+          aria-label="Ativar o atendimento automático por IA"
+          checked={form.is_active}
+          onCheckedChange={(v) => setForm({ ...form, is_active: v })}
+        />
       </div>
 
       <Tabs defaultValue="personality">
@@ -252,7 +256,11 @@ export default function AISettings() {
               <Input id="keywords" value={keywordsText} onChange={(e) => setKeywordsText(e.target.value)} placeholder="falar com humano, atendente, reclamação" />
             </div>
             <label className="flex items-center gap-2">
-              <Switch checked={triggers.negative_sentiment} onCheckedChange={(v) => setTriggers({ ...triggers, negative_sentiment: v })} />
+              <Switch
+                aria-label="Transferir ao detectar sentimento negativo"
+                checked={triggers.negative_sentiment}
+                onCheckedChange={(v) => setTriggers({ ...triggers, negative_sentiment: v })}
+              />
               <span className="text-sm" style={{ color: "var(--via-text-body)" }}>Transferir ao detectar sentimento negativo</span>
             </label>
           </div>
@@ -275,6 +283,7 @@ export default function AISettings() {
                   <div key={day.key} className="flex flex-wrap items-center gap-3">
                     <div className="flex w-32 items-center gap-2">
                       <Switch
+                        aria-label={`Atender ${day.label}`}
                         checked={wh.enabled}
                         onCheckedChange={(v) => setWorkingHours({ ...workingHours, [day.key]: { ...wh, enabled: v } })}
                       />

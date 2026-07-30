@@ -1,18 +1,20 @@
 import { test as setup, expect } from "@playwright/test";
+import { credencial } from "./helpers";
 
 // Sessão persistida após o login; reutilizada pelos demais specs (evita relogar).
 // Caminho relativo à raiz do projeto (mesmo do storageState em playwright.config).
 const authFile = "e2e/.auth/user.json";
 
-// Credenciais vêm SÓ do ambiente — nunca hardcodadas/versionadas.
-// O email tem um default (é público), a senha é obrigatória via E2E_PASSWORD.
-const EMAIL = process.env.E2E_EMAIL ?? "sabrina@viverdeia.ai";
-const PASSWORD = process.env.E2E_PASSWORD;
+// Credenciais vêm do ambiente ou do `.env` local — nunca hardcodadas nem
+// versionadas (o `.env` está no .gitignore). O email tem um default (é público),
+// a senha é obrigatória via E2E_PASSWORD.
+const EMAIL = credencial("E2E_EMAIL") ?? "sabrina@viverdeia.ai";
+const PASSWORD = credencial("E2E_PASSWORD");
 
 setup("login e persiste a sessão", async ({ page }) => {
   if (!PASSWORD) {
     throw new Error(
-      "Defina E2E_PASSWORD no ambiente para rodar os testes e2e (a senha não é versionada).",
+      "Defina E2E_PASSWORD no ambiente ou no .env da raiz para rodar os testes e2e (a senha não é versionada).",
     );
   }
 

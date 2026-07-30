@@ -61,23 +61,28 @@ function RulesTab() {
   return (
     <div className="space-y-4">
       <div className="via-card flex flex-wrap items-end gap-2 p-3">
+        {/* Os rótulos eram <label> soltos, sem htmlFor. Visualmente pareciam
+            corretos, mas nenhum campo tinha nome acessível: "Pontos" (sem
+            placeholder para servir de muleta) era anunciado como campo anônimo. Os
+            Select do Radix são <button>, que <label for> não nomeia — daí o
+            aria-labelledby em vez de htmlFor nos dois. */}
         <div className="min-w-40 flex-1 space-y-1">
-          <label className="text-xs" style={{ color: "var(--via-text-muted)" }}>Rótulo</label>
-          <Input value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Ex.: Engajou com email" />
+          <label htmlFor="regra-rotulo" className="text-xs block" style={{ color: "var(--via-text-muted)" }}>Rótulo</label>
+          <Input id="regra-rotulo" value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Ex.: Engajou com email" />
         </div>
         <div className="min-w-44 space-y-1">
-          <label className="text-xs" style={{ color: "var(--via-text-muted)" }}>Evento</label>
+          <label id="regra-evento-label" className="text-xs block" style={{ color: "var(--via-text-muted)" }}>Evento</label>
           <Select value={draft.event_type} onValueChange={(v) => setDraft({ ...draft, event_type: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-labelledby="regra-evento-label"><SelectValue /></SelectTrigger>
             <SelectContent>
               {SCORING_EVENTS.map((e) => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div className="min-w-44 space-y-1">
-          <label className="text-xs" style={{ color: "var(--via-text-muted)" }}>Canal</label>
+          <label id="regra-canal-label" className="text-xs block" style={{ color: "var(--via-text-muted)" }}>Canal</label>
           <Select value={draft.channel} onValueChange={(v) => setDraft({ ...draft, channel: v })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-labelledby="regra-canal-label"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_CHANNELS}>Todos os canais</SelectItem>
               {CAMPAIGN_CHANNELS.map((ch) => (
@@ -87,8 +92,8 @@ function RulesTab() {
           </Select>
         </div>
         <div className="w-24 space-y-1">
-          <label className="text-xs" style={{ color: "var(--via-text-muted)" }}>Pontos</label>
-          <Input type="number" value={draft.points} onChange={(e) => setDraft({ ...draft, points: e.target.value })} />
+          <label htmlFor="regra-pontos" className="text-xs block" style={{ color: "var(--via-text-muted)" }}>Pontos</label>
+          <Input id="regra-pontos" type="number" value={draft.points} onChange={(e) => setDraft({ ...draft, points: e.target.value })} />
         </div>
         <Button onClick={add} disabled={saveRule.isPending} className="gap-1.5">
           <Plus className="h-4 w-4" strokeWidth={1.5} />
@@ -134,7 +139,11 @@ function RulesTab() {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{rule.points > 0 ? `+${rule.points}` : rule.points}</TableCell>
                   <TableCell>
+                    {/* Uma coluna "Ativa" só nomeia o switch para quem enxerga a
+                        tabela. O leitor de tela lê linha a linha, então o nome
+                        precisa dizer de qual regra este switch é. */}
                     <Switch
+                      aria-label={`Ativar a regra "${rule.label}"`}
                       checked={rule.is_active}
                       onCheckedChange={(v) => saveRule.mutate({ id: rule.id, label: rule.label, event_type: rule.event_type, points: rule.points, is_active: v })}
                     />
@@ -171,9 +180,9 @@ function HistoryTab() {
   return (
     <div className="space-y-4">
       <div className="max-w-md space-y-1">
-        <label className="text-xs" style={{ color: "var(--via-text-muted)" }}>Contato</label>
+        <label id="historico-contato-label" className="text-xs block" style={{ color: "var(--via-text-muted)" }}>Contato</label>
         <Select value={contactId ?? ""} onValueChange={setContactId}>
-          <SelectTrigger><SelectValue placeholder="Escolha um contato" /></SelectTrigger>
+          <SelectTrigger aria-labelledby="historico-contato-label"><SelectValue placeholder="Escolha um contato" /></SelectTrigger>
           <SelectContent>
             {options.map((o) => (
               <SelectItem key={o.id} value={o.id}>{o.name} · {o.score} pts</SelectItem>

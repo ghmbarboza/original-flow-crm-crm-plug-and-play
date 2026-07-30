@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Eye, EyeOff, Plus, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
@@ -136,17 +136,23 @@ export default function ApiKeysSettings() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Alterar chave" : "Nova chave"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editing ? "Alterar chave" : "Nova chave"}</DialogTitle>
+            <DialogDescription>
+              A chave é guardada no Vault do Supabase e nunca volta para a tela depois de salva.
+            </DialogDescription>
+          </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Serviço</Label>
-              <Input value={serviceName} onChange={(e) => setServiceName(e.target.value)} disabled={!!editing} placeholder="ex: openai" />
+              <Label htmlFor="api-key-service">Serviço</Label>
+              <Input id="api-key-service" value={serviceName} onChange={(e) => setServiceName(e.target.value)} disabled={!!editing} placeholder="ex: openai" />
             </div>
             <div className="space-y-2">
-              <Label>Chave de API</Label>
+              <Label htmlFor="api-key-value">Chave de API</Label>
               <div className="relative">
-                <Input type={showKey ? "text" : "password"} value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="pr-10" />
+                <Input id="api-key-value" type={showKey ? "text" : "password"} value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="pr-10" />
                 <button type="button" onClick={() => setShowKey((v) => !v)}
+                  aria-label={showKey ? "Ocultar a chave" : "Mostrar a chave"}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                   {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
