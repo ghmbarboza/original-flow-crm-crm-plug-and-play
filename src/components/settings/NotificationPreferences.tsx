@@ -46,6 +46,12 @@ const EVENTS: { type: string; label: string; description: string }[] = [
     label: "Reunião agendada",
     description: "Um contato confirmou uma reunião pelo link de agendamento.",
   },
+  // Sprint 10B — controle de estoque.
+  {
+    type: "estoque_baixo",
+    label: "Estoque baixo",
+    description: "Um produto ficou abaixo do estoque mínimo após uma venda.",
+  },
 ];
 
 const CHANNELS: { key: keyof ChannelPrefs; label: string }[] = [

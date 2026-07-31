@@ -29,6 +29,44 @@ export function useActiveProducts() {
   return { data: (data ?? []).filter((p) => p.is_active), ...rest };
 }
 
+export interface ProductMetrics {
+  deals_in_progress: number;
+  deals_won: number;
+  total_revenue: number;
+}
+
+/**
+ * Métricas de pipeline por produto (Parte 7 do Sprint 10B), da view
+ * products_with_metrics: quantos deals abertos e ganhos citam cada produto.
+ * Mapa por id para a tabela juntar sem reordenar a query principal.
+ */
+export function useProductMetrics() {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["product-metrics", orgId],
+    enabled: !!orgId,
+    queryFn: async (): Promise<Map<string, ProductMetrics>> => {
+      const { data, error } = await supabase
+        .from("products_with_metrics")
+        .select("id, deals_in_progress, deals_won, total_revenue")
+        .eq("org_id", orgId!);
+      if (error) throw error;
+      return new Map(
+        (data ?? [])
+          .filter((r) => r.id)
+          .map((r) => [
+            r.id as string,
+            {
+              deals_in_progress: Number(r.deals_in_progress ?? 0),
+              deals_won: Number(r.deals_won ?? 0),
+              total_revenue: Number(r.total_revenue ?? 0),
+            },
+          ]),
+      );
+    },
+  });
+}
+
 export function useCreateProduct() {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
