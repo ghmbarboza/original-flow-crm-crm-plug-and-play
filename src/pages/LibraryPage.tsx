@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  BookOpen, Bot, FileText, GitBranch, MessageCircle, Shield, Zap, type LucideIcon,
+  ArrowRight, BookOpen, Bot, FileText, GitBranch, MessageCircle, Shield, User, Zap,
+  type LucideIcon,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,10 @@ import {
   LIBRARY_CATEGORIES, rotuloCategoria, rotuloSubcategoria,
   useActivateTemplate, useLibraryTemplates, type LibraryTemplate,
 } from "@/hooks/useLibraryTemplates";
+import { useEmailTemplates } from "@/hooks/useEmailTemplates";
+
+/** Filtro dos templates da PRÓPRIA org — não é categoria de library_templates. */
+const MEUS_TEMPLATES = "meus_templates";
 
 /** Ícone Lucide por categoria — o resto da plataforma não usa emoji, e os
  *  mesmos ícones já identificam Sequências, Templates etc. no sidebar. */
@@ -52,6 +57,10 @@ export default function LibraryPage() {
   // paginação, então trocar de aba não precisa de ida ao servidor.
   const { data: modelos, isLoading, error, refetch } = useLibraryTemplates();
   const ativar = useActivateTemplate();
+  // "Meus Templates": os templates de email da org, lado a lado com os modelos
+  // prontos — a Biblioteca virou a porta de entrada (a rota /email-templates
+  // saiu do sidebar mas continua sendo o editor).
+  const { data: meusTemplates, isLoading: loadingMeus } = useEmailTemplates();
 
   const visiveis = useMemo(
     () => (modelos ?? []).filter((m) => !categoria || m.category === categoria),
@@ -120,9 +129,90 @@ export default function LibraryPage() {
               </Button>
             );
           })}
+          <Button
+            size="sm"
+            variant={categoria === MEUS_TEMPLATES ? "default" : "outline"}
+            aria-pressed={categoria === MEUS_TEMPLATES}
+            onClick={() => setCategoria(MEUS_TEMPLATES)}
+            data-testid="library-filtro-meus-templates"
+            className="gap-1.5"
+          >
+            <User className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+            Meus Templates
+          </Button>
         </div>
 
-        {isLoading ? (
+        {categoria === MEUS_TEMPLATES ? (
+          // Templates de email da org: cards de leitura com o atalho para o
+          // editor (/email-templates), que saiu do sidebar.
+          loadingMeus ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[0, 1, 2].map((i) => <Skeleton key={i} className="h-40 w-full" />)}
+            </div>
+          ) : (meusTemplates ?? []).length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title="Nenhum template de email seu ainda"
+              description="Crie um do zero no editor ou ative um modelo pronto da categoria Templates."
+              action={
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button variant="outline" onClick={() => navigate("/email-templates")}>
+                    Criar template
+                  </Button>
+                  <Button variant="outline" onClick={() => setCategoria("email_template")}>
+                    Ver modelos prontos
+                  </Button>
+                </div>
+              }
+            />
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => navigate("/email-templates")}
+                  data-testid="library-gerenciar-meus"
+                >
+                  Gerenciar meus templates
+                  <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="library-grid-meus">
+                {(meusTemplates ?? []).map((t) => (
+                  <div key={t.id} className="via-card group flex flex-col p-4" data-testid="library-card-meu">
+                    <div className="mb-2 flex items-start gap-3">
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                        style={{ background: "var(--via-surface)" }}
+                      >
+                        <FileText className="h-4 w-4" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} aria-hidden />
+                      </div>
+                      <p className="min-w-0 pt-1.5 font-medium" style={{ color: "var(--via-text-primary)" }}>
+                        {t.name}
+                      </p>
+                    </div>
+                    <p className="flex-1 text-sm" style={{ color: "var(--via-text-body)" }}>
+                      {t.subject}
+                    </p>
+                    <p className="mt-3 text-xs" style={{ color: "var(--via-text-muted)" }}>
+                      Meu template{t.from_template_id ? " · nascido de um modelo da Biblioteca" : ""}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 self-start"
+                      onClick={() => navigate("/email-templates")}
+                    >
+                      Abrir no editor
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        ) : isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-40 w-full" />)}
           </div>

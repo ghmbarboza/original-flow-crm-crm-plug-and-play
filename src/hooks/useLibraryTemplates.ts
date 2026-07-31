@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrgId } from "@/hooks/useOrgId";
+import { BRAND_TONES, BUSINESS_SECTORS } from "@/hooks/useSetup";
 import type { Database } from "@/integrations/supabase/types";
 
 export type LibraryTemplate = Database["public"]["Tables"]["library_templates"]["Row"];
@@ -42,6 +43,78 @@ export function rotuloCategoria(c: string): string {
 
 export function rotuloSubcategoria(s: string): string {
   return LIBRARY_SUBCATEGORIES[s] ?? s;
+}
+
+// --- Contexto da organização nas variáveis dos modelos ----------------------
+// Os modelos da biblioteca usam {{company}}, {{sector}}, {{product}} e
+// {{tone}}. Ao visualizar e ao ativar, essas variáveis são preenchidas com o
+// contexto real da org — o usuário vê o modelo já com os dados da empresa.
+
+export interface OrgTemplateContext {
+  company: string;
+  sector: string;
+  product: string;
+  tone: string;
+}
+
+/** Setor legível: rótulo do catálogo, ou o texto livre de "outro:<descrição>". */
+export function rotuloSetor(sector: string | null | undefined): string {
+  if (!sector) return "";
+  if (sector.startsWith("outro:")) return sector.slice("outro:".length).trim();
+  return BUSINESS_SECTORS.find((s) => s.value === sector)?.label ?? sector;
+}
+
+function rotuloTom(tone: string | null | undefined): string {
+  if (!tone) return "";
+  return BRAND_TONES.find((t) => t.value === tone)?.label.toLowerCase() ?? tone;
+}
+
+/**
+ * Substitui as variáveis conhecidas pelo contexto. Variável sem valor na org
+ * (ex.: {{product}} sem produto cadastrado) fica intacta — visível para o
+ * usuário preencher, em vez de sumir silenciosamente.
+ */
+export function aplicarContexto(texto: string, ctx: Partial<OrgTemplateContext>): string {
+  let out = texto;
+  for (const chave of ["company", "sector", "product", "tone"] as const) {
+    const valor = ctx[chave];
+    if (valor) out = out.replace(new RegExp(`\\{\\{\\s*${chave}\\s*\\}\\}`, "gi"), valor);
+  }
+  return out;
+}
+
+async function contextoDaOrg(orgId: string): Promise<Partial<OrgTemplateContext>> {
+  const [{ data: org }, { data: produto }] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("name, business_sector, brand_tone")
+      .eq("id", orgId)
+      .maybeSingle(),
+    supabase
+      .from("products")
+      .select("name")
+      .eq("org_id", orgId)
+      .eq("is_active", true)
+      .order("created_at")
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  return {
+    company: org?.name ?? "",
+    sector: rotuloSetor(org?.business_sector),
+    product: produto?.name ?? "",
+    tone: rotuloTom(org?.brand_tone),
+  };
+}
+
+/** Contexto da org para o preview dos modelos. */
+export function useOrgTemplateContext() {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["org-template-context", orgId],
+    enabled: !!orgId,
+    queryFn: () => contextoDaOrg(orgId!),
+  });
 }
 
 // --- Formas de `content` por categoria -------------------------------------
@@ -180,8 +253,15 @@ export function useLibraryTemplates(category?: string) {
  * 3. FAQs e objeções entram como lote, respeitando `order` sequencial a partir do
  *    que já existe, para não colidir com o que o usuário já cadastrou.
  */
-async function ativarPorCategoria(t: LibraryTemplate, orgId: string): Promise<void> {
+async function ativarPorCategoria(
+  t: LibraryTemplate,
+  orgId: string,
+  ctx: Partial<OrgTemplateContext>,
+): Promise<void> {
   const conteudo = lerConteudo(t);
+  // As variáveis do modelo entram já preenchidas com o contexto da org — a
+  // cópia nasce personalizada, não genérica.
+  const cx = (texto: string) => aplicarContexto(texto, ctx);
 
   switch (conteudo.tipo) {
     case "email_sequence": {
@@ -199,8 +279,8 @@ async function ativarPorCategoria(t: LibraryTemplate, orgId: string): Promise<vo
           .insert({
             org_id: orgId,
             name: `${t.title} — etapa ${i + 1}`,
-            subject: passo.subject,
-            body_html: passo.body,
+            subject: cx(passo.subject),
+            body_html: cx(passo.body),
             from_template_id: t.id,
           })
           .select("id")
@@ -223,8 +303,8 @@ async function ativarPorCategoria(t: LibraryTemplate, orgId: string): Promise<vo
       const { error } = await supabase.from("email_templates").insert({
         org_id: orgId,
         name: t.title,
-        subject: conteudo.subject,
-        body_html: conteudo.body,
+        subject: cx(conteudo.subject),
+        body_html: cx(conteudo.body),
         from_template_id: t.id,
       });
       if (error) throw error;
@@ -256,7 +336,7 @@ async function ativarPorCategoria(t: LibraryTemplate, orgId: string): Promise<vo
           org_id: orgId,
           order: i,
           delay_hours: p.delay_hours,
-          message_template: p.message,
+          message_template: cx(p.message),
         })),
       );
       if (errIns) throw errIns;
@@ -285,8 +365,8 @@ async function ativarPorCategoria(t: LibraryTemplate, orgId: string): Promise<vo
       const { error } = await supabase.from("ai_knowledge_faqs").insert(
         conteudo.faqs.map((f, i) => ({
           org_id: orgId,
-          question: f.question,
-          answer: f.answer,
+          question: cx(f.question),
+          answer: cx(f.answer),
           order: base + i,
           from_template_id: t.id,
         })),
@@ -302,8 +382,8 @@ async function ativarPorCategoria(t: LibraryTemplate, orgId: string): Promise<vo
       const { error } = await supabase.from("ai_knowledge_objections").insert(
         conteudo.objections.map((o, i) => ({
           org_id: orgId,
-          objection: o.objection,
-          response: o.response,
+          objection: cx(o.objection),
+          response: cx(o.response),
           order: base + i,
           from_template_id: t.id,
         })),
@@ -321,7 +401,8 @@ export function useActivateTemplate() {
   return useMutation({
     mutationFn: async (template: LibraryTemplate): Promise<{ destino: string }> => {
       if (!orgId) throw new Error("Organização não carregada. Recarregue a página.");
-      await ativarPorCategoria(template, orgId);
+      const ctx = await contextoDaOrg(orgId);
+      await ativarPorCategoria(template, orgId, ctx);
       return { destino: DESTINO_POR_CATEGORIA[template.category] ?? "/dashboard" };
     },
     onSuccess: () => {

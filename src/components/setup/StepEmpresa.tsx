@@ -25,6 +25,8 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
   const [form, setForm] = useState({
     name: "",
     business_sector: "",
+    // Texto livre de "Outro" — persiste como "outro:<descrição>" no banco.
+    outro_descricao: "",
     company_size: "",
     business_description: "",
     main_problem_solved: "",
@@ -36,9 +38,11 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
   useEffect(() => {
     if (!org || hidratado.current) return;
     hidratado.current = true;
+    const setor = org.business_sector ?? "";
     setForm({
       name: org.name ?? "",
-      business_sector: org.business_sector ?? "",
+      business_sector: setor.startsWith("outro") ? "outro" : setor,
+      outro_descricao: setor.startsWith("outro:") ? setor.slice("outro:".length) : "",
       company_size: org.company_size ?? "",
       business_description: org.business_description ?? "",
       main_problem_solved: org.main_problem_solved ?? "",
@@ -55,11 +59,17 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
 
   const avancar = async () => {
     try {
+      // "Outro" com descrição vira "outro:<texto>": o valor canônico continua
+      // filtrável (startsWith) e a generate-system-prompt usa o setor descrito.
+      const setor =
+        form.business_sector === "outro" && form.outro_descricao.trim()
+          ? `outro:${form.outro_descricao.trim()}`
+          : form.business_sector;
       await salvar.mutateAsync({
         step: "empresa",
         patch: {
           name: form.name.trim(),
-          business_sector: form.business_sector,
+          business_sector: setor,
           company_size: form.company_size || null,
           business_description: form.business_description.trim(),
           main_problem_solved: form.main_problem_solved.trim(),
@@ -119,6 +129,23 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
           })}
         </div>
       </div>
+
+      {form.business_sector === "outro" && (
+        <div className="space-y-2">
+          <Label htmlFor="org-outro">Descreva seu setor</Label>
+          <Input
+            id="org-outro"
+            data-testid="setup-outro-descricao"
+            value={form.outro_descricao}
+            onChange={(e) => setForm({ ...form, outro_descricao: e.target.value })}
+            placeholder="Ex.: pet shop, energia solar, marcenaria…"
+            maxLength={80}
+          />
+          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+            A IA usa a sua descrição para gerar o conhecimento do setor no prompt.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label>Tamanho da equipe (opcional)</Label>

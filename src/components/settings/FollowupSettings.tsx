@@ -17,6 +17,7 @@ import {
   useSaveFollowupStep, useUploadFollowupMedia, useUpsertFollowupConfig,
   type FollowupStep, type FollowupStepMedia,
 } from "@/hooks/useFollowup";
+import { FollowupExecucoes } from "@/components/settings/FollowupExecucoes";
 
 /** Variáveis disponíveis nos templates de mensagem. */
 const VARIABLES = ["{{nome}}", "{{empresa}}", "{{agente}}"];
@@ -367,6 +368,18 @@ export default function FollowupSettings() {
             ))}
           </div>
         )}
+      </div>
+
+      <Separator />
+
+      {/* Reorganização de 2026-07-31: a tela de USO (/followup) foi unificada
+          aqui — configuração da régua acima, o que ela está fazendo abaixo. */}
+      <div className="space-y-3">
+        <Label className="flex items-center gap-2">
+          <Clock className="h-4 w-4" strokeWidth={1.5} />
+          Conversas na régua
+        </Label>
+        <FollowupExecucoes />
       </div>
     </div>
   );

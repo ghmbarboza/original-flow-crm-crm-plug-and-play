@@ -28,6 +28,7 @@ function SobreAEmpresa() {
   const [form, setForm] = useState({
     name: "",
     business_sector: "",
+    outro_descricao: "",
     company_size: "",
     business_description: "",
     target_audience: "",
@@ -36,9 +37,11 @@ function SobreAEmpresa() {
 
   useEffect(() => {
     if (!org) return;
+    const setor = org.business_sector ?? "";
     setForm({
       name: org.name ?? "",
-      business_sector: org.business_sector ?? "",
+      business_sector: setor.startsWith("outro") ? "outro" : setor,
+      outro_descricao: setor.startsWith("outro:") ? setor.slice("outro:".length) : "",
       company_size: org.company_size ?? "",
       business_description: org.business_description ?? "",
       target_audience: org.target_audience ?? "",
@@ -52,9 +55,15 @@ function SobreAEmpresa() {
       return;
     }
     try {
+      // Mesmo formato do onboarding: "outro" com descrição persiste como
+      // "outro:<texto>" — fonte única exige o mesmo encoding dos dois lados.
+      const setor =
+        form.business_sector === "outro" && form.outro_descricao.trim()
+          ? `outro:${form.outro_descricao.trim()}`
+          : form.business_sector;
       await salvar.mutateAsync({
         name: form.name.trim(),
-        business_sector: form.business_sector || null,
+        business_sector: setor || null,
         company_size: form.company_size || null,
         business_description: form.business_description.trim() || null,
         target_audience: form.target_audience.trim() || null,
@@ -67,11 +76,6 @@ function SobreAEmpresa() {
   };
 
   if (isLoading) return null;
-
-  // Setor customizado ("outro:pet shop") aparece como "Outro" no seletor.
-  const setorSelecionado = form.business_sector.startsWith("outro")
-    ? "outro"
-    : form.business_sector;
 
   return (
     <Card>
@@ -96,7 +100,7 @@ function SobreAEmpresa() {
         <div className="space-y-2">
           <Label id="empresa-setor-label">Setor de atuação</Label>
           <Select
-            value={setorSelecionado || undefined}
+            value={form.business_sector || undefined}
             onValueChange={(v) => setForm({ ...form, business_sector: v })}
           >
             <SelectTrigger aria-labelledby="empresa-setor-label" data-testid="empresa-setor">
@@ -111,6 +115,19 @@ function SobreAEmpresa() {
             </SelectContent>
           </Select>
         </div>
+        {form.business_sector === "outro" && (
+          <div className="space-y-2">
+            <Label htmlFor="empresa-outro">Descreva seu setor</Label>
+            <Input
+              id="empresa-outro"
+              value={form.outro_descricao}
+              onChange={(e) => setForm({ ...form, outro_descricao: e.target.value })}
+              placeholder="Ex.: pet shop, energia solar…"
+              maxLength={80}
+              data-testid="empresa-outro"
+            />
+          </div>
+        )}
         <div className="space-y-2">
           <Label id="empresa-tamanho-label">Tamanho da equipe</Label>
           <Select

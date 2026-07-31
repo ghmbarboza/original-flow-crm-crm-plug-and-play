@@ -5,7 +5,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  lerConteudo, rotuloCategoria, rotuloSubcategoria, type LibraryTemplate,
+  aplicarContexto, lerConteudo, rotuloCategoria, rotuloSubcategoria, useOrgTemplateContext,
+  type LibraryTemplate, type OrgTemplateContext,
 } from "@/hooks/useLibraryTemplates";
 
 /** Etapa do preview: cabeçalho com o prazo e um corpo truncável. */
@@ -52,11 +53,21 @@ function prazoEmHoras(horas: number): string {
   return d === 1 ? "1 dia depois" : `${d} dias depois`;
 }
 
-/** Corpo do preview, por categoria. */
-function Conteudo({ template }: { template: LibraryTemplate }) {
+/** Corpo do preview, por categoria — com as variáveis já preenchidas. */
+function Conteudo({ template, ctx }: { template: LibraryTemplate; ctx: Partial<OrgTemplateContext> }) {
   let c: ReturnType<typeof lerConteudo>;
   try {
-    c = lerConteudo(template);
+    const bruto = lerConteudo(template);
+    // O usuário vê o modelo como ele vai ficar NA EMPRESA DELE: {{company}},
+    // {{sector}}, {{product}} e {{tone}} entram preenchidos antes de confirmar.
+    // A substituição roda sobre o JSON serializado (cobre todas as formas de
+    // conteúdo de uma vez), com os valores escapados para não quebrar o parse.
+    const ctxEscapado = Object.fromEntries(
+      Object.entries(ctx).map(([k, v]) => [k, v ? JSON.stringify(v).slice(1, -1) : v]),
+    );
+    c = JSON.parse(
+      aplicarContexto(JSON.stringify(bruto), ctxEscapado),
+    ) as ReturnType<typeof lerConteudo>;
   } catch (e) {
     return (
       <p className="flex items-center gap-2 text-sm" style={{ color: "var(--via-coral, #dc2626)" }}>
@@ -132,6 +143,7 @@ export function TemplatePreviewDialog({
   onUsar: (t: LibraryTemplate) => void;
   ativando: boolean;
 }) {
+  const { data: ctx } = useOrgTemplateContext();
   // Follow-up é único por org: ativar substitui a cadência atual. Avisar antes é
   // obrigatório — as outras categorias só acrescentam.
   const substitui = template?.category === "followup";
@@ -150,7 +162,13 @@ export function TemplatePreviewDialog({
 
             <div className="via-scroll max-h-[52vh] space-y-4 overflow-y-auto pr-1">
               <p className="text-sm" style={{ color: "var(--via-text-body)" }}>{template.description}</p>
-              <Conteudo template={template} />
+              {(ctx?.company || ctx?.sector || ctx?.product) && (
+                <p className="text-xs" style={{ color: "var(--via-text-muted)" }} data-testid="library-contexto-aviso">
+                  Pré-visualização com os dados da sua empresa — as variáveis do modelo já
+                  aparecem preenchidas e a cópia ativada nasce assim.
+                </p>
+              )}
+              <Conteudo template={template} ctx={ctx ?? {}} />
             </div>
 
             {substitui && (

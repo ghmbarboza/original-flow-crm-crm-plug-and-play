@@ -32,7 +32,6 @@ const InboxPage = lazy(() => import("./pages/InboxPage"));
 const EmailTemplatesPage = lazy(() => import("./pages/EmailTemplatesPage"));
 const EmailSequencesPage = lazy(() => import("./pages/EmailSequencesPage"));
 const AutomationsPage = lazy(() => import("./pages/AutomationsPage"));
-const FollowupPage = lazy(() => import("./pages/FollowupPage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const SalesGoalsPage = lazy(() => import("./pages/SalesGoalsPage"));
 const LeadScoringPage = lazy(() => import("./pages/LeadScoringPage"));
@@ -169,9 +168,10 @@ const App = () => (
             <Route path="/automations" element={
               <ProtectedRoute><Page name="Automações"><AutomationsPage /></Page></ProtectedRoute>
             } />
-            <Route path="/followup" element={
-              <ProtectedRoute><Page name="Follow-up"><FollowupPage /></Page></ProtectedRoute>
-            } />
+            {/* Reorganização de 2026-07-31: o follow-up mora inteiro em
+                Configurações > Follow-up (régua + execuções). O redirect
+                preserva links salvos da rota antiga. */}
+            <Route path="/followup" element={<Navigate to="/settings/follow-up" replace />} />
             <Route path="/email-sequences" element={
               <ProtectedRoute><Page name="Sequências de email"><EmailSequencesPage /></Page></ProtectedRoute>
             } />
