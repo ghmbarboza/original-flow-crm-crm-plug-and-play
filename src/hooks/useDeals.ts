@@ -61,8 +61,9 @@ export function contactName(contact: Deal["contact"]): string | null {
  */
 /**
  * Atualiza a configuração de uma etapa (Configurações > Pipeline): mensagem
- * automática de entrada (template + delay) e campos obrigatórios para entrar
- * na etapa. A Parte 9 do Sprint 10A acrescenta o gatilho por resposta aqui.
+ * automática de entrada (template + delay), campos obrigatórios para entrar
+ * na etapa e o gatilho de resposta no WhatsApp (mover o deal para cá quando o
+ * lead responde — o trigger move_deal_on_reply no banco é quem executa).
  */
 export function useUpdateStageConfig() {
   const orgId = useOrgId();
@@ -73,6 +74,8 @@ export function useUpdateStageConfig() {
       auto_message_template?: string | null;
       auto_message_delay_hours?: number;
       required_fields?: Database["public"]["Tables"]["pipeline_stages"]["Update"]["required_fields"];
+      move_on_reply?: boolean;
+      move_on_reply_from_stage_id?: string | null;
     }) => {
       const { id, ...patch } = input;
       const { error } = await supabase.from("pipeline_stages").update(patch).eq("id", id);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { CalendarClock, ListChecks, Pencil } from "lucide-react";
+import { CalendarClock, ListChecks, MessageCircleReply, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useStages, useUpdateStageConfig, type PipelineStage } from "@/hooks/useDeals";
+
+const QUALQUER_ANTERIOR = "__any__";
 import {
   REQUIRED_FIELD_OPTIONS, parseRequiredFields, type RequiredFieldRule,
 } from "@/lib/required-fields";
@@ -37,12 +42,16 @@ export default function PipelineSettings() {
   const [template, setTemplate] = useState("");
   const [delay, setDelay] = useState("0");
   const [obrigatorios, setObrigatorios] = useState<Set<string>>(new Set());
+  const [moveOnReply, setMoveOnReply] = useState(false);
+  const [moveFrom, setMoveFrom] = useState<string>(QUALQUER_ANTERIOR);
 
   const abrir = (s: PipelineStage) => {
     setEditando(s);
     setTemplate(s.auto_message_template ?? "");
     setDelay(String(s.auto_message_delay_hours ?? 0));
     setObrigatorios(new Set(parseRequiredFields(s.required_fields).map((r) => r.field)));
+    setMoveOnReply(s.move_on_reply);
+    setMoveFrom(s.move_on_reply_from_stage_id ?? QUALQUER_ANTERIOR);
   };
 
   const alternarCampo = (field: string, marcado: boolean) => {
@@ -65,6 +74,8 @@ export default function PipelineSettings() {
         auto_message_template: removendo ? null : template.trim() || null,
         auto_message_delay_hours: removendo ? 0 : Math.max(0, Number(delay) || 0),
         required_fields,
+        move_on_reply: moveOnReply,
+        move_on_reply_from_stage_id: moveOnReply && moveFrom !== QUALQUER_ANTERIOR ? moveFrom : null,
       });
       setEditando(null);
       toast.success(removendo ? "Automação removida." : "Configuração salva.");
@@ -105,6 +116,12 @@ export default function PipelineSettings() {
                   <span className="flex items-center gap-1.5">
                     <ListChecks className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
                     {nRegras === 1 ? "1 campo obrigatório" : `${nRegras} campos obrigatórios`} para entrar
+                  </span>
+                )}
+                {s.move_on_reply && (
+                  <span className="flex items-center gap-1.5">
+                    <MessageCircleReply className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
+                    Recebe o negócio quando o lead responde no WhatsApp
                   </span>
                 )}
               </span>
@@ -175,6 +192,48 @@ export default function PipelineSettings() {
                 </label>
               ))}
             </fieldset>
+
+            <Separator />
+
+            {/* Gatilho por resposta no WhatsApp (Parte 9 do Sprint 10A). */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+                <Checkbox
+                  checked={moveOnReply}
+                  onCheckedChange={(v) => setMoveOnReply(v === true)}
+                  data-testid="stage-move-on-reply"
+                />
+                Quando o lead responder via WhatsApp, mover o negócio para esta etapa
+              </label>
+              {moveOnReply && (
+                <div className="flex flex-wrap items-center gap-2 pl-6">
+                  <span className="text-sm" style={{ color: "var(--via-text-body)" }}>
+                    Aplica apenas se o negócio estiver em
+                  </span>
+                  <Select value={moveFrom} onValueChange={setMoveFrom}>
+                    <SelectTrigger className="w-56" aria-label="Etapa de origem do gatilho" data-testid="stage-move-from">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={QUALQUER_ANTERIOR}>Qualquer etapa anterior</SelectItem>
+                      {(stages ?? [])
+                        .filter((s) => s.id !== editando?.id)
+                        .map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            <span className="inline-flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full" style={{ background: s.color }} aria-hidden />
+                              {s.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <p className="pl-6 text-xs" style={{ color: "var(--via-text-muted)" }}>
+                Fecha o ciclo do follow-up: o lead responde e o negócio avança sozinho no kanban.
+              </p>
+            </div>
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
             {editando?.auto_message_template && (

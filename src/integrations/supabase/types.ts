@@ -2487,6 +2487,8 @@ export type Database = {
           color: string
           created_at: string
           id: string
+          move_on_reply: boolean
+          move_on_reply_from_stage_id: string | null
           name: string
           order: number
           org_id: string
@@ -2500,6 +2502,8 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          move_on_reply?: boolean
+          move_on_reply_from_stage_id?: string | null
           name: string
           order?: number
           org_id: string
@@ -2513,6 +2517,8 @@ export type Database = {
           color?: string
           created_at?: string
           id?: string
+          move_on_reply?: boolean
+          move_on_reply_from_stage_id?: string | null
           name?: string
           order?: number
           org_id?: string
@@ -2521,6 +2527,13 @@ export type Database = {
           win_probability?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "pipeline_stages_move_on_reply_from_stage_id_fkey"
+            columns: ["move_on_reply_from_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pipeline_stages_org_id_fkey"
             columns: ["org_id"]
