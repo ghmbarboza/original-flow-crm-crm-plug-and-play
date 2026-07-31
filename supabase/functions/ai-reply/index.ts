@@ -9,7 +9,7 @@
 // ANTHROPIC_API_KEY existir, senão o AI Gateway do Lovable. O system prompt pede
 // resposta direta, sem raciocínio no corpo, em qualquer um dos dois.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { chamarIA, ErroIA, type MensagemIA } from "../_shared/ai.ts";
+import { chamarIA, ErroIA, type FerramentaIA, type MensagemIA } from "../_shared/ai.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -421,11 +421,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Base de conhecimento.
-    const [faqs, objections, products, calcom] = await Promise.all([
+    // Base de conhecimento. Produtos NÃO entram mais no prompt (Parte 12):
+    // o modelo consulta o catálogo pela ferramenta buscar_produtos quando
+    // precisa — prompt menor e catálogo de qualquer tamanho.
+    const [faqs, objections, calcom] = await Promise.all([
       admin.from("ai_knowledge_faqs").select("question, answer").eq("org_id", conversation.org_id).order("order"),
       admin.from("ai_knowledge_objections").select("objection, response").eq("org_id", conversation.org_id).order("order"),
-      admin.from("products").select("name, description, price, currency").eq("org_id", conversation.org_id).eq("is_active", true),
       admin.from("integration_configs").select("config, is_active").eq("org_id", conversation.org_id).eq("provider", "calcom").maybeSingle(),
     ]);
 
@@ -443,7 +444,7 @@ Deno.serve(async (req) => {
       "",
       (faqs.data ?? []).length ? "FAQs:\n" + (faqs.data ?? []).map((f) => `P: ${f.question}\nR: ${f.answer}`).join("\n\n") : "",
       (objections.data ?? []).length ? "\nComo contornar objeções:\n" + (objections.data ?? []).map((o) => `Objeção: ${o.objection}\nResposta: ${o.response}`).join("\n\n") : "",
-      (products.data ?? []).length ? "\nProdutos:\n" + (products.data ?? []).map((p) => `- ${p.name}${p.description ? `: ${p.description}` : ""} (${new Intl.NumberFormat("pt-BR", { style: "currency", currency: p.currency ?? "BRL" }).format(Number(p.price ?? 0))})`).join("\n") : "",
+      "\nQuando o cliente perguntar sobre produtos, preços ou o que vendemos, use a ferramenta buscar_produtos para consultar o catálogo antes de responder. Não invente produtos nem preços.",
       schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
       "",
       "Responda apenas com a mensagem final ao cliente, sem raciocínio nem meta-comentário.",
@@ -462,11 +463,61 @@ Deno.serve(async (req) => {
       messages.unshift({ role: "user", content: lastInbound?.content ?? "Olá" });
     }
 
+    // Ferramenta de catálogo (Parte 12): o modelo busca produtos sob demanda
+    // em vez de receber o catálogo inteiro no prompt.
+    const tools: FerramentaIA[] = [
+      {
+        name: "buscar_produtos",
+        description:
+          "Busca produtos do catálogo por nome, categoria ou características. Use sempre que o cliente perguntar sobre produtos, preços ou o que a empresa vende.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "O que o cliente está procurando" },
+            limit: { type: "number", description: "Máximo de resultados (padrão: 5)" },
+          },
+          required: ["query"],
+        },
+      },
+    ];
+
+    const executarFerramenta = async (nome: string, args: Record<string, unknown>): Promise<string> => {
+      if (nome !== "buscar_produtos") return "Ferramenta desconhecida.";
+      // Vírgulas e parênteses quebrariam a sintaxe do filtro `or` do PostgREST.
+      const query = String(args.query ?? "").replace(/[,()]/g, " ").trim();
+      const limit = Math.min(10, Math.max(1, Number(args.limit) || 5));
+
+      let q = admin
+        .from("products")
+        .select("name, description, price, currency, custom_fields")
+        .eq("org_id", conversation.org_id)
+        .eq("is_active", true)
+        .limit(limit);
+      if (query) q = q.or(`name.ilike.%${query}%,description.ilike.%${query}%`);
+
+      const { data: encontrados, error } = await q;
+      if (error) return "Não foi possível consultar o catálogo agora.";
+      if (!encontrados || encontrados.length === 0) {
+        return query
+          ? `Nenhum produto encontrado para "${query}". Diga ao cliente que vai verificar com a equipe.`
+          : "Nenhum produto ativo no catálogo.";
+      }
+      return JSON.stringify(
+        encontrados.map((p) => ({
+          nome: p.name,
+          descricao: p.description ?? undefined,
+          preco: new Intl.NumberFormat("pt-BR", { style: "currency", currency: (p.currency as string) ?? "BRL" }).format(Number(p.price ?? 0)),
+        })),
+      );
+    };
+
     const { texto } = await chamarIA({
       tarefa: "chat",
       maxTokens: 1024,
       system: knowledge,
       messages,
+      tools,
+      executarFerramenta,
     });
     const reply = texto.trim();
 

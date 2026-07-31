@@ -48,12 +48,35 @@ export interface MensagemIA {
   content: string;
 }
 
+/**
+ * Ferramenta exposta ao modelo (function calling). `parameters` é JSON Schema;
+ * cada provedor recebe no seu formato (input_schema na Anthropic, function no
+ * Gateway/OpenAI). O loop de execução fica DENTRO de chamarIA: quem chama só
+ * fornece o executor e recebe o texto final.
+ */
+export interface FerramentaIA {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+/** Executa uma ferramenta chamada pelo modelo e devolve o resultado como texto. */
+export type ExecutorFerramenta = (
+  nome: string,
+  args: Record<string, unknown>,
+) => Promise<string>;
+
+/** Rodadas máximas de tool-use por chamada — evita loop de ferramenta infinito. */
+const MAX_RODADAS_FERRAMENTA = 4;
+
 export interface PedidoIA {
   /** Instrução de sistema. No Gateway vira a primeira mensagem com role "system". */
   system?: string;
   messages: MensagemIA[];
   maxTokens: number;
   tarefa: TarefaIA;
+  tools?: FerramentaIA[];
+  executarFerramenta?: ExecutorFerramenta;
 }
 
 export interface RespostaIA {
@@ -103,53 +126,120 @@ function traduzirFalha(provedor: string, status: number, corpo: string): ErroIA 
 
 async function viaAnthropic(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
   const m = modelo("anthropic", p.tarefa);
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: m,
-      max_tokens: p.maxTokens,
-      ...(p.system ? { system: p.system } : {}),
-      messages: p.messages,
-    }),
-  });
+  const comFerramentas = !!p.tools?.length && !!p.executarFerramenta;
 
-  if (!resp.ok) throw traduzirFalha("anthropic", resp.status, await resp.text());
+  // Ao longo do loop de tool-use as mensagens deixam de ser só texto: a
+  // resposta do assistente vira blocos (text + tool_use) e o resultado volta
+  // como tool_result. Por isso o array interno é de conteúdo livre.
+  const messages: Array<{ role: string; content: unknown }> = [...p.messages];
 
-  const payload = await resp.json();
-  const texto: string = (payload.content ?? [])
-    .filter((b: { type: string }) => b.type === "text")
-    .map((b: { text: string }) => b.text)
-    .join("");
-  return { texto, provedor: "anthropic", modelo: m };
+  for (let rodada = 0; ; rodada++) {
+    const resp = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: m,
+        max_tokens: p.maxTokens,
+        ...(p.system ? { system: p.system } : {}),
+        ...(comFerramentas
+          ? {
+              tools: p.tools!.map((t) => ({
+                name: t.name,
+                description: t.description,
+                input_schema: t.parameters,
+              })),
+            }
+          : {}),
+        messages,
+      }),
+    });
+
+    if (!resp.ok) throw traduzirFalha("anthropic", resp.status, await resp.text());
+
+    const payload = await resp.json();
+    const blocos: Array<{ type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }> =
+      payload.content ?? [];
+
+    const usos = blocos.filter((b) => b.type === "tool_use");
+    if (comFerramentas && payload.stop_reason === "tool_use" && usos.length > 0 && rodada < MAX_RODADAS_FERRAMENTA) {
+      messages.push({ role: "assistant", content: blocos });
+      const resultados = [];
+      for (const uso of usos) {
+        const resultado = await p.executarFerramenta!(uso.name ?? "", uso.input ?? {});
+        resultados.push({ type: "tool_result", tool_use_id: uso.id, content: resultado });
+      }
+      messages.push({ role: "user", content: resultados });
+      continue;
+    }
+
+    const texto = blocos
+      .filter((b) => b.type === "text")
+      .map((b) => b.text ?? "")
+      .join("");
+    return { texto, provedor: "anthropic", modelo: m };
+  }
 }
 
 async function viaGateway(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
   const m = modelo("gateway", p.tarefa);
+  const comFerramentas = !!p.tools?.length && !!p.executarFerramenta;
+
   // Formato compatível com OpenAI: o system vai como primeira mensagem, não
   // como campo separado.
-  const messages = p.system
-    ? [{ role: "system", content: p.system }, ...p.messages]
-    : p.messages;
+  const messages: Array<Record<string, unknown>> = p.system
+    ? [{ role: "system", content: p.system }, ...p.messages.map((msg) => ({ ...msg }))]
+    : p.messages.map((msg) => ({ ...msg }));
 
-  const resp = await fetch(GATEWAY_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model: m, messages, max_tokens: p.maxTokens }),
-  });
+  for (let rodada = 0; ; rodada++) {
+    const resp = await fetch(GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: m,
+        messages,
+        max_tokens: p.maxTokens,
+        ...(comFerramentas
+          ? {
+              tools: p.tools!.map((t) => ({
+                type: "function",
+                function: { name: t.name, description: t.description, parameters: t.parameters },
+              })),
+            }
+          : {}),
+      }),
+    });
 
-  if (!resp.ok) throw traduzirFalha("gateway", resp.status, await resp.text());
+    if (!resp.ok) throw traduzirFalha("gateway", resp.status, await resp.text());
 
-  const payload = await resp.json();
-  const texto: string = payload?.choices?.[0]?.message?.content ?? "";
-  return { texto, provedor: "gateway", modelo: m };
+    const payload = await resp.json();
+    const message = payload?.choices?.[0]?.message ?? {};
+    const toolCalls: Array<{ id: string; function?: { name?: string; arguments?: string } }> =
+      message.tool_calls ?? [];
+
+    if (comFerramentas && toolCalls.length > 0 && rodada < MAX_RODADAS_FERRAMENTA) {
+      messages.push(message);
+      for (const call of toolCalls) {
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(call.function?.arguments ?? "{}");
+        } catch {
+          // Argumento malformado do modelo: executa com objeto vazio.
+        }
+        const resultado = await p.executarFerramenta!(call.function?.name ?? "", args);
+        messages.push({ role: "tool", tool_call_id: call.id, content: resultado });
+      }
+      continue;
+    }
+
+    return { texto: message.content ?? "", provedor: "gateway", modelo: m };
+  }
 }
 
 /**
