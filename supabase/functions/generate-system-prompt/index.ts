@@ -57,9 +57,23 @@ interface OrgContexto {
   good_response_example: string | null;
 }
 
+/**
+ * Setor legível para o prompt. "outro:<descrição>" (setor customizado do
+ * onboarding) usa a descrição do usuário — "pet shop" gera conhecimento de pet
+ * shop, não o genérico de "outro".
+ */
+function setorLegivel(sector: string | null): string {
+  if (!sector) return "outro";
+  if (sector.startsWith("outro:")) {
+    const descricao = sector.slice("outro:".length).trim();
+    if (descricao) return descricao;
+  }
+  return SETOR_LABEL[sector] ?? "outro";
+}
+
 /** Monta o prompt do gerador. A Nina entra como exemplo de formato, não de conteúdo. */
 function promptDoGerador(org: OrgContexto, agentName: string): string {
-  const setor = SETOR_LABEL[org.business_sector ?? "outro"] ?? "outro";
+  const setor = setorLegivel(org.business_sector);
   const tom = TOM_LABEL[org.brand_tone ?? "profissional"] ?? "profissional";
 
   return `Você é especialista em configurar assistentes de IA para vendas e atendimento.
