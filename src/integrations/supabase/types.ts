@@ -1079,10 +1079,10 @@ export type Database = {
           imported_by: string | null
           org_id: string
           source_platform: string
-          started_at: string
+          started_at: string | null
           status: string
-          total_conversations: number
-          total_messages: number
+          total_conversations: number | null
+          total_messages: number | null
         }
         Insert: {
           completed_at?: string | null
@@ -1092,10 +1092,10 @@ export type Database = {
           imported_by?: string | null
           org_id: string
           source_platform: string
-          started_at?: string
+          started_at?: string | null
           status?: string
-          total_conversations?: number
-          total_messages?: number
+          total_conversations?: number | null
+          total_messages?: number | null
         }
         Update: {
           completed_at?: string | null
@@ -1105,10 +1105,10 @@ export type Database = {
           imported_by?: string | null
           org_id?: string
           source_platform?: string
-          started_at?: string
+          started_at?: string | null
           status?: string
-          total_conversations?: number
-          total_messages?: number
+          total_conversations?: number | null
+          total_messages?: number | null
         }
         Relationships: [
           {
@@ -1276,6 +1276,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "conversations_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_imports"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "whatsapp_conversations_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
@@ -1392,6 +1399,13 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_with_metrics"
+            referencedColumns: ["id"]
+          },
         ]
       }
       deal_tags: {
@@ -1426,7 +1440,7 @@ export type Database = {
       }
       deals: {
         Row: {
-          ai_close_factors: Json
+          ai_close_factors: Json | null
           ai_close_probability: number | null
           ai_close_probability_updated_at: string | null
           close_date: string | null
@@ -1449,7 +1463,7 @@ export type Database = {
           value: number
         }
         Insert: {
-          ai_close_factors?: Json
+          ai_close_factors?: Json | null
           ai_close_probability?: number | null
           ai_close_probability_updated_at?: string | null
           close_date?: string | null
@@ -1472,7 +1486,7 @@ export type Database = {
           value?: number
         }
         Update: {
-          ai_close_factors?: Json
+          ai_close_factors?: Json | null
           ai_close_probability?: number | null
           ai_close_probability_updated_at?: string | null
           close_date?: string | null
@@ -1860,52 +1874,52 @@ export type Database = {
       }
       erp_integration_configs: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
-          inbound_event_handlers: Json
+          inbound_event_handlers: Json | null
           inbound_token: string
-          is_active: boolean
+          is_active: boolean | null
           last_inbound_at: string | null
           last_outbound_at: string | null
           org_id: string
-          outbound_auth_config: Json
-          outbound_auth_type: string
-          outbound_events: string[]
-          outbound_field_mappings: Json
+          outbound_auth_config: Json | null
+          outbound_auth_type: string | null
+          outbound_events: string[] | null
+          outbound_field_mappings: Json | null
           outbound_url: string | null
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          inbound_event_handlers?: Json
+          inbound_event_handlers?: Json | null
           inbound_token?: string
-          is_active?: boolean
+          is_active?: boolean | null
           last_inbound_at?: string | null
           last_outbound_at?: string | null
           org_id: string
-          outbound_auth_config?: Json
-          outbound_auth_type?: string
-          outbound_events?: string[]
-          outbound_field_mappings?: Json
+          outbound_auth_config?: Json | null
+          outbound_auth_type?: string | null
+          outbound_events?: string[] | null
+          outbound_field_mappings?: Json | null
           outbound_url?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          inbound_event_handlers?: Json
+          inbound_event_handlers?: Json | null
           inbound_token?: string
-          is_active?: boolean
+          is_active?: boolean | null
           last_inbound_at?: string | null
           last_outbound_at?: string | null
           org_id?: string
-          outbound_auth_config?: Json
-          outbound_auth_type?: string
-          outbound_events?: string[]
-          outbound_field_mappings?: Json
+          outbound_auth_config?: Json | null
+          outbound_auth_type?: string | null
+          outbound_events?: string[] | null
+          outbound_field_mappings?: Json | null
           outbound_url?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -1919,7 +1933,7 @@ export type Database = {
       }
       erp_webhook_logs: {
         Row: {
-          created_at: string
+          created_at: string | null
           direction: string
           error_msg: string | null
           event_type: string
@@ -1929,7 +1943,7 @@ export type Database = {
           status: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           direction: string
           error_msg?: string | null
           event_type: string
@@ -1939,7 +1953,7 @@ export type Database = {
           status: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           direction?: string
           error_msg?: string | null
           event_type?: string
@@ -2576,36 +2590,36 @@ export type Database = {
       nps_configs: {
         Row: {
           active_channels: string[] | null
-          created_at: string
+          created_at: string | null
           delay_minutes: number
           id: string
-          is_active: boolean
+          is_active: boolean | null
           message: string
           org_id: string
           thank_you_message: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           active_channels?: string[] | null
-          created_at?: string
+          created_at?: string | null
           delay_minutes?: number
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           message?: string
           org_id: string
           thank_you_message?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           active_channels?: string[] | null
-          created_at?: string
+          created_at?: string | null
           delay_minutes?: number
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           message?: string
           org_id?: string
           thank_you_message?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -2884,7 +2898,7 @@ export type Database = {
           price: number
           stock_minimum_alert: number | null
           stock_quantity: number | null
-          track_stock: boolean
+          track_stock: boolean | null
           updated_at: string
         }
         Insert: {
@@ -2900,7 +2914,7 @@ export type Database = {
           price?: number
           stock_minimum_alert?: number | null
           stock_quantity?: number | null
-          track_stock?: boolean
+          track_stock?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -2916,7 +2930,7 @@ export type Database = {
           price?: number
           stock_minimum_alert?: number | null
           stock_quantity?: number | null
-          track_stock?: boolean
+          track_stock?: boolean | null
           updated_at?: string
         }
         Relationships: [
@@ -3067,7 +3081,7 @@ export type Database = {
         Row: {
           assign_type: string
           created_at: string
-          criteria: Json
+          criteria: Json | null
           current_value: number
           goal_subtype: string | null
           goal_type: string
@@ -3083,7 +3097,7 @@ export type Database = {
         Insert: {
           assign_type?: string
           created_at?: string
-          criteria?: Json
+          criteria?: Json | null
           current_value?: number
           goal_subtype?: string | null
           goal_type?: string
@@ -3099,7 +3113,7 @@ export type Database = {
         Update: {
           assign_type?: string
           created_at?: string
-          criteria?: Json
+          criteria?: Json | null
           current_value?: number
           goal_subtype?: string | null
           goal_type?: string
@@ -3640,6 +3654,10 @@ export type Database = {
       current_org_id: { Args: never; Returns: string }
       enqueue_automations: {
         Args: { p_org: string; p_trigger_data: Json; p_trigger_type: string }
+        Returns: undefined
+      }
+      enqueue_erp_event: {
+        Args: { p_event: string; p_org: string; p_payload: Json }
         Returns: undefined
       }
       ensure_auth_trigger: { Args: never; Returns: Json }
