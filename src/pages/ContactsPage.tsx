@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Download, Plus, Search, Upload, Users } from "lucide-react";
+import { Copy, Download, Plus, Search, Upload, Users } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { ContactDrawer } from "@/components/contacts/ContactDrawer";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ContactImportDialog } from "@/components/contacts/ContactImportDialog";
+import { DuplicatesDialog } from "@/components/contacts/DuplicatesDialog";
 import { TagsPanel } from "@/components/contacts/TagsPanel";
 import { GroupsPanel } from "@/components/contacts/GroupsPanel";
 import { CONTACT_STATUS_LABEL, useContacts, type Contact, type ContactStatus } from "@/hooks/useContacts";
@@ -30,6 +31,7 @@ export default function ContactsPage() {
   const [editing, setEditing] = useState<Contact | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -104,6 +106,15 @@ export default function ContactsPage() {
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDuplicatesOpen(true)}
+              className="gap-1.5"
+              data-testid="contacts-check-duplicates"
+            >
+              <Copy className="h-4 w-4" strokeWidth={1.5} />
+              Verificar duplicatas
+            </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-1.5">
               <Upload className="h-4 w-4" strokeWidth={1.5} />
               Importar
@@ -196,6 +207,7 @@ export default function ContactsPage() {
       />
       <ContactFormDialog open={formOpen} onOpenChange={setFormOpen} contact={editing} />
       <ContactImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <DuplicatesDialog open={duplicatesOpen} onOpenChange={setDuplicatesOpen} contacts={contacts ?? []} />
     </AppShell>
   );
 }
