@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { MessageSquareText, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { MessageSquareText, Pencil, Plus, Timer, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,11 +21,152 @@ import {
   useDeleteQuickReply, useImportQuickReplies, useQuickReplies, useSaveQuickReply,
   type QuickReply,
 } from "@/hooks/useQuickReplies";
+import { SLA_CHANNELS, useSaveSlaConfig, useSlaConfig } from "@/hooks/useSla";
+import { channelMeta } from "@/components/whatsapp/ChannelBadge";
+import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { parseCsv } from "@/lib/csv";
 
 /**
- * Configurações > Atendimento — hoje só Respostas rápidas; o SLA (Parte 8 do
- * Sprint 10A) entra aqui quando chegar.
+ * SLA de atendimento (Parte 8 do Sprint 10A): limites de primeira resposta e
+ * resolução, percentual de alerta e canais cobertos. O log em si é gravado por
+ * triggers no banco; o inbox usa esta config para colorir os timers.
+ */
+function SlaSection() {
+  const { data: config, isLoading } = useSlaConfig();
+  const salvar = useSaveSlaConfig();
+
+  const [form, setForm] = useState({
+    is_active: true,
+    first_response_minutes: "30",
+    resolution_hours: "24",
+    alert_threshold_percent: "80",
+    active_channels: ["whatsapp"] as string[],
+  });
+
+  useEffect(() => {
+    if (!config) return;
+    setForm({
+      is_active: config.is_active,
+      first_response_minutes: String(config.first_response_minutes),
+      resolution_hours: String(config.resolution_hours),
+      alert_threshold_percent: String(config.alert_threshold_percent),
+      active_channels: config.active_channels ?? ["whatsapp"],
+    });
+  }, [config]);
+
+  const alternarCanal = (channel: string, marcado: boolean) => {
+    setForm((f) => ({
+      ...f,
+      active_channels: marcado
+        ? [...f.active_channels, channel]
+        : f.active_channels.filter((c) => c !== channel),
+    }));
+  };
+
+  const submeter = async () => {
+    try {
+      await salvar.mutateAsync({
+        is_active: form.is_active,
+        first_response_minutes: Math.max(1, Number(form.first_response_minutes) || 30),
+        resolution_hours: Math.max(1, Number(form.resolution_hours) || 24),
+        alert_threshold_percent: Math.min(100, Math.max(1, Number(form.alert_threshold_percent) || 80)),
+        active_channels: form.active_channels,
+      });
+      toast.success("SLA salvo.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar o SLA.");
+    }
+  };
+
+  if (isLoading) return <Skeleton className="h-40 w-full" />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="flex items-center gap-2 text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
+            <Timer className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+            SLA de atendimento
+          </h3>
+          <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
+            Conversas aguardando resposta ganham um timer no inbox: verde dentro do prazo, amarelo
+            no alerta, vermelho quando o limite estoura. As violações alimentam o relatório de SLA.
+          </p>
+        </div>
+        <Switch
+          aria-label="Ativar o SLA de atendimento"
+          checked={form.is_active}
+          onCheckedChange={(v) => setForm({ ...form, is_active: v })}
+          data-testid="sla-ativo"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="sla-first-response">Primeira resposta (minutos)</Label>
+          <Input
+            id="sla-first-response"
+            type="number"
+            min="1"
+            value={form.first_response_minutes}
+            onChange={(e) => setForm({ ...form, first_response_minutes: e.target.value })}
+            data-testid="sla-first-response"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="sla-resolution">Resolução (horas)</Label>
+          <Input
+            id="sla-resolution"
+            type="number"
+            min="1"
+            value={form.resolution_hours}
+            onChange={(e) => setForm({ ...form, resolution_hours: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="sla-threshold">Alertar ao atingir (%)</Label>
+          <Input
+            id="sla-threshold"
+            type="number"
+            min="1"
+            max="100"
+            value={form.alert_threshold_percent}
+            onChange={(e) => setForm({ ...form, alert_threshold_percent: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+          Canais com SLA ativo
+        </legend>
+        <div className="flex flex-wrap gap-4">
+          {SLA_CHANNELS.map((channel) => (
+            <label key={channel} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
+              <Checkbox
+                checked={form.active_channels.includes(channel)}
+                onCheckedChange={(v) => alternarCanal(channel, v === true)}
+                data-testid={`sla-channel-${channel}`}
+              />
+              {channelMeta(channel).label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="flex justify-end">
+        <Button onClick={submeter} disabled={salvar.isPending} data-testid="sla-salvar">
+          {salvar.isPending ? "Salvando…" : "Salvar SLA"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Configurações > Atendimento — SLA (Parte 8 do Sprint 10A) e Respostas
+ * rápidas (Parte 2).
  *
  * As respostas são da organização inteira: qualquer agente usa, qualquer um
  * cadastra. Variáveis suportadas na mensagem: {{contact.first_name}},
@@ -118,7 +259,11 @@ export default function AtendimentoSettings() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <SlaSection />
+
+      <Separator />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
