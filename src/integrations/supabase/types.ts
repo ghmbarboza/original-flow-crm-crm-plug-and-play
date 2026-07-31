@@ -1070,6 +1070,56 @@ export type Database = {
           },
         ]
       }
+      conversation_imports: {
+        Row: {
+          completed_at: string | null
+          error_msg: string | null
+          file_name: string | null
+          id: string
+          imported_by: string | null
+          org_id: string
+          source_platform: string
+          started_at: string
+          status: string
+          total_conversations: number
+          total_messages: number
+        }
+        Insert: {
+          completed_at?: string | null
+          error_msg?: string | null
+          file_name?: string | null
+          id?: string
+          imported_by?: string | null
+          org_id: string
+          source_platform: string
+          started_at?: string
+          status?: string
+          total_conversations?: number
+          total_messages?: number
+        }
+        Update: {
+          completed_at?: string | null
+          error_msg?: string | null
+          file_name?: string | null
+          id?: string
+          imported_by?: string | null
+          org_id?: string
+          source_platform?: string
+          started_at?: string
+          status?: string
+          total_conversations?: number
+          total_messages?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_imports_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_messages: {
         Row: {
           content: string | null
@@ -1151,6 +1201,8 @@ export type Database = {
           first_response_at: string | null
           first_response_minutes: number | null
           id: string
+          import_id: string | null
+          imported_at: string | null
           is_demo: boolean
           last_message_at: string | null
           last_message_preview: string | null
@@ -1177,6 +1229,8 @@ export type Database = {
           first_response_at?: string | null
           first_response_minutes?: number | null
           id?: string
+          import_id?: string | null
+          imported_at?: string | null
           is_demo?: boolean
           last_message_at?: string | null
           last_message_preview?: string | null
@@ -1203,6 +1257,8 @@ export type Database = {
           first_response_at?: string | null
           first_response_minutes?: number | null
           id?: string
+          import_id?: string | null
+          imported_at?: string | null
           is_demo?: boolean
           last_message_at?: string | null
           last_message_preview?: string | null
@@ -1370,6 +1426,9 @@ export type Database = {
       }
       deals: {
         Row: {
+          ai_close_factors: Json
+          ai_close_probability: number | null
+          ai_close_probability_updated_at: string | null
           close_date: string | null
           company_id: string | null
           contact_id: string | null
@@ -1390,6 +1449,9 @@ export type Database = {
           value: number
         }
         Insert: {
+          ai_close_factors?: Json
+          ai_close_probability?: number | null
+          ai_close_probability_updated_at?: string | null
           close_date?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -1410,6 +1472,9 @@ export type Database = {
           value?: number
         }
         Update: {
+          ai_close_factors?: Json
+          ai_close_probability?: number | null
+          ai_close_probability_updated_at?: string | null
           close_date?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -1786,6 +1851,106 @@ export type Database = {
           },
           {
             foreignKeyName: "emails_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      erp_integration_configs: {
+        Row: {
+          created_at: string
+          id: string
+          inbound_event_handlers: Json
+          inbound_token: string
+          is_active: boolean
+          last_inbound_at: string | null
+          last_outbound_at: string | null
+          org_id: string
+          outbound_auth_config: Json
+          outbound_auth_type: string
+          outbound_events: string[]
+          outbound_field_mappings: Json
+          outbound_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inbound_event_handlers?: Json
+          inbound_token?: string
+          is_active?: boolean
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          org_id: string
+          outbound_auth_config?: Json
+          outbound_auth_type?: string
+          outbound_events?: string[]
+          outbound_field_mappings?: Json
+          outbound_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inbound_event_handlers?: Json
+          inbound_token?: string
+          is_active?: boolean
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          org_id?: string
+          outbound_auth_config?: Json
+          outbound_auth_type?: string
+          outbound_events?: string[]
+          outbound_field_mappings?: Json
+          outbound_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_integration_configs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      erp_webhook_logs: {
+        Row: {
+          created_at: string
+          direction: string
+          error_msg: string | null
+          event_type: string
+          id: string
+          org_id: string
+          payload: Json | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          direction: string
+          error_msg?: string | null
+          event_type: string
+          id?: string
+          org_id: string
+          payload?: Json | null
+          status: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          error_msg?: string | null
+          event_type?: string
+          id?: string
+          org_id?: string
+          payload?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_webhook_logs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2408,6 +2573,108 @@ export type Database = {
           },
         ]
       }
+      nps_configs: {
+        Row: {
+          active_channels: string[] | null
+          created_at: string
+          delay_minutes: number
+          id: string
+          is_active: boolean
+          message: string
+          org_id: string
+          thank_you_message: string
+          updated_at: string
+        }
+        Insert: {
+          active_channels?: string[] | null
+          created_at?: string
+          delay_minutes?: number
+          id?: string
+          is_active?: boolean
+          message?: string
+          org_id: string
+          thank_you_message?: string
+          updated_at?: string
+        }
+        Update: {
+          active_channels?: string[] | null
+          created_at?: string
+          delay_minutes?: number
+          id?: string
+          is_active?: boolean
+          message?: string
+          org_id?: string
+          thank_you_message?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nps_configs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nps_responses: {
+        Row: {
+          agent_id: string | null
+          channel: string | null
+          comment: string | null
+          contact_id: string | null
+          conversation_id: string
+          id: string
+          org_id: string
+          responded_at: string
+          score: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          channel?: string | null
+          comment?: string | null
+          contact_id?: string | null
+          conversation_id: string
+          id?: string
+          org_id: string
+          responded_at?: string
+          score?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          channel?: string | null
+          comment?: string | null
+          contact_id?: string | null
+          conversation_id?: string
+          id?: string
+          org_id?: string
+          responded_at?: string
+          score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nps_responses_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_responses_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_responses_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_progress: {
         Row: {
           completed_steps: Json | null
@@ -2609,6 +2876,9 @@ export type Database = {
           name: string
           org_id: string
           price: number
+          stock_minimum_alert: number | null
+          stock_quantity: number | null
+          track_stock: boolean
           updated_at: string
         }
         Insert: {
@@ -2622,6 +2892,9 @@ export type Database = {
           name: string
           org_id: string
           price?: number
+          stock_minimum_alert?: number | null
+          stock_quantity?: number | null
+          track_stock?: boolean
           updated_at?: string
         }
         Update: {
@@ -2635,6 +2908,9 @@ export type Database = {
           name?: string
           org_id?: string
           price?: number
+          stock_minimum_alert?: number | null
+          stock_quantity?: number | null
+          track_stock?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -2785,7 +3061,9 @@ export type Database = {
         Row: {
           assign_type: string
           created_at: string
+          criteria: Json
           current_value: number
+          goal_subtype: string | null
           goal_type: string
           id: string
           is_demo: boolean
@@ -2799,7 +3077,9 @@ export type Database = {
         Insert: {
           assign_type?: string
           created_at?: string
+          criteria?: Json
           current_value?: number
+          goal_subtype?: string | null
           goal_type?: string
           id?: string
           is_demo?: boolean
@@ -2813,7 +3093,9 @@ export type Database = {
         Update: {
           assign_type?: string
           created_at?: string
+          criteria?: Json
           current_value?: number
+          goal_subtype?: string | null
           goal_type?: string
           id?: string
           is_demo?: boolean
@@ -3288,6 +3570,36 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "whatsapp_conversations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products_with_metrics: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          custom_fields: Json | null
+          deals_in_progress: number | null
+          deals_won: number | null
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          is_demo: boolean | null
+          name: string | null
+          org_id: string | null
+          price: number | null
+          stock_minimum_alert: number | null
+          stock_quantity: number | null
+          total_revenue: number | null
+          track_stock: boolean | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"

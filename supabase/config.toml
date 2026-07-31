@@ -44,3 +44,14 @@ verify_jwt = false
 # com CALCOM_WEBHOOK_SECRET configurado, a assinatura HMAC também é exigida.
 [functions.calcom-webhook]
 verify_jwt = false
+
+# Webhook do ERP (entrada): quem chama é o sistema do cliente, sem JWT. A
+# segurança é o inbound_token único por org — sem token válido nada é lido.
+[functions.erp-webhook]
+verify_jwt = false
+
+# Dispatcher de saída ERP: acionado por cron (pg_cron + pg_net) e pelo botão
+# "Testar" da tela (este valida o JWT do admin dentro da função). Proteção
+# opcional do cron via ERP_CRON_SECRET.
+[functions.erp-outbound]
+verify_jwt = false
