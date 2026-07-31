@@ -38,3 +38,9 @@ verify_jwt = false
 # HMAC (X-Zernio-Signature) quando a org tem webhook_secret configurado.
 [functions.zernio-webhook]
 verify_jwt = false
+
+# Webhook do Cal.com (agendamento): quem chama é o Cal.com, sem JWT do Supabase.
+# A org vem de ?org= e nada é gravado sem integração calcom ativa para ela;
+# com CALCOM_WEBHOOK_SECRET configurado, a assinatura HMAC também é exigida.
+[functions.calcom-webhook]
+verify_jwt = false

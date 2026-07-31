@@ -422,11 +422,18 @@ Deno.serve(async (req) => {
     }
 
     // Base de conhecimento.
-    const [faqs, objections, products] = await Promise.all([
+    const [faqs, objections, products, calcom] = await Promise.all([
       admin.from("ai_knowledge_faqs").select("question, answer").eq("org_id", conversation.org_id).order("order"),
       admin.from("ai_knowledge_objections").select("objection, response").eq("org_id", conversation.org_id).order("order"),
       admin.from("products").select("name, description, price, currency").eq("org_id", conversation.org_id).eq("is_active", true),
+      admin.from("integration_configs").select("config, is_active").eq("org_id", conversation.org_id).eq("provider", "calcom").maybeSingle(),
     ]);
+
+    // Link de agendamento (Parte 11): entra como conhecimento — a IA oferece
+    // quando o cliente quer marcar uma reunião.
+    const schedulingLink = calcom.data?.is_active
+      ? ((calcom.data.config as { scheduling_link?: string } | null)?.scheduling_link ?? "").trim()
+      : "";
 
     const knowledge = [
       config.system_prompt?.trim() || "",
@@ -437,6 +444,7 @@ Deno.serve(async (req) => {
       (faqs.data ?? []).length ? "FAQs:\n" + (faqs.data ?? []).map((f) => `P: ${f.question}\nR: ${f.answer}`).join("\n\n") : "",
       (objections.data ?? []).length ? "\nComo contornar objeções:\n" + (objections.data ?? []).map((o) => `Objeção: ${o.objection}\nResposta: ${o.response}`).join("\n\n") : "",
       (products.data ?? []).length ? "\nProdutos:\n" + (products.data ?? []).map((p) => `- ${p.name}${p.description ? `: ${p.description}` : ""} (${new Intl.NumberFormat("pt-BR", { style: "currency", currency: p.currency ?? "BRL" }).format(Number(p.price ?? 0))})`).join("\n") : "",
+      schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
       "",
       "Responda apenas com a mensagem final ao cliente, sem raciocínio nem meta-comentário.",
     ]

@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GeneralSettings from "@/components/settings/GeneralSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
 import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
+import CalcomSettings from "@/components/settings/CalcomSettings";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import TeamSettings from "@/components/settings/TeamSettings";
 import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
@@ -121,7 +122,12 @@ export default function SettingsPage() {
           <TabsContent value="notifications"><NotificationPreferences /></TabsContent>
           {isAdmin && <TabsContent value="security"><SecuritySettings /></TabsContent>}
           {isAdmin && <TabsContent value="channels"><ChannelsSettings /></TabsContent>}
-          {isAdmin && <TabsContent value="integrations"><ApiKeysSettings /></TabsContent>}
+          {isAdmin && (
+            <TabsContent value="integrations" className="space-y-6">
+              <ApiKeysSettings />
+              <CalcomSettings />
+            </TabsContent>
+          )}
           {isAdmin && <TabsContent value="capture"><CaptureFormsSettings /></TabsContent>}
           {isAdmin && <TabsContent value="pipeline"><PipelineSettings /></TabsContent>}
           <TabsContent value="atendimento"><AtendimentoSettings /></TabsContent>

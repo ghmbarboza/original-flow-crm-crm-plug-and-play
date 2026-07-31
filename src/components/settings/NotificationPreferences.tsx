@@ -40,6 +40,12 @@ const EVENTS: { type: string; label: string; description: string }[] = [
     label: "Intenção de compra",
     description: "Um cliente usou palavras que indicam intenção de compra numa conversa.",
   },
+  // Sprint 10A — agendamento via Cal.com.
+  {
+    type: "agendamento_confirmado",
+    label: "Reunião agendada",
+    description: "Um contato confirmou uma reunião pelo link de agendamento.",
+  },
 ];
 
 const CHANNELS: { key: keyof ChannelPrefs; label: string }[] = [
