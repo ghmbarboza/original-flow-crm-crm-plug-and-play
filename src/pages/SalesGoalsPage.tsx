@@ -16,8 +16,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  GOAL_TYPES, useDeleteSalesGoal, useSalesGoals, useSaveSalesGoal,
-  type GoalType, type GoalWithProgress,
+  GOAL_SUBTYPES, GOAL_TYPES, useDeleteSalesGoal, useSalesGoals, useSaveSalesGoal,
+  type GoalCriteria, type GoalSubtype, type GoalType, type GoalWithProgress,
 } from "@/hooks/useSalesGoals";
 import { useOrgMembers, useOrgMemberNames } from "@/hooks/useOrgMembers";
 import { formatCurrency } from "@/lib/format";
@@ -26,8 +26,29 @@ const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "
 const NOW = new Date();
 const ALL_MEMBER = "__team__";
 
-function formatValue(type: string, value: number) {
-  return type === "revenue" ? formatCurrency(value) : String(Math.round(value));
+function formatValue(type: string, value: number, subtype?: string | null) {
+  if (type === "revenue") return formatCurrency(value);
+  if (type === "deal_criteria") {
+    const unit = GOAL_SUBTYPES.find((s) => s.value === subtype)?.unit;
+    if (unit === "%") return `${Math.round(value)}%`;
+    if (unit === "h") return `${value}h`;
+  }
+  return String(Math.round(value));
+}
+
+/** Rótulo do card para metas por critério: descreve a regra, não só o tipo. */
+function criteriaLabel(goal: GoalWithProgress): string {
+  const criteria = (goal.criteria ?? {}) as GoalCriteria;
+  switch (goal.goal_subtype) {
+    case "min_deal_value":
+      return `Deals acima de ${formatCurrency(Number(criteria.min_value ?? 0))}`;
+    case "conversion_rate":
+      return "Taxa de conversão mínima";
+    case "avg_response_time":
+      return "TMA máximo (1ª resposta)";
+    default:
+      return "Critério de deal";
+  }
 }
 
 export default function SalesGoalsPage() {
@@ -43,6 +64,8 @@ export default function SalesGoalsPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     goal_type: "revenue" as GoalType,
+    goal_subtype: "min_deal_value" as GoalSubtype,
+    min_value: "",
     assignee: ALL_MEMBER,
     target_value: "",
   });
@@ -55,9 +78,19 @@ export default function SalesGoalsPage() {
       toast.error("Informe uma meta válida.");
       return;
     }
+    const isCriteria = form.goal_type === "deal_criteria";
+    if (isCriteria && form.goal_subtype === "min_deal_value" && !(Number(form.min_value) > 0)) {
+      toast.error("Informe o valor mínimo do deal para este critério.");
+      return;
+    }
     try {
       await saveGoal.mutateAsync({
         goal_type: form.goal_type,
+        goal_subtype: isCriteria ? form.goal_subtype : null,
+        criteria:
+          isCriteria && form.goal_subtype === "min_deal_value"
+            ? { min_value: Number(form.min_value) }
+            : {},
         assign_type: form.assignee === ALL_MEMBER ? "team" : "user",
         user_id: form.assignee === ALL_MEMBER ? null : form.assignee,
         team_id: null,
@@ -66,7 +99,7 @@ export default function SalesGoalsPage() {
         period_year: year,
       });
       toast.success("Meta criada.");
-      setForm({ goal_type: "revenue", assignee: ALL_MEMBER, target_value: "" });
+      setForm({ goal_type: "revenue", goal_subtype: "min_deal_value", min_value: "", assignee: ALL_MEMBER, target_value: "" });
       setOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Não foi possível criar a meta.");
@@ -129,13 +162,26 @@ export default function SalesGoalsPage() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {(goals ?? []).map((goal) => {
-              const typeLabel = GOAL_TYPES.find((t) => t.value === goal.goal_type)?.label ?? goal.goal_type;
-              const pct = goal.target_value > 0 ? Math.min(100, (goal.computed_current / goal.target_value) * 100) : 0;
+              const isCriteria = goal.goal_type === "deal_criteria";
+              const lowerIsBetter = isCriteria
+                && GOAL_SUBTYPES.find((s) => s.value === goal.goal_subtype)?.lowerIsBetter === true;
+              const typeLabel = isCriteria
+                ? criteriaLabel(goal)
+                : GOAL_TYPES.find((t) => t.value === goal.goal_type)?.label ?? goal.goal_type;
+              // TMA inverte a leitura: abaixo da meta é bom, acima é estouro.
+              const pct = lowerIsBetter
+                ? goal.computed_current <= goal.target_value
+                  ? 100
+                  : Math.max(0, Math.round((goal.target_value / Math.max(goal.computed_current, 0.1)) * 100))
+                : goal.target_value > 0
+                  ? Math.min(100, (goal.computed_current / goal.target_value) * 100)
+                  : 0;
+              const atingiu = lowerIsBetter ? goal.computed_current <= goal.target_value : pct >= 100;
               const who = goal.assign_type === "user"
                 ? (goal.user_id ? memberNames.get(goal.user_id) ?? "Usuário" : "Usuário")
                 : "Time";
               return (
-                <div key={goal.id} className="via-card group p-4">
+                <div key={goal.id} className="via-card group p-4" data-testid="sales-goal-card">
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium" style={{ color: "var(--via-text-primary)" }}>{typeLabel}</p>
@@ -148,10 +194,14 @@ export default function SalesGoalsPage() {
                   <Progress value={pct} className="mb-2" />
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="tabular-nums" style={{ color: "var(--via-text-primary)" }}>
-                      {formatValue(goal.goal_type, goal.computed_current)} / {formatValue(goal.goal_type, goal.target_value)}
+                      {lowerIsBetter ? (
+                        <>Meta: até {formatValue(goal.goal_type, goal.target_value, goal.goal_subtype)} · Atual: {formatValue(goal.goal_type, goal.computed_current, goal.goal_subtype)}</>
+                      ) : (
+                        <>{formatValue(goal.goal_type, goal.computed_current, goal.goal_subtype)} / {formatValue(goal.goal_type, goal.target_value, goal.goal_subtype)}</>
+                      )}
                     </span>
-                    <span className="font-medium tabular-nums" style={{ color: pct >= 100 ? "var(--via-success)" : "var(--via-text-muted)" }}>
-                      {Math.round(pct)}%
+                    <span className="font-medium tabular-nums" style={{ color: atingiu ? "var(--via-success)" : "var(--via-text-muted)" }}>
+                      {atingiu ? "✓" : lowerIsBetter ? "⚠ acima" : `${Math.round(pct)}%`}
                     </span>
                   </div>
                 </div>
@@ -183,6 +233,32 @@ export default function SalesGoalsPage() {
                 </SelectContent>
               </Select>
             </div>
+            {form.goal_type === "deal_criteria" && (
+              <>
+                <div className="space-y-2">
+                  <Label id="goal-subtype-label">Critério</Label>
+                  <Select value={form.goal_subtype} onValueChange={(v) => setForm({ ...form, goal_subtype: v as GoalSubtype })}>
+                    <SelectTrigger aria-labelledby="goal-subtype-label" data-testid="goal-subtype"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {GOAL_SUBTYPES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.goal_subtype === "min_deal_value" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="goal-min-value">Valor mínimo do deal (R$)</Label>
+                    <Input
+                      id="goal-min-value"
+                      type="number"
+                      min="0"
+                      placeholder="10000"
+                      value={form.min_value}
+                      onChange={(e) => setForm({ ...form, min_value: e.target.value })}
+                    />
+                  </div>
+                )}
+              </>
+            )}
             <div className="space-y-2">
               <Label id="goal-assignee-label">Responsável</Label>
               <Select value={form.assignee} onValueChange={(v) => setForm({ ...form, assignee: v })}>
@@ -194,8 +270,21 @@ export default function SalesGoalsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="target">Meta ({form.goal_type === "revenue" ? "R$" : "quantidade"})</Label>
+              <Label htmlFor="target">
+                Meta (
+                {form.goal_type === "revenue"
+                  ? "R$"
+                  : form.goal_type === "deal_criteria"
+                    ? GOAL_SUBTYPES.find((s) => s.value === form.goal_subtype)?.unit ?? "quantidade"
+                    : "quantidade"}
+                )
+              </Label>
               <Input id="target" type="number" min="0" value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} />
+              {form.goal_type === "deal_criteria" && form.goal_subtype === "avg_response_time" && (
+                <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                  Tempo médio máximo de primeira resposta, em horas. Ficar abaixo é bater a meta.
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>

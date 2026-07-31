@@ -12,6 +12,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useReports } from "@/hooks/useReports";
+import { useAiForecast } from "@/hooks/useDealPrediction";
+import { useNpsReport } from "@/hooks/useNps";
 import { useSlaReport } from "@/hooks/useSlaReport";
 import { useOrgMemberNames, useOrgMembers } from "@/hooks/useOrgMembers";
 import { formatWaitingTime } from "@/lib/sla";
@@ -67,6 +69,8 @@ export default function ReportsPage() {
 
   const { data, isLoading, error } = useReports(filters);
   const { data: sla } = useSlaReport(filters);
+  const { data: aiForecast } = useAiForecast();
+  const { data: nps } = useNpsReport(filters);
   const memberNames = useOrgMemberNames();
 
   const conversationPie = useMemo(() => {
@@ -154,6 +158,25 @@ export default function ReportsPage() {
               <KPI label="Forecast (aberto)" value={formatCurrency(data.deals.forecast)} />
               <KPI label="Leads gerados" value={String(data.leads.total)} />
             </div>
+
+            {/* Forecast ponderado pela previsão de IA (Parte 3 do Sprint 10B). */}
+            {aiForecast && aiForecast.covered > 0 && (
+              <div className="via-card flex flex-wrap items-baseline justify-between gap-2 p-4" data-testid="ai-forecast">
+                <div>
+                  <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                    Forecast ponderado pela IA
+                  </p>
+                  <p className="text-2xl font-semibold tabular-nums" style={{ color: "var(--via-text-primary)" }}>
+                    {formatCurrency(aiForecast.weighted)}
+                  </p>
+                </div>
+                <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                  Soma de valor × probabilidade de fechamento dos negócios abertos.{" "}
+                  {aiForecast.covered} de {aiForecast.open} negócio(s) com previsão calculada — a
+                  previsão é gerada quando o negócio é aberto na tela.
+                </p>
+              </div>
+            )}
 
             <div className="grid gap-4 lg:grid-cols-2">
               <ChartCard title="Negócios por etapa">
@@ -305,6 +328,81 @@ export default function ReportsPage() {
                 )}
               </ChartCard>
             </div>
+
+            {/* NPS (Parte 5 do Sprint 10B). */}
+            {nps && nps.surveysSent > 0 && (
+              <ChartCard title="NPS — satisfação do atendimento">
+                <div className="space-y-4" data-testid="nps-report">
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    <KPI label="NPS" value={nps.nps !== null ? String(nps.nps) : "—"} />
+                    <KPI label="Respostas" value={`${nps.responses}/${nps.surveysSent}`} />
+                    <KPI label="Promotores (9-10)" value={String(nps.promoters)} />
+                    <KPI label="Detratores (0-6)" value={String(nps.detractors)} />
+                  </div>
+
+                  {nps.responses > 0 && (
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      {nps.byAgent.length > 0 && (
+                        <div>
+                          <h3 className="mb-2 text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+                            NPS por agente
+                          </h3>
+                          <table className="w-full text-sm">
+                            <tbody>
+                              {nps.byAgent.map((row) => (
+                                <tr key={row.key} className="border-b" style={{ borderColor: "var(--via-border)" }}>
+                                  <td className="py-1.5">{memberNames.get(row.key) ?? "—"}</td>
+                                  <td className="py-1.5 text-right tabular-nums">{row.count} resp.</td>
+                                  <td className="py-1.5 text-right font-medium tabular-nums">{row.nps}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      {nps.byChannel.length > 0 && (
+                        <div>
+                          <h3 className="mb-2 text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+                            NPS por canal
+                          </h3>
+                          <table className="w-full text-sm">
+                            <tbody>
+                              {nps.byChannel.map((row) => (
+                                <tr key={row.key} className="border-b" style={{ borderColor: "var(--via-border)" }}>
+                                  <td className="py-1.5">
+                                    <span className="flex items-center gap-1.5">
+                                      <ChannelBadge channel={row.key} />
+                                      {channelMeta(row.key).label}
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 text-right tabular-nums">{row.count} resp.</td>
+                                  <td className="py-1.5 text-right font-medium tabular-nums">{row.nps}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {nps.comments.length > 0 && (
+                    <div>
+                      <h3 className="mb-2 text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+                        Comentários recentes
+                      </h3>
+                      <ul className="max-h-48 space-y-1.5 overflow-y-auto">
+                        {nps.comments.map((c, i) => (
+                          <li key={i} className="text-sm" style={{ color: "var(--via-text-body)" }}>
+                            <span className="font-medium tabular-nums">[{c.score}]</span> {c.comment}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </ChartCard>
+            )}
 
             {/* SLA de atendimento (Parte 8 do Sprint 10A). */}
             {sla && (

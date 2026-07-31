@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { MessageSquareText, Pencil, Plus, Timer, Trash2, Upload } from "lucide-react";
+import { History, MessageSquareText, Pencil, Plus, Smile, Timer, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,10 @@ import {
   type QuickReply,
 } from "@/hooks/useQuickReplies";
 import { SLA_CHANNELS, useSaveSlaConfig, useSlaConfig } from "@/hooks/useSla";
+import { NPS_CHANNELS, useNpsConfig, useSaveNpsConfig } from "@/hooks/useNps";
+import { ImportHistoryDialog } from "@/components/settings/ImportHistoryDialog";
+import { useConversationImports } from "@/hooks/useConversationImport";
+import { formatDateTime } from "@/lib/format";
 import { channelMeta } from "@/components/whatsapp/ChannelBadge";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -165,8 +169,203 @@ function SlaSection() {
 }
 
 /**
- * Configurações > Atendimento — SLA (Parte 8 do Sprint 10A) e Respostas
- * rápidas (Parte 2).
+ * NPS automático ao encerrar conversa (Parte 5 do Sprint 10B): pergunta,
+ * agradecimento, delay e canais. O envio é o nps-dispatcher (cron a cada
+ * minuto); a resposta 0–10 é capturada por trigger no banco.
+ */
+function NpsSection() {
+  const { data: config, isLoading } = useNpsConfig();
+  const salvar = useSaveNpsConfig();
+
+  const [form, setForm] = useState({
+    is_active: false,
+    message: "De 0 a 10, qual a chance de você recomendar {{company}} para um amigo?",
+    thank_you_message: "Obrigado pelo seu feedback!",
+    delay_minutes: "5",
+    active_channels: ["whatsapp"] as string[],
+  });
+
+  useEffect(() => {
+    if (!config) return;
+    setForm({
+      is_active: config.is_active,
+      message: config.message,
+      thank_you_message: config.thank_you_message,
+      delay_minutes: String(config.delay_minutes),
+      active_channels: config.active_channels ?? ["whatsapp"],
+    });
+  }, [config]);
+
+  const alternarCanal = (channel: string, marcado: boolean) => {
+    setForm((f) => ({
+      ...f,
+      active_channels: marcado
+        ? [...f.active_channels, channel]
+        : f.active_channels.filter((c) => c !== channel),
+    }));
+  };
+
+  const submeter = async () => {
+    if (!form.message.trim()) {
+      toast.error("Escreva a mensagem da pesquisa.");
+      return;
+    }
+    try {
+      await salvar.mutateAsync({
+        is_active: form.is_active,
+        message: form.message.trim(),
+        thank_you_message: form.thank_you_message.trim() || "Obrigado pelo seu feedback!",
+        delay_minutes: Math.max(1, Number(form.delay_minutes) || 5),
+        active_channels: form.active_channels,
+      });
+      toast.success("NPS salvo.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar o NPS.");
+    }
+  };
+
+  if (isLoading) return <Skeleton className="h-40 w-full" />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="flex items-center gap-2 text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
+            <Smile className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+            Pesquisa de satisfação (NPS)
+          </h3>
+          <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
+            Ao encerrar uma conversa, o contato recebe a pergunta de 0 a 10 após o tempo de espera.
+            A resposta numérica é registrada sozinha e alimenta o relatório de NPS. Variável:{" "}
+            {"{{company}}"}.
+          </p>
+        </div>
+        <Switch
+          aria-label="Ativar o NPS automático ao encerrar conversa"
+          checked={form.is_active}
+          onCheckedChange={(v) => setForm({ ...form, is_active: v })}
+          data-testid="nps-ativo"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="nps-message">Mensagem de NPS</Label>
+        <Textarea
+          id="nps-message"
+          rows={2}
+          value={form.message}
+          onChange={(e) => setForm({ ...form, message: e.target.value })}
+          data-testid="nps-message"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="nps-delay">Aguardar após encerrar (minutos)</Label>
+          <Input
+            id="nps-delay"
+            type="number"
+            min="1"
+            className="w-32"
+            value={form.delay_minutes}
+            onChange={(e) => setForm({ ...form, delay_minutes: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="nps-thanks">Mensagem de agradecimento</Label>
+          <Input
+            id="nps-thanks"
+            value={form.thank_you_message}
+            onChange={(e) => setForm({ ...form, thank_you_message: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+          Canais onde o NPS é enviado
+        </legend>
+        <div className="flex flex-wrap gap-4">
+          {NPS_CHANNELS.map((channel) => (
+            <label key={channel} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
+              <Checkbox
+                checked={form.active_channels.includes(channel)}
+                onCheckedChange={(v) => alternarCanal(channel, v === true)}
+                data-testid={`nps-channel-${channel}`}
+              />
+              {channelMeta(channel).label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="flex justify-end">
+        <Button onClick={submeter} disabled={salvar.isPending} data-testid="nps-salvar">
+          {salvar.isPending ? "Salvando…" : "Salvar NPS"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Importar histórico de conversas (Parte 6 do Sprint 10B): botão que abre o
+ * wizard e a lista das últimas importações com status e totais.
+ */
+function ImportHistorySection() {
+  const { data: imports } = useConversationImports();
+  const [open, setOpen] = useState(false);
+
+  const STATUS_LABEL: Record<string, string> = {
+    pending: "pendente",
+    processing: "processando",
+    completed: "concluída",
+    failed: "falhou",
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="flex items-center gap-2 text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
+            <History className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+            Importar histórico
+          </h3>
+          <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
+            Traga conversas do Chatwoot, Zendesk, Intercom ou de um CSV. Elas entram encerradas,
+            visíveis na ficha do contato e no inbox — sem acionar IA nem automações.
+          </p>
+        </div>
+        <Button variant="outline" className="gap-1.5" onClick={() => setOpen(true)} data-testid="import-history-abrir">
+          <Upload className="h-4 w-4" strokeWidth={1.5} />
+          Importar histórico
+        </Button>
+      </div>
+
+      {(imports ?? []).length > 0 && (
+        <ul className="space-y-1.5">
+          {(imports ?? []).map((imp) => (
+            <li key={imp.id} className="flex flex-wrap items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
+              <span className="font-medium">{imp.file_name ?? imp.source_platform}</span>
+              <span style={{ color: "var(--via-text-muted)" }}>
+                {STATUS_LABEL[imp.status] ?? imp.status}
+                {imp.status === "completed" ? ` · ${imp.total_conversations} conversas, ${imp.total_messages} mensagens` : ""}
+                {imp.error_msg ? ` · ${imp.error_msg}` : ""}
+                {" · "}{formatDateTime(imp.started_at)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <ImportHistoryDialog open={open} onOpenChange={setOpen} />
+    </div>
+  );
+}
+
+/**
+ * Configurações > Atendimento — SLA (Parte 8 do Sprint 10A), NPS (Parte 5 do
+ * Sprint 10B) e Respostas rápidas (Parte 2 do 10A).
  *
  * As respostas são da organização inteira: qualquer agente usa, qualquer um
  * cadastra. Variáveis suportadas na mensagem: {{contact.first_name}},
@@ -261,6 +460,14 @@ export default function AtendimentoSettings() {
   return (
     <div className="space-y-6">
       <SlaSection />
+
+      <Separator />
+
+      <NpsSection />
+
+      <Separator />
+
+      <ImportHistorySection />
 
       <Separator />
 

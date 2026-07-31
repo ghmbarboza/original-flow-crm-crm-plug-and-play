@@ -13,8 +13,25 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useDeleteProduct, type Product } from "@/hooks/useProducts";
+import { useDeleteProduct, useProductMetrics, type Product } from "@/hooks/useProducts";
 import { formatCurrency } from "@/lib/format";
+
+/** Célula de estoque: ilimitado, disponível ou destaque quando abaixo do mínimo. */
+function StockCell({ product }: { product: Product }) {
+  if (!product.track_stock || product.stock_quantity === null) {
+    return <span style={{ color: "var(--via-text-muted)" }}>Ilimitado</span>;
+  }
+  const low = product.stock_minimum_alert !== null && product.stock_quantity < product.stock_minimum_alert;
+  return (
+    <span
+      className="tabular-nums"
+      style={{ color: low ? "var(--via-coral)" : "var(--via-text-primary)", fontWeight: low ? 600 : undefined }}
+      title={low ? `Abaixo do mínimo (${product.stock_minimum_alert})` : undefined}
+    >
+      {product.stock_quantity} {low ? "⚠" : ""}
+    </span>
+  );
+}
 
 interface Props {
   products: Product[];
@@ -26,6 +43,7 @@ interface Props {
 
 export function ProductsTable({ products, isLoading, isFiltered, onEdit, onCreate }: Props) {
   const deleteProduct = useDeleteProduct();
+  const { data: metrics } = useProductMetrics();
   const [pendingDelete, setPendingDelete] = useState<Product | null>(null);
 
   const handleDelete = async () => {
@@ -89,6 +107,9 @@ export function ProductsTable({ products, isLoading, isFiltered, onEdit, onCreat
               <TableHead>Nome</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead className="text-right">Preço</TableHead>
+              <TableHead className="text-right">Estoque</TableHead>
+              <TableHead className="text-right">Em negociação</TableHead>
+              <TableHead className="text-right">Vendidos</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -102,6 +123,15 @@ export function ProductsTable({ products, isLoading, isFiltered, onEdit, onCreat
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {formatCurrency(product.price, product.currency)}
+                </TableCell>
+                <TableCell className="text-right" data-testid="product-stock">
+                  <StockCell product={product} />
+                </TableCell>
+                <TableCell className="text-right tabular-nums" style={{ color: "var(--via-text-body)" }}>
+                  {metrics?.get(product.id)?.deals_in_progress ?? 0}
+                </TableCell>
+                <TableCell className="text-right tabular-nums" style={{ color: "var(--via-text-body)" }}>
+                  {metrics?.get(product.id)?.deals_won ?? 0}
                 </TableCell>
                 <TableCell>
                   <span

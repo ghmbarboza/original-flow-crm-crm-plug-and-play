@@ -5,6 +5,7 @@ import GeneralSettings from "@/components/settings/GeneralSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
 import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
 import CalcomSettings from "@/components/settings/CalcomSettings";
+import ErpSettings from "@/components/settings/ErpSettings";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import TeamSettings from "@/components/settings/TeamSettings";
 import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
@@ -126,6 +127,7 @@ export default function SettingsPage() {
             <TabsContent value="integrations" className="space-y-6">
               <ApiKeysSettings />
               <CalcomSettings />
+              <ErpSettings />
             </TabsContent>
           )}
           {isAdmin && <TabsContent value="capture"><CaptureFormsSettings /></TabsContent>}

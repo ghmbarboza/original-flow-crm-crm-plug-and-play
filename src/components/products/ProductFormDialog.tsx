@@ -27,6 +27,9 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
     description: "",
     price: "",
     is_active: true,
+    track_stock: false,
+    stock_quantity: "",
+    stock_minimum_alert: "",
   });
 
   useEffect(() => {
@@ -36,6 +39,9 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
       description: product?.description ?? "",
       price: product ? String(product.price ?? "") : "",
       is_active: product?.is_active ?? true,
+      track_stock: product?.track_stock ?? false,
+      stock_quantity: product?.stock_quantity !== null && product?.stock_quantity !== undefined ? String(product.stock_quantity) : "",
+      stock_minimum_alert: product?.stock_minimum_alert !== null && product?.stock_minimum_alert !== undefined ? String(product.stock_minimum_alert) : "",
     });
   }, [open, product]);
 
@@ -54,6 +60,9 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
       description: form.description.trim() || null,
       price: form.price.trim() ? Number(form.price) : 0,
       is_active: form.is_active,
+      track_stock: form.track_stock,
+      stock_quantity: form.track_stock && form.stock_quantity.trim() !== "" ? Math.max(0, Number(form.stock_quantity)) : null,
+      stock_minimum_alert: form.track_stock && form.stock_minimum_alert.trim() !== "" ? Math.max(0, Number(form.stock_minimum_alert)) : null,
     };
 
     try {
@@ -115,6 +124,50 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
               />
             </div>
+            {/* Controle de estoque (Parte 7 do Sprint 10B). */}
+            <div className="space-y-3 rounded-lg border p-3" style={{ borderColor: "var(--via-border)" }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="track_stock">Controlar estoque</Label>
+                  <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                    Deal ganho baixa o estoque; reabrir ou perder depois recompõe. Sem controle,
+                    o produto é ilimitado (serviços).
+                  </p>
+                </div>
+                <Switch
+                  id="track_stock"
+                  checked={form.track_stock}
+                  onCheckedChange={(checked) => setForm({ ...form, track_stock: checked })}
+                  data-testid="product-track-stock"
+                />
+              </div>
+              {form.track_stock && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="stock_quantity">Quantidade em estoque</Label>
+                    <Input
+                      id="stock_quantity"
+                      type="number"
+                      min="0"
+                      value={form.stock_quantity}
+                      onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
+                      data-testid="product-stock-quantity"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="stock_minimum_alert">Alertar abaixo de</Label>
+                    <Input
+                      id="stock_minimum_alert"
+                      type="number"
+                      min="0"
+                      value={form.stock_minimum_alert}
+                      onChange={(e) => setForm({ ...form, stock_minimum_alert: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between rounded-lg border p-3" style={{ borderColor: "var(--via-border)" }}>
               <div>
                 <Label htmlFor="is_active">Produto ativo</Label>
