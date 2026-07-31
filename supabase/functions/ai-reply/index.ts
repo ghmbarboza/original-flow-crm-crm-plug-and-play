@@ -24,19 +24,43 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** Detecção de intenção de compra (Parte 6 do Sprint 10A), gravada pela tela de IA. */
+interface PurchaseIntentRules {
+  keywords?: string[];
+  notify?: boolean;
+  move_to_stage_id?: string | null;
+  take_over?: boolean;
+}
+
 interface TriggerRules {
   keywords?: string[];
   max_ai_turns?: number;
+  purchase_intent?: PurchaseIntentRules;
+}
+
+function matchesKeyword(text: string, keywords: string[] | undefined): boolean {
+  const lower = text.toLowerCase();
+  for (const kw of keywords ?? []) {
+    if (kw && lower.includes(kw.toLowerCase())) return true;
+  }
+  return false;
 }
 
 /** Decide se a mensagem do cliente deve escalar para humano. */
 function shouldEscalate(text: string, rules: TriggerRules, aiTurns: number, maxTurns: number): boolean {
-  const lower = text.toLowerCase();
-  for (const kw of rules.keywords ?? []) {
-    if (kw && lower.includes(kw.toLowerCase())) return true;
-  }
+  if (matchesKeyword(text, rules.keywords)) return true;
   if (maxTurns > 0 && aiTurns >= maxTurns) return true;
   return false;
+}
+
+/**
+ * Mesma mecânica de keywords do shouldEscalate, ações diferentes: intenção de
+ * compra notifica o responsável e opcionalmente move o deal, em vez de tirar a
+ * IA da conversa (a não ser que take_over esteja ligado).
+ */
+function detectPurchaseIntent(text: string, rules: PurchaseIntentRules | undefined): boolean {
+  if (!rules) return false;
+  return matchesKeyword(text, rules.keywords);
 }
 
 interface WorkingDay {
@@ -187,7 +211,7 @@ Deno.serve(async (req) => {
 
     const { data: conversation } = await admin
       .from("conversations")
-      .select("id, org_id, phone_number, provider, status")
+      .select("id, org_id, phone_number, provider, status, assigned_to, contact_id, deal_id, channel_contact_name")
       .eq("id", conversation_id)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversa não encontrada" }, 404);
@@ -289,6 +313,114 @@ Deno.serve(async (req) => {
       return json({ escalated: true, fallback_enviado: !!fallback });
     }
 
+    // Intenção de compra: escalonamento tem precedência (acima retorna); aqui a
+    // IA segue na conversa, mas o time é avisado e o deal pode avançar de etapa.
+    const intentRules = rules.purchase_intent;
+    const purchaseIntent =
+      !!lastInbound?.content && detectPurchaseIntent(lastInbound.content, intentRules);
+
+    if (purchaseIntent && intentRules) {
+      const quem = conversation.channel_contact_name || conversation.phone_number;
+
+      // Notifica com janela de dedupe: o cliente repetindo "quero comprar" em
+      // mensagens seguidas dispararia um aviso por webhook sem esta guarda.
+      if (intentRules.notify !== false) {
+        const { data: recente } = await admin
+          .from("notifications")
+          .select("id")
+          .eq("org_id", conversation.org_id)
+          .eq("type", "intencao_compra")
+          .eq("entity_id", conversation.id)
+          .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
+          .limit(1);
+
+        if (!recente || recente.length === 0) {
+          const titulo = "Intenção de compra detectada";
+          const corpo = `${quem} demonstrou intenção de compra na conversa: "${lastInbound!.content!.slice(0, 120)}"`;
+          if (conversation.assigned_to) {
+            await admin.rpc("create_notification", {
+              p_org: conversation.org_id,
+              p_user: conversation.assigned_to,
+              p_event_type: "intencao_compra",
+              p_title: titulo,
+              p_body: corpo,
+              p_entity_type: "conversation",
+              p_entity_id: conversation.id,
+            });
+          } else {
+            // Sem dono, o aviso vai para os admins — intenção de compra sem
+            // ninguém sabendo é exatamente o que esta regra existe para evitar.
+            await admin.rpc("notify_org_admins", {
+              p_org: conversation.org_id,
+              p_event_type: "intencao_compra",
+              p_title: titulo,
+              p_body: corpo,
+              p_entity_type: "conversation",
+              p_entity_id: conversation.id,
+            });
+          }
+        }
+      }
+
+      // Move o deal aberto para a etapa configurada. Preferência: o deal já
+      // vinculado à conversa; senão, o deal aberto mais recente do contato.
+      if (intentRules.move_to_stage_id) {
+        let dealAlvo: { id: string; stage_id: string | null } | null = null;
+        if (conversation.deal_id) {
+          const { data } = await admin
+            .from("deals")
+            .select("id, stage_id, status")
+            .eq("id", conversation.deal_id)
+            .eq("org_id", conversation.org_id)
+            .maybeSingle();
+          if (data && data.status === "open") dealAlvo = data;
+        }
+        if (!dealAlvo && conversation.contact_id) {
+          const { data } = await admin
+            .from("deals")
+            .select("id, stage_id")
+            .eq("org_id", conversation.org_id)
+            .eq("contact_id", conversation.contact_id)
+            .eq("status", "open")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          dealAlvo = data;
+        }
+
+        if (dealAlvo && dealAlvo.stage_id !== intentRules.move_to_stage_id) {
+          // A etapa precisa ser da mesma org — a config pode ter ficado órfã
+          // após uma reconstrução de pipeline.
+          const { data: stage } = await admin
+            .from("pipeline_stages")
+            .select("id, win_probability")
+            .eq("id", intentRules.move_to_stage_id)
+            .eq("org_id", conversation.org_id)
+            .maybeSingle();
+          if (stage) {
+            await admin
+              .from("deals")
+              .update({
+                stage_id: stage.id,
+                probability: stage.win_probability,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", dealAlvo.id);
+          }
+        }
+      }
+
+      // Assumir a conversa: tira a IA e devolve sem resposta automática. O
+      // agente notificado acima é quem continua o papo.
+      if (intentRules.take_over) {
+        await admin
+          .from("conversations")
+          .update({ status: "human_takeover", updated_at: new Date().toISOString() })
+          .eq("id", conversation_id);
+        return json({ purchase_intent: true, taken_over: true });
+      }
+    }
+
     // Base de conhecimento.
     const [faqs, objections, products] = await Promise.all([
       admin.from("ai_knowledge_faqs").select("question, answer").eq("org_id", conversation.org_id).order("order"),
@@ -364,7 +496,7 @@ Deno.serve(async (req) => {
       })
       .eq("id", conversation_id);
 
-    return json({ ok: true, replied: reply });
+    return json({ ok: true, replied: reply, purchase_intent: purchaseIntent });
   } catch (err) {
     if (err instanceof ErroIA) return json({ error: err.publico }, err.status);
     return json({ error: err instanceof Error ? err.message : "Erro inesperado" }, 500);

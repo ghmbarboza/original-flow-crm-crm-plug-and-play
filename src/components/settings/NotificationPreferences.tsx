@@ -34,6 +34,12 @@ const EVENTS: { type: string; label: string; description: string }[] = [
     label: "Agente no limite",
     description: "Um agente atingiu o máximo de conversas configurado para o canal.",
   },
+  // Sprint 10A — detecção de intenção de compra.
+  {
+    type: "intencao_compra",
+    label: "Intenção de compra",
+    description: "Um cliente usou palavras que indicam intenção de compra numa conversa.",
+  },
 ];
 
 const CHANNELS: { key: keyof ChannelPrefs; label: string }[] = [
