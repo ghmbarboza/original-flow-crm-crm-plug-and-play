@@ -29,9 +29,11 @@ export const VIA = {
   gray800: '#1D2939',
   gray900: '#101828',
   black: '#000000',
-  success: '#1F8A5B',
+  // Sincronizado com --via-success do index.css (contraste AA com branco).
+  success: '#187A4F',
   danger: '#B83A3A',
-  coral: '#B85C5C',
+  // Sincronizado com --via-coral do index.css (contraste AA com branco).
+  coral: '#A64B4B',
 } as const;
 
 /** Cores oferecidas ao usuário para etapas de pipeline e tags. Nunca usar `input[type=color]` livre. */

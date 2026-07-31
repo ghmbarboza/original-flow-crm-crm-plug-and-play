@@ -206,6 +206,13 @@ export default function ContactDetailPage() {
         lockedType="task"
         hideLinks
       />
+      {/* A auditoria de 2026-07-31 pegou o botão sem efeito: o estado ligava,
+          mas o dialog nunca era montado. */}
+      <ScheduleMessageDialog
+        open={agendarOpen}
+        onOpenChange={setAgendarOpen}
+        contactId={contato.id}
+      />
     </AppShell>
   );
 }

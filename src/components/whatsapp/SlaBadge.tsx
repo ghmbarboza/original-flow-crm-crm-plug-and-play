@@ -2,11 +2,16 @@ import { useEffect, useState } from "react";
 import { Timer } from "lucide-react";
 import { formatWaitingTime, slaStatus, type ConversationForSla, type SlaConfigLite } from "@/lib/sla";
 
-/** Cores por nível: verde dentro do SLA, amarelo em alerta, vermelho estourado. */
+/**
+ * Cores por nível: verde dentro do SLA, âmbar em alerta, vermelho estourado.
+ * Os textos são mais escuros que os tokens da marca de propósito: sobre a
+ * tinta de 15% os tokens davam ~3,6:1 e o axe reprovou (auditoria de
+ * 2026-07-31); estes rendem ≥ 5,5:1 sobre as respectivas tintas.
+ */
 const LEVEL_STYLE = {
-  ok: { background: "color-mix(in srgb, var(--via-success) 15%, transparent)", color: "var(--via-success)" },
-  warning: { background: "color-mix(in srgb, #b45309 15%, transparent)", color: "#b45309" },
-  breached: { background: "color-mix(in srgb, var(--via-coral) 15%, transparent)", color: "var(--via-coral)" },
+  ok: { background: "color-mix(in srgb, #10603D 15%, transparent)", color: "#10603D" },
+  warning: { background: "color-mix(in srgb, #7A3B06 15%, transparent)", color: "#7A3B06" },
+  breached: { background: "color-mix(in srgb, #8F3535 15%, transparent)", color: "#8F3535" },
 } as const;
 
 const LEVEL_LABEL = {

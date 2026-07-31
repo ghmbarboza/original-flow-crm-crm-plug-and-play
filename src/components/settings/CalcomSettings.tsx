@@ -41,8 +41,14 @@ export default function CalcomSettings() {
   };
 
   const copiarWebhook = async () => {
-    await navigator.clipboard.writeText(webhookUrl);
-    toast.success("URL do webhook copiada.");
+    // Clipboard pode ser negado (permissão, iframe) — sem o catch o clique
+    // vira exceção não tratada.
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      toast.success("URL do webhook copiada.");
+    } catch {
+      toast.error("Não foi possível copiar automaticamente. Selecione o texto e copie à mão.");
+    }
   };
 
   const submeter = async () => {
