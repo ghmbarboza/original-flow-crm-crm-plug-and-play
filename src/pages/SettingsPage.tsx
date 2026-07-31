@@ -13,9 +13,10 @@ import FollowupSettings from "@/components/settings/FollowupSettings";
 import NotificationPreferences from "@/components/settings/NotificationPreferences";
 import CaptureFormsSettings from "@/components/settings/CaptureFormsSettings";
 import AtendimentoSettings from "@/components/settings/AtendimentoSettings";
+import PipelineSettings from "@/components/settings/PipelineSettings";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "notifications", "security", "channels", "atendimento", "integrations", "capture", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "notifications", "security", "channels", "pipeline", "atendimento", "integrations", "capture", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -42,6 +43,10 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
   capture: {
     title: "Captura de Leads",
     description: "Crie formulários públicos que capturam leads e os direcionam para um funil e uma automação.",
+  },
+  pipeline: {
+    title: "Pipeline",
+    description: "Automações por etapa do funil: o que acontece quando um deal entra em cada etapa.",
   },
   atendimento: {
     title: "Atendimento",
@@ -101,6 +106,7 @@ export default function SettingsPage() {
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="integrations">Integrações</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="channels">Canais</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="capture">Captura de Leads</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="pipeline">Pipeline</TabsTrigger>}
             <TabsTrigger data-testid="settings-tab" value="atendimento">Atendimento</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="ia">IA</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="follow-up">Follow-up</TabsTrigger>}
@@ -117,6 +123,7 @@ export default function SettingsPage() {
           {isAdmin && <TabsContent value="channels"><ChannelsSettings /></TabsContent>}
           {isAdmin && <TabsContent value="integrations"><ApiKeysSettings /></TabsContent>}
           {isAdmin && <TabsContent value="capture"><CaptureFormsSettings /></TabsContent>}
+          {isAdmin && <TabsContent value="pipeline"><PipelineSettings /></TabsContent>}
           <TabsContent value="atendimento"><AtendimentoSettings /></TabsContent>
           {isAdmin && <TabsContent value="ia"><AISettings /></TabsContent>}
           {isAdmin && <TabsContent value="follow-up"><FollowupSettings /></TabsContent>}

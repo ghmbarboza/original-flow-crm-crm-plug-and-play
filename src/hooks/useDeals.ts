@@ -50,6 +50,28 @@ export function contactName(contact: Deal["contact"]): string | null {
  * coluna por etapa; sem etapas o board nasce vazio (a org já chega com o
  * pipeline default via trigger `seed_default_pipeline`).
  */
+/**
+ * Atualiza a configuração de automação de uma etapa (Configurações > Pipeline).
+ * Hoje: mensagem automática de entrada (template + delay). As Partes 5 e 9 do
+ * Sprint 10A acrescentam required_fields e o gatilho por resposta aqui.
+ */
+export function useUpdateStageConfig() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      auto_message_template?: string | null;
+      auto_message_delay_hours?: number;
+    }) => {
+      const { id, ...patch } = input;
+      const { error } = await supabase.from("pipeline_stages").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pipeline-stages", orgId] }),
+  });
+}
+
 export function useStages() {
   const orgId = useOrgId();
   return useQuery({

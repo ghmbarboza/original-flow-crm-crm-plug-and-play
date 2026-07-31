@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  ArrowRightLeft, Bot, CheckCheck, Flag, Link2, MessageCircle, Send, StickyNote, UserCheck, X,
+  ArrowRightLeft, Bot, CalendarClock, CheckCheck, Flag, Link2, MessageCircle, Send, StickyNote, UserCheck, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import { LinkContactDialog } from "@/components/whatsapp/LinkContactDialog";
 import { ReportAIResponseDialog } from "@/components/whatsapp/ReportAIResponseDialog";
 import { TransferDialog } from "@/components/whatsapp/TransferDialog";
 import { QuickReplyPicker, type QuickReplyPickerHandle } from "@/components/whatsapp/QuickReplyPicker";
+import { ScheduleMessageDialog } from "@/components/contacts/ScheduleMessageDialog";
 import { aplicarVariaveis, type QuickReply } from "@/hooks/useQuickReplies";
 import {
   conversationName, useMarkRead, useMessages, useSendMessage,
@@ -115,6 +116,7 @@ export function MessagePanel({ conversation, provider }: Props) {
   const pickerAberto = !isNote && !pickerFechado && text.startsWith("/") && !text.includes("\n");
   const [transferOpen, setTransferOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [agendarOpen, setAgendarOpen] = useState(false);
   const [reportando, setReportando] = useState<string | null>(null);
 
   // Reportar é ação de quem cuida da qualidade do atendimento, não do agente
@@ -304,6 +306,21 @@ export function MessagePanel({ conversation, provider }: Props) {
               <StickyNote className="h-3.5 w-3.5" strokeWidth={1.5} />
               Nota interna
             </Button>
+            {/* Agendar exige contato do CRM: a mensagem programada pertence ao
+                contato, e conversa sem vínculo não tem onde pendurá-la. */}
+            {conversation.contact && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setAgendarOpen(true)}
+                data-testid="inbox-agendar-mensagem"
+              >
+                <CalendarClock className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Agendar
+              </Button>
+            )}
             {isNote && (
               <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>
                 Visível só para a equipe — não vai ao cliente.
@@ -366,6 +383,14 @@ export function MessagePanel({ conversation, provider }: Props) {
         conversation={linkOpen ? conversation : null}
         onOpenChange={setLinkOpen}
       />
+      {conversation.contact && (
+        <ScheduleMessageDialog
+          open={agendarOpen}
+          onOpenChange={setAgendarOpen}
+          contactId={conversation.contact.id}
+          conversationId={conversation.id}
+        />
+      )}
     </div>
   );
 }

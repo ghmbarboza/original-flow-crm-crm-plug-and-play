@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Award, Building2, CheckSquare, Pencil, Plus, StickyNote, UserRound,
+  ArrowLeft, Award, Building2, CalendarClock, CheckSquare, Pencil, Plus, StickyNote, UserRound,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ErrorState";
@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ContactStatusBadge } from "@/components/contacts/ContactStatusBadge";
 import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ContactTimeline } from "@/components/contacts/ContactTimeline";
+import { ScheduleMessageDialog } from "@/components/contacts/ScheduleMessageDialog";
+import { ScheduledMessagesCard } from "@/components/contacts/ScheduledMessagesCard";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { useContact } from "@/hooks/useContacts";
 import { useCreateActivity } from "@/hooks/useActivities";
@@ -33,6 +35,7 @@ export default function ContactDetailPage() {
   const [textoNota, setTextoNota] = useState("");
   const [atividadeOpen, setAtividadeOpen] = useState(false);
   const [tarefaOpen, setTarefaOpen] = useState(false);
+  const [agendarOpen, setAgendarOpen] = useState(false);
 
   const salvarNota = async () => {
     if (!id || !textoNota.trim()) return;
@@ -153,6 +156,10 @@ export default function ContactDetailPage() {
             <CheckSquare className="h-4 w-4" strokeWidth={1.5} />
             Tarefa
           </Button>
+          <Button variant="outline" className="gap-1.5" onClick={() => setAgendarOpen(true)} data-testid="contact-agendar-mensagem">
+            <CalendarClock className="h-4 w-4" strokeWidth={1.5} />
+            Agendar mensagem
+          </Button>
         </div>
 
         {notaAberta && (
@@ -181,6 +188,7 @@ export default function ContactDetailPage() {
           </div>
         )}
 
+        <ScheduledMessagesCard contactId={contato.id} />
         <ContactTimeline contactId={contato.id} />
       </div>
 
