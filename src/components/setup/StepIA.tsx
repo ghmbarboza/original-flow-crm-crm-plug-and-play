@@ -11,13 +11,14 @@ import {
   PROMPT_BLOCKS, joinBlocks, splitBlocks, useGenerateSystemPrompt,
   type FaqGerada, type ObjecaoGerada,
 } from "@/hooks/useGenerateSystemPrompt";
-import { useImportFAQs, useImportObjections, useUpsertAIConfig } from "@/hooks/useAIConfig";
+import { useAIConfig, useImportFAQs, useImportObjections, useUpsertAIConfig } from "@/hooks/useAIConfig";
 import {
   contarPendencias, montarPromptRascunho, MARCA_PENDENTE, RASCUNHO_NOTA,
 } from "@/lib/promptRascunho";
 
 export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const { data: org } = useOrganization();
+  const { data: configExistente, isLoading: carregandoConfig } = useAIConfig();
   const gerar = useGenerateSystemPrompt();
   const upsertConfig = useUpsertAIConfig();
   const importarFaqs = useImportFAQs();
@@ -34,13 +35,22 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
   // da versão e mantém a IA desativada ao salvar.
   const [rascunho, setRascunho] = useState(false);
 
-  // Gera uma vez ao entrar na etapa. Regerar é ação explícita — a geração custa
-  // uma chamada ao modelo e o usuário pode já ter editado os blocos.
+  // Fonte única com Configurações > IA: se a org JÁ tem um prompt salvo
+  // (refazendo o onboarding, ou o admin configurou antes), a etapa abre com o
+  // que está no banco — nome do agente e blocos — em vez de gerar do zero.
+  // Só gera com IA quando não existe nada, e a geração continua custando uma
+  // chamada explícita ("Gerar de novo") a partir daí.
   useEffect(() => {
-    if (!org || blocos || gerar.isPending) return;
+    if (!org || blocos || gerar.isPending || carregandoConfig) return;
+    if (configExistente?.system_prompt?.trim()) {
+      setAgentName(configExistente.agent_name ?? "Assistente");
+      setBlocos(splitBlocks(configExistente.system_prompt));
+      setRascunho(false);
+      return;
+    }
     void executarGeracao(agentName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [org]);
+  }, [org, carregandoConfig]);
 
   const executarGeracao = async (nome: string) => {
     setErro(null);

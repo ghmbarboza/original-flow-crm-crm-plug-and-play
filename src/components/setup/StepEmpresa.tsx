@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { BUSINESS_SECTORS, useOrganization, useSaveSetupStep } from "@/hooks/useSetup";
+import { BUSINESS_SECTORS, COMPANY_SIZES, useOrganization, useSaveSetupStep } from "@/hooks/useSetup";
 
 /** Contador de caracteres que fica vermelho ao estourar o limite. */
 function Contador({ atual, max }: { atual: number; max: number }) {
@@ -18,13 +18,14 @@ function Contador({ atual, max }: { atual: number; max: number }) {
   );
 }
 
-export function StepEmpresa({ onNext }: { onNext: () => void }) {
+export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) {
   const { data: org } = useOrganization();
   const salvar = useSaveSetupStep();
 
   const [form, setForm] = useState({
     name: "",
     business_sector: "",
+    company_size: "",
     business_description: "",
     main_problem_solved: "",
   });
@@ -38,6 +39,7 @@ export function StepEmpresa({ onNext }: { onNext: () => void }) {
     setForm({
       name: org.name ?? "",
       business_sector: org.business_sector ?? "",
+      company_size: org.company_size ?? "",
       business_description: org.business_description ?? "",
       main_problem_solved: org.main_problem_solved ?? "",
     });
@@ -58,6 +60,7 @@ export function StepEmpresa({ onNext }: { onNext: () => void }) {
         patch: {
           name: form.name.trim(),
           business_sector: form.business_sector,
+          company_size: form.company_size || null,
           business_description: form.business_description.trim(),
           main_problem_solved: form.main_problem_solved.trim(),
         },
@@ -118,6 +121,32 @@ export function StepEmpresa({ onNext }: { onNext: () => void }) {
       </div>
 
       <div className="space-y-2">
+        <Label>Tamanho da equipe (opcional)</Label>
+        <div className="flex flex-wrap gap-2">
+          {COMPANY_SIZES.map((t) => {
+            const ativo = form.company_size === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                data-testid="setup-company-size"
+                data-size={t.value}
+                onClick={() => setForm({ ...form, company_size: ativo ? "" : t.value })}
+                className="rounded-full border px-3 py-1.5 text-sm transition-colors"
+                style={{
+                  borderColor: ativo ? "var(--via-navy)" : "var(--via-border)",
+                  background: ativo ? "var(--via-surface)" : "transparent",
+                  color: "var(--via-text-primary)",
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
         <div className="flex items-baseline justify-between">
           <Label htmlFor="org-desc">O que sua empresa vende e para quem?</Label>
           <Contador atual={form.business_description.length} max={300} />
@@ -153,7 +182,8 @@ export function StepEmpresa({ onNext }: { onNext: () => void }) {
         </p>
       </div>
 
-      <div className="flex justify-end">
+      <div className={onBack ? "flex justify-between" : "flex justify-end"}>
+        {onBack && <Button variant="outline" onClick={onBack}>Voltar</Button>}
         <Button onClick={avancar} disabled={!podeAvancar || salvar.isPending} data-testid="setup-next">
           {salvar.isPending ? "Salvando…" : "Avançar"}
         </Button>
