@@ -28,14 +28,23 @@ export const EMPTY_QUALIFICATION: Qualification = {
 /** Deal no recorte do Kanban e da lista: já traz etapa, contato e empresa embutidos. */
 export interface Deal extends DealRow {
   stage: { id: string; name: string; color: string; order: number } | null;
-  contact: { id: string; first_name: string; last_name: string | null } | null;
+  contact: {
+    id: string;
+    first_name: string;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp_phone: string | null;
+  } | null;
   company: { id: string; name: string } | null;
 }
 
+// Email/telefones do contato entram no recorte para a validação de campos
+// obrigatórios por etapa (Parte 5) rodar sem uma segunda query.
 const SELECT = `
   *,
   stage:pipeline_stages(id, name, color, order),
-  contact:contacts(id, first_name, last_name),
+  contact:contacts(id, first_name, last_name, email, phone, whatsapp_phone),
   company:companies(id, name)
 ` as const;
 
@@ -51,9 +60,9 @@ export function contactName(contact: Deal["contact"]): string | null {
  * pipeline default via trigger `seed_default_pipeline`).
  */
 /**
- * Atualiza a configuração de automação de uma etapa (Configurações > Pipeline).
- * Hoje: mensagem automática de entrada (template + delay). As Partes 5 e 9 do
- * Sprint 10A acrescentam required_fields e o gatilho por resposta aqui.
+ * Atualiza a configuração de uma etapa (Configurações > Pipeline): mensagem
+ * automática de entrada (template + delay) e campos obrigatórios para entrar
+ * na etapa. A Parte 9 do Sprint 10A acrescenta o gatilho por resposta aqui.
  */
 export function useUpdateStageConfig() {
   const orgId = useOrgId();
@@ -63,6 +72,7 @@ export function useUpdateStageConfig() {
       id: string;
       auto_message_template?: string | null;
       auto_message_delay_hours?: number;
+      required_fields?: Database["public"]["Tables"]["pipeline_stages"]["Update"]["required_fields"];
     }) => {
       const { id, ...patch } = input;
       const { error } = await supabase.from("pipeline_stages").update(patch).eq("id", id);

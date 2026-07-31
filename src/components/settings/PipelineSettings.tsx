@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { CalendarClock, Pencil } from "lucide-react";
+import { CalendarClock, ListChecks, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,18 +10,24 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { useStages, useUpdateStageConfig, type PipelineStage } from "@/hooks/useDeals";
+import {
+  REQUIRED_FIELD_OPTIONS, parseRequiredFields, type RequiredFieldRule,
+} from "@/lib/required-fields";
 
 /**
  * Configurações > Pipeline — automações por etapa.
  *
  * As etapas em si (nome, cor, ordem) nascem no setup e não são editadas aqui;
- * esta aba configura o que acontece QUANDO um deal entra em cada etapa. Hoje:
- * mensagem automática (Parte 3 do Sprint 10A). As Partes 5 (campos
- * obrigatórios) e 9 (gatilho por resposta) estendem esta mesma tela.
+ * esta aba configura o que acontece QUANDO um deal entra em cada etapa:
+ * mensagem automática (Parte 3 do Sprint 10A) e campos obrigatórios para
+ * entrar na etapa (Parte 5). A Parte 9 (gatilho por resposta) estende esta
+ * mesma tela.
  *
  * O agendamento em si é o trigger schedule_stage_message no banco — esta tela
- * só grava o template e o delay na etapa.
+ * só grava o template e o delay na etapa. A validação dos campos obrigatórios
+ * roda no cliente ao mover o deal (Kanban e ficha do negócio).
  */
 export default function PipelineSettings() {
   const { data: stages, isLoading } = useStages();
@@ -29,23 +36,38 @@ export default function PipelineSettings() {
   const [editando, setEditando] = useState<PipelineStage | null>(null);
   const [template, setTemplate] = useState("");
   const [delay, setDelay] = useState("0");
+  const [obrigatorios, setObrigatorios] = useState<Set<string>>(new Set());
 
   const abrir = (s: PipelineStage) => {
     setEditando(s);
     setTemplate(s.auto_message_template ?? "");
     setDelay(String(s.auto_message_delay_hours ?? 0));
+    setObrigatorios(new Set(parseRequiredFields(s.required_fields).map((r) => r.field)));
+  };
+
+  const alternarCampo = (field: string, marcado: boolean) => {
+    setObrigatorios((prev) => {
+      const next = new Set(prev);
+      if (marcado) next.add(field);
+      else next.delete(field);
+      return next;
+    });
   };
 
   const submeter = async (removendo = false) => {
     if (!editando) return;
+    const required_fields: RequiredFieldRule[] = REQUIRED_FIELD_OPTIONS
+      .filter((o) => obrigatorios.has(o.field))
+      .map((o) => (o.min !== undefined ? { field: o.field, min: o.min } : { field: o.field }));
     try {
       await salvar.mutateAsync({
         id: editando.id,
         auto_message_template: removendo ? null : template.trim() || null,
         auto_message_delay_hours: removendo ? 0 : Math.max(0, Number(delay) || 0),
+        required_fields,
       });
       setEditando(null);
-      toast.success(removendo ? "Automação removida." : "Automação salva.");
+      toast.success(removendo ? "Automação removida." : "Configuração salva.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
     }
@@ -59,39 +81,49 @@ export default function PipelineSettings() {
         Quando um deal entra numa etapa com mensagem automática, ela é agendada para o contato
         vinculado após o atraso configurado. Mover o deal para outra etapa cancela o que ainda
         não foi enviado. Variáveis: {"{{contact.first_name}}"}, {"{{contact.last_name}}"}, {"{{contact.name}}"}.
+        Etapas também podem exigir campos preenchidos para receber um negócio.
       </p>
 
       <ul className="space-y-2">
-        {(stages ?? []).map((s) => (
-          <li key={s.id} className="via-card flex flex-wrap items-center gap-3 p-4" data-testid="pipeline-stage-row">
-            <span aria-hidden className="h-3 w-3 shrink-0 rounded-full" style={{ background: s.color }} />
-            <span className="min-w-32 font-medium" style={{ color: "var(--via-text-primary)" }}>{s.name}</span>
-            <span className="flex-1 text-sm" style={{ color: "var(--via-text-muted)" }}>
-              {s.auto_message_template ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarClock className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
-                  Mensagem {s.auto_message_delay_hours ? `${s.auto_message_delay_hours}h depois` : "imediata"} —{" "}
-                  <span className="line-clamp-1">{s.auto_message_template}</span>
-                </span>
-              ) : (
-                "Sem mensagem automática"
-              )}
-            </span>
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => abrir(s)} data-testid={`pipeline-stage-config-${s.order}`}>
-              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Configurar
-            </Button>
-          </li>
-        ))}
+        {(stages ?? []).map((s) => {
+          const nRegras = parseRequiredFields(s.required_fields).length;
+          return (
+            <li key={s.id} className="via-card flex flex-wrap items-center gap-3 p-4" data-testid="pipeline-stage-row">
+              <span aria-hidden className="h-3 w-3 shrink-0 rounded-full" style={{ background: s.color }} />
+              <span className="min-w-32 font-medium" style={{ color: "var(--via-text-primary)" }}>{s.name}</span>
+              <span className="flex-1 space-y-0.5 text-sm" style={{ color: "var(--via-text-muted)" }}>
+                {s.auto_message_template ? (
+                  <span className="flex items-center gap-1.5">
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
+                    Mensagem {s.auto_message_delay_hours ? `${s.auto_message_delay_hours}h depois` : "imediata"} —{" "}
+                    <span className="line-clamp-1">{s.auto_message_template}</span>
+                  </span>
+                ) : (
+                  <span className="block">Sem mensagem automática</span>
+                )}
+                {nRegras > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <ListChecks className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
+                    {nRegras === 1 ? "1 campo obrigatório" : `${nRegras} campos obrigatórios`} para entrar
+                  </span>
+                )}
+              </span>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => abrir(s)} data-testid={`pipeline-stage-config-${s.order}`}>
+                <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Configurar
+              </Button>
+            </li>
+          );
+        })}
       </ul>
 
       <Dialog open={!!editando} onOpenChange={(open) => !open && setEditando(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Mensagem automática · {editando?.name}</DialogTitle>
+            <DialogTitle>Configurar etapa · {editando?.name}</DialogTitle>
             <DialogDescription>
-              Agendada quando um deal com contato vinculado entra nesta etapa. Deixe a mensagem
-              vazia (ou use "Remover") para desligar.
+              Mensagem automática agendada quando um deal com contato vinculado entra nesta etapa,
+              e campos exigidos para o negócio poder entrar nela.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -121,6 +153,28 @@ export default function PipelineSettings() {
                 0 = na primeira verificação do envio (até 5 minutos).
               </p>
             </div>
+
+            <Separator />
+
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+                Campos obrigatórios para entrar nesta etapa
+              </legend>
+              <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                Ao mover um negócio para cá (arrastando no Kanban ou pela ficha), o sistema
+                bloqueia a movimentação e lista o que falta preencher.
+              </p>
+              {REQUIRED_FIELD_OPTIONS.map((opt) => (
+                <label key={opt.field} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-primary)" }}>
+                  <Checkbox
+                    checked={obrigatorios.has(opt.field)}
+                    onCheckedChange={(v) => alternarCampo(opt.field, v === true)}
+                    data-testid={`stage-required-${opt.field}`}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </fieldset>
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
             {editando?.auto_message_template && (
