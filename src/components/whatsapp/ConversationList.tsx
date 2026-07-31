@@ -22,9 +22,11 @@ interface Props {
   isLoading: boolean;
   selectedId: string | null;
   onSelect: (conversation: Conversation) => void;
+  /** Texto do estado vazio quando um recorte (ex.: modo foco) explica a ausência. */
+  emptyHint?: string;
 }
 
-export function ConversationList({ conversations, isLoading, selectedId, onSelect }: Props) {
+export function ConversationList({ conversations, isLoading, selectedId, onSelect, emptyHint }: Props) {
   const [search, setSearch] = useState("");
   const [channel, setChannel] = useState<string>(ALL_CHANNELS);
 
@@ -107,7 +109,7 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
           <div className="p-8 text-center">
             <MessageCircle className="mx-auto mb-2 h-6 w-6" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
             <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
-              {search.trim() ? "Nenhuma conversa encontrada." : "Nenhuma conversa ainda."}
+              {search.trim() ? "Nenhuma conversa encontrada." : emptyHint ?? "Nenhuma conversa ainda."}
             </p>
           </div>
         ) : (
