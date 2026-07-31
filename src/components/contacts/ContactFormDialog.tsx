@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { AlertTriangle } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { useCompanies } from "@/hooks/useCompanies";
 import {
-  CONTACT_STATUS_LABEL, useCreateContact, useUpdateContact,
+  CONTACT_STATUS_LABEL, useCheckDuplicateContact, useCreateContact, useUpdateContact,
   type Contact, type ContactStatus,
 } from "@/hooks/useContacts";
 
@@ -30,6 +31,11 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
   const { data: companies } = useCompanies();
   const createContact = useCreateContact();
   const updateContact = useUpdateContact();
+  const checkDuplicate = useCheckDuplicateContact();
+
+  // Duplicata encontrada na primeira tentativa de criar: o submit vira
+  // "Criar mesmo assim" e o alerta mostra quem já existe.
+  const [duplicate, setDuplicate] = useState<Contact | null>(null);
 
   const [form, setForm] = useState({
     first_name: "",
@@ -46,6 +52,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
   // Recarrega o formulário sempre que o diálogo abre, para não vazar o estado da edição anterior.
   useEffect(() => {
     if (!open) return;
+    setDuplicate(null);
     setForm({
       first_name: contact?.first_name ?? "",
       last_name: contact?.last_name ?? "",
@@ -59,7 +66,13 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
     });
   }, [open, contact]);
 
-  const isSaving = createContact.isPending || updateContact.isPending;
+  const isSaving = createContact.isPending || updateContact.isPending || checkDuplicate.isPending;
+
+  /** Mudou email/telefone/WhatsApp depois do alerta? A checagem vale de novo. */
+  const setIdentityField = (field: "email" | "phone" | "whatsapp_phone", value: string) => {
+    setDuplicate(null);
+    setForm((f) => ({ ...f, [field]: value }));
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -86,6 +99,22 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
         await updateContact.mutateAsync({ id: contact.id, ...payload });
         toast.success("Contato atualizado.");
       } else {
+        // Antes de criar, procura duplicata por email/telefone/WhatsApp. A
+        // checagem é best-effort: se falhar, cria normalmente — bloquear a
+        // criação por causa de uma consulta auxiliar seria pior que a duplicata.
+        if (!duplicate) {
+          const existente = await checkDuplicate
+            .mutateAsync({
+              email: payload.email,
+              phone: payload.phone,
+              whatsapp_phone: payload.whatsapp_phone,
+            })
+            .catch(() => null);
+          if (existente) {
+            setDuplicate(existente);
+            return;
+          }
+        }
         await createContact.mutateAsync(payload);
         toast.success("Contato criado.");
       }
@@ -134,7 +163,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
                 id="email"
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={(e) => setIdentityField("email", e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -142,7 +171,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
               <Input
                 id="phone"
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                onChange={(e) => setIdentityField("phone", e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -151,7 +180,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
                 id="whatsapp_phone"
                 placeholder="5511999999999"
                 value={form.whatsapp_phone}
-                onChange={(e) => setForm({ ...form, whatsapp_phone: e.target.value })}
+                onChange={(e) => setIdentityField("whatsapp_phone", e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -210,12 +239,30 @@ export function ContactFormDialog({ open, onOpenChange, contact }: Props) {
             </div>
           </div>
 
+          {duplicate && (
+            <div
+              className="mb-4 flex items-start gap-2 rounded-lg border p-3 text-sm"
+              style={{ borderColor: "var(--via-border)", color: "var(--via-text-body)" }}
+              data-testid="contact-duplicate-alert"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-via-coral" strokeWidth={1.5} aria-hidden />
+              <p>
+                Já existe um contato com este email ou telefone:{" "}
+                <span className="font-medium" style={{ color: "var(--via-text-primary)" }}>
+                  {[duplicate.first_name, duplicate.last_name].filter(Boolean).join(" ") || duplicate.email}
+                </span>
+                {duplicate.email ? ` (${duplicate.email})` : ""}. Confira antes de criar uma duplicata —
+                ou use "Verificar duplicatas" em Contatos para mesclar.
+              </p>
+            </div>
+          )}
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
             <Button type="submit" disabled={isSaving} data-testid="contact-submit">
-              {isSaving ? "Salvando…" : isEdit ? "Salvar" : "Criar contato"}
+              {isSaving ? "Salvando…" : isEdit ? "Salvar" : duplicate ? "Criar mesmo assim" : "Criar contato"}
             </Button>
           </DialogFooter>
         </form>

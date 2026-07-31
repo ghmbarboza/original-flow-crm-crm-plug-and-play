@@ -16,6 +16,10 @@ export interface TimelineItem {
   body: string | null;
   at: string;
   meta?: string;
+  /** Para `activity`: o id real da linha, para editar/apagar a partir da timeline. */
+  activityId?: string;
+  /** Para `activity`: autor (user_id), para a regra "edita quem escreveu ou admin". */
+  authorId?: string | null;
 }
 
 /**
@@ -35,7 +39,7 @@ export function useContactTimeline(contactId: string | null) {
       const [activities, emails, deals, conversations] = await Promise.all([
         supabase
           .from("activities")
-          .select("id, type, title, body, created_at, due_date, completed_at")
+          .select("id, type, title, body, created_at, due_date, completed_at, user_id")
           .eq("contact_id", contactId!)
           .order("created_at", { ascending: false }),
         supabase
@@ -61,15 +65,31 @@ export function useContactTimeline(contactId: string | null) {
 
       const items: TimelineItem[] = [];
 
+      // Autor das anotações: activities.user_id aponta para auth.users, que o
+      // embed do PostgREST não alcança — os nomes vêm de profiles numa consulta à
+      // parte, só para os autores presentes.
+      const autorIds = [...new Set(
+        (activities.data ?? []).filter((a) => a.type === "note" && a.user_id).map((a) => a.user_id as string),
+      )];
+      const nomeAutor = new Map<string, string>();
+      if (autorIds.length > 0) {
+        const { data: perfis } = await supabase
+          .from("profiles").select("id, full_name").in("id", autorIds);
+        for (const p of perfis ?? []) nomeAutor.set(p.id, p.full_name);
+      }
+
       for (const a of activities.data ?? []) {
+        const autor = a.type === "note" && a.user_id ? nomeAutor.get(a.user_id) : undefined;
         items.push({
           id: `activity-${a.id}`,
           kind: "activity",
           activityType: a.type,
-          title: a.title,
+          title: a.type === "note" ? (autor ? `Anotação de ${autor}` : "Anotação") : a.title,
           body: a.body,
           at: a.created_at ?? "",
           meta: a.completed_at ? "Concluída" : a.due_date ? "Pendente" : undefined,
+          activityId: a.id,
+          authorId: a.user_id,
         });
       }
 

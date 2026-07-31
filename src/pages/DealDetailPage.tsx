@@ -20,11 +20,13 @@ import { DealProductsSection } from "@/components/deals/DealProductsSection";
 import { DealQualification } from "@/components/deals/DealQualification";
 import { DealActivitiesSection } from "@/components/deals/DealActivitiesSection";
 import { DealTimeline } from "@/components/deals/DealTimeline";
+import { RequiredFieldsDialog } from "@/components/deals/RequiredFieldsDialog";
 import {
   contactName, useDeal, useLossReasons, useMoveDealStage, useStages, useUpdateDeal,
 } from "@/hooks/useDeals";
 import { useOrgMemberNames } from "@/hooks/useOrgMembers";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { missingRequiredFields, parseRequiredFields } from "@/lib/required-fields";
 
 function InfoField({ icon: Icon, label, value }: { icon: typeof User; label: string; value: string | null }) {
   return (
@@ -55,10 +57,21 @@ export default function DealDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [lostOpen, setLostOpen] = useState(false);
   const [lossReasonId, setLossReasonId] = useState<string>(NO_REASON);
+  const [blocked, setBlocked] = useState<{ stageName: string; missing: string[] } | null>(null);
 
   const handleStageChange = async (stageId: string) => {
     if (!deal) return;
     const stage = stages?.find((s) => s.id === stageId);
+
+    // Mesma regra do Kanban: a etapa de destino pode exigir campos preenchidos.
+    if (stage) {
+      const missing = missingRequiredFields(parseRequiredFields(stage.required_fields), deal);
+      if (missing.length > 0) {
+        setBlocked({ stageName: stage.name, missing });
+        return;
+      }
+    }
+
     try {
       await moveStage.mutateAsync({ id: deal.id, stageId, probability: stage?.win_probability });
     } catch (err) {
@@ -231,6 +244,13 @@ export default function DealDetailPage() {
             </div>
 
             <DealFormDialog open={editOpen} onOpenChange={setEditOpen} deal={deal} />
+
+            <RequiredFieldsDialog
+              open={!!blocked}
+              onOpenChange={(open) => !open && setBlocked(null)}
+              stageName={blocked?.stageName ?? ""}
+              missing={blocked?.missing ?? []}
+            />
 
             <Dialog open={lostOpen} onOpenChange={setLostOpen}>
               <DialogContent className="max-w-md">

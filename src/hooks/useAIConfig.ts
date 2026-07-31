@@ -27,9 +27,25 @@ export interface WorkingDay {
 }
 export type WorkingHours = Record<string, WorkingDay>;
 
+/**
+ * Detecção de intenção de compra (Parte 6 do Sprint 10A). Vive dentro de
+ * `human_trigger_rules.purchase_intent` — mesmo JSONB do acionamento humano,
+ * lido pela edge function ai-reply a cada mensagem inbound.
+ */
+export interface PurchaseIntentRules {
+  keywords: string[];
+  /** Notificar o agente responsável (ou admins, se a conversa não tem dono). */
+  notify: boolean;
+  /** Etapa para onde mover o deal aberto do contato; null = não mover. */
+  move_to_stage_id: string | null;
+  /** Transferir a conversa para humano ao detectar. */
+  take_over: boolean;
+}
+
 export interface HumanTriggerRules {
   keywords: string[];
   negative_sentiment: boolean;
+  purchase_intent?: PurchaseIntentRules;
 }
 
 export function useAIConfig() {

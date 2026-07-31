@@ -48,3 +48,45 @@ test("contato: cria, edita e exclui", async ({ page }) => {
   // A busca segue filtrando pelo nome editado; a linha some da lista.
   await expect(page.getByTestId("contact-row").filter({ hasText: renamed })).toHaveCount(0);
 });
+
+/**
+ * Ficha do contato (/contacts/:id): navegação pelo drawer, anotação na timeline
+ * e "Sem empresa vinculada" como estado legítimo. Mesmo padrão do teste acima:
+ * o contato nasce e morre dentro do teste.
+ */
+test("ficha do contato: timeline, anotação e lead sem empresa", async ({ page }) => {
+  const name = uniqueName("Ficha");
+  const nota = `Anotação E2E ${Date.now()}`;
+
+  await gotoPage(page, "/contacts", "Contatos");
+
+  // Contato mínimo, sem empresa — para validar o estado "Sem empresa vinculada".
+  await page.getByTestId("contact-new").click();
+  const dialog = page.getByTestId("contact-dialog");
+  await dialog.locator("#first_name").fill(name);
+  await page.getByTestId("contact-submit").click();
+  await expect(dialog).toBeHidden();
+
+  // Linha → drawer → ficha completa.
+  await page.getByTestId("contact-search").fill(name);
+  await page.getByTestId("contact-row").filter({ hasText: name }).click();
+  await page.getByTestId("contact-ver-ficha").click();
+  await expect(page).toHaveURL(/\/contacts\/[0-9a-f-]{36}$/);
+  await expect(page.getByTestId("contact-detail-nome")).toHaveText(name);
+  await expect(page.getByText("Sem empresa vinculada")).toBeVisible();
+
+  // Anotação: cria e aparece na timeline com o destaque de nota.
+  await page.getByTestId("contact-nova-anotacao").click();
+  await page.getByTestId("contact-anotacao-texto").fill(nota);
+  await page.getByTestId("contact-anotacao-salvar").click();
+  await expect(page.getByTestId("timeline-nota").filter({ hasText: nota })).toBeVisible();
+
+  // Limpeza pela própria UI, como o teste do ciclo de vida.
+  await gotoPage(page, "/contacts", "Contatos");
+  await page.getByTestId("contact-search").fill(name);
+  await page.getByTestId("contact-row").filter({ hasText: name })
+    .getByTestId("contact-row-actions").click();
+  await page.getByTestId("contact-action-delete").click();
+  await page.getByTestId("confirm-delete").click();
+  await expect(page.getByTestId("contact-row").filter({ hasText: name })).toHaveCount(0);
+});

@@ -3,10 +3,12 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DealCard } from "@/components/deals/DealCard";
+import { RequiredFieldsDialog } from "@/components/deals/RequiredFieldsDialog";
 import {
   useMoveDealStage, useStages, type Deal, type PipelineStage,
 } from "@/hooks/useDeals";
 import { formatCurrency } from "@/lib/format";
+import { missingRequiredFields, parseRequiredFields } from "@/lib/required-fields";
 
 interface Props {
   deals: Deal[];
@@ -26,6 +28,7 @@ export function DealsKanban({ deals, isLoading, onSelect, onCreate }: Props) {
 
   const [dragging, setDragging] = useState<Deal | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<{ stageName: string; missing: string[] } | null>(null);
 
   // Agrupa os deals por etapa uma vez; deals sem etapa ficam de fora do board.
   const byStage = useMemo(() => {
@@ -44,6 +47,13 @@ export function DealsKanban({ deals, isLoading, onSelect, onCreate }: Props) {
     setDragging(null);
     setOverStage(null);
     if (!deal || deal.stage_id === stage.id) return;
+
+    // Campos obrigatórios da etapa de destino: bloqueia o drop e explica o que falta.
+    const missing = missingRequiredFields(parseRequiredFields(stage.required_fields), deal);
+    if (missing.length > 0) {
+      setBlocked({ stageName: stage.name, missing });
+      return;
+    }
 
     try {
       await moveStage.mutateAsync({
@@ -87,6 +97,12 @@ export function DealsKanban({ deals, isLoading, onSelect, onCreate }: Props) {
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-2">
+      <RequiredFieldsDialog
+        open={!!blocked}
+        onOpenChange={(open) => !open && setBlocked(null)}
+        stageName={blocked?.stageName ?? ""}
+        missing={blocked?.missing ?? []}
+      />
       {stages.map((stage) => {
         const stageDeals = byStage.get(stage.id) ?? [];
         const isOver = overStage === stage.id;

@@ -13,7 +13,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { downloadCsv, parseCsv, toCsv } from "@/lib/csv";
-import { useImportContacts, type ContactStatus } from "@/hooks/useContacts";
+import { useContacts, useImportContacts, type ContactStatus } from "@/hooks/useContacts";
+import { normalizeEmail, normalizePhone } from "@/lib/duplicates";
 
 /** Campos do contato que a importação sabe preencher. */
 const FIELDS = [
@@ -75,6 +76,9 @@ export function ContactImportDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const importContacts = useImportContacts();
+  // Base atual para detectar duplicatas (Parte 7): linhas com email/telefone
+  // que já existem viram erro de importação em vez de contato duplicado.
+  const { data: existingContacts } = useContacts();
   const [fileName, setFileName] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<string[][]>([]);
@@ -118,6 +122,17 @@ export function ContactImportDialog({
     const mapped = Object.entries(mapping).filter(([, field]) => field !== IGNORE);
     if (mapped.length === 0) return { valid, errors };
 
+    // Índices da base atual: email e telefones normalizados dos contatos ativos.
+    const knownEmails = new Set<string>();
+    const knownPhones = new Set<string>();
+    for (const c of existingContacts ?? []) {
+      const email = normalizeEmail(c.email);
+      if (email) knownEmails.add(email);
+      for (const p of [normalizePhone(c.phone), normalizePhone(c.whatsapp_phone)]) {
+        if (p) knownPhones.add(p.slice(-10));
+      }
+    }
+
     rows.forEach((row, index) => {
       // Linha física no arquivo: é o número que o usuário vê ao abrir a planilha.
       const line = lineNumbers[index] ?? index + 2;
@@ -153,12 +168,26 @@ export function ContactImportDialog({
         return;
       }
 
+      // Duplicata da base atual: não importa de novo quem já existe.
+      const rowEmail = normalizeEmail(contact.email as string | undefined);
+      if (rowEmail && knownEmails.has(rowEmail)) {
+        errors.push({ line, reason: `Já existe um contato com o email "${contact.email}".` });
+        return;
+      }
+      for (const raw of [contact.phone, contact.whatsapp_phone]) {
+        const p = normalizePhone(raw as string | undefined);
+        if (p && knownPhones.has(p.slice(-10))) {
+          errors.push({ line, reason: `Já existe um contato com o telefone "${raw}".` });
+          return;
+        }
+      }
+
       if (!contact.first_name) contact.first_name = "";
       valid.push(contact);
     });
 
     return { valid, errors };
-  }, [rows, lineNumbers, mapping]);
+  }, [rows, lineNumbers, mapping, existingContacts]);
 
   const handleImport = async () => {
     try {

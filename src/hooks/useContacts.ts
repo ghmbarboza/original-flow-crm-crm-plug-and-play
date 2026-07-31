@@ -158,12 +158,55 @@ export function useImportContacts() {
 }
 
 /**
+ * Checagem de duplicata na criação (Parte 7 do Sprint 10A): existe contato
+ * ativo com o mesmo email, telefone ou WhatsApp? Consulta o servidor — a lista
+ * em memória pode estar desatualizada ou nem carregada (ex.: criação a partir
+ * de outra tela).
+ *
+ * Best-effort: quem chama decide o que fazer com o resultado; um erro aqui não
+ * deve impedir a criação do contato.
+ */
+export function useCheckDuplicateContact() {
+  const orgId = useOrgId();
+
+  return useMutation({
+    mutationFn: async (input: {
+      email?: string | null;
+      phone?: string | null;
+      whatsapp_phone?: string | null;
+      excludeId?: string;
+    }): Promise<Contact | null> => {
+      if (!orgId) return null;
+      const ors: string[] = [];
+      if (input.email?.trim()) ors.push(`email.eq.${input.email.trim()}`);
+      if (input.phone?.trim()) ors.push(`phone.eq.${input.phone.trim()}`);
+      if (input.whatsapp_phone?.trim()) ors.push(`whatsapp_phone.eq.${input.whatsapp_phone.trim()}`);
+      if (ors.length === 0) return null;
+
+      let query = supabase
+        .from("contacts")
+        .select(SELECT)
+        .eq("org_id", orgId)
+        .is("merged_into_id", null)
+        .or(ors.join(","))
+        .limit(1);
+      if (input.excludeId) query = query.neq("id", input.excludeId);
+
+      const { data, error } = await query.maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as unknown as Contact | null;
+    },
+  });
+}
+
+/**
  * Merge manual de contatos (Admin).
  *
  * Não apaga o duplicado: reaponta os vínculos para o sobrevivente e marca o
- * absorvido com `merged_into_id`, preservando o histórico. Campos vazios do
- * sobrevivente são preenchidos com o dado do absorvido — "o dado mais recente
- * prevalece, mas nada se perde".
+ * absorvido com `merged_into_id` + `is_active = false`, preservando o
+ * histórico. Campos vazios do sobrevivente são preenchidos com o dado do
+ * absorvido — "o dado mais recente prevalece, mas nada se perde". Cada merge
+ * fica registrado em `contact_merges` (auditoria).
  */
 export function useMergeContacts() {
   const orgId = useOrgId();
@@ -189,10 +232,14 @@ export function useMergeContacts() {
         if (!keep[field] && merged[field]) fill[field] = merged[field];
       }
 
-      // Reaponta os vínculos. Tags usam upsert-ignore: o par pode já existir no sobrevivente.
+      // Reaponta os vínculos: histórico, negócios, emails, conversas e
+      // mensagens programadas passam a apontar para o sobrevivente. Tags usam
+      // upsert-ignore: o par pode já existir no sobrevivente.
       await supabase.from("activities").update({ contact_id: keepId }).eq("contact_id", mergeId);
       await supabase.from("deals").update({ contact_id: keepId }).eq("contact_id", mergeId);
       await supabase.from("emails").update({ contact_id: keepId }).eq("contact_id", mergeId);
+      await supabase.from("conversations").update({ contact_id: keepId }).eq("contact_id", mergeId);
+      await supabase.from("scheduled_messages").update({ contact_id: keepId }).eq("contact_id", mergeId);
 
       const { data: mergedTags } = await supabase
         .from("contact_tags").select("tag_id").eq("contact_id", mergeId);
@@ -216,10 +263,28 @@ export function useMergeContacts() {
 
       const { error: markError } = await supabase
         .from("contacts")
-        .update({ merged_into_id: keepId, updated_at: new Date().toISOString() })
+        .update({
+          merged_into_id: keepId,
+          is_active: false,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", mergeId);
       if (markError) throw markError;
+
+      // Trilha de auditoria: quem mesclou o quê e quando.
+      const { data: auth } = await supabase.auth.getUser();
+      const { error: auditError } = await supabase.from("contact_merges").insert({
+        org_id: orgId!,
+        primary_contact_id: keepId,
+        merged_contact_id: mergeId,
+        merged_by: auth.user?.id ?? null,
+      });
+      if (auditError) throw auditError;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contacts", orgId] }),
+    onSuccess: (_data, { keepId }) => {
+      queryClient.invalidateQueries({ queryKey: ["contacts", orgId] });
+      queryClient.invalidateQueries({ queryKey: ["contact", keepId] });
+      queryClient.invalidateQueries({ queryKey: ["deals", orgId] });
+    },
   });
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
-import { Bot, Clock, MessageSquare, Sliders, Sparkles } from "lucide-react";
+import { Bot, Clock, MessageSquare, ShoppingCart, Sliders, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,14 +10,18 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KnowledgePanel } from "@/components/settings/ai/KnowledgePanel";
 import { PromptVersionsPanel } from "@/components/settings/ai/PromptVersionsPanel";
 import { useActiveProducts } from "@/hooks/useProducts";
+import { useStages } from "@/hooks/useDeals";
 import {
   WEEK_DAYS, useAIConfig, useDeleteFAQ, useDeleteObjection, useFAQs, useImportFAQs,
   useImportObjections, useObjections, useSaveFAQ, useSaveObjection, useUpsertAIConfig,
-  type HumanTriggerRules, type WorkingHours,
+  type HumanTriggerRules, type PurchaseIntentRules, type WorkingHours,
 } from "@/hooks/useAIConfig";
 import { useGenerateSystemPrompt } from "@/hooks/useGenerateSystemPrompt";
 import { formatCurrency } from "@/lib/format";
@@ -84,6 +88,14 @@ export default function AISettings() {
   const [workingHours, setWorkingHours] = useState<WorkingHours>(defaultWorkingHours());
   const [triggers, setTriggers] = useState<HumanTriggerRules>({ keywords: [], negative_sentiment: false });
   const [keywordsText, setKeywordsText] = useState("");
+  const [intent, setIntent] = useState<PurchaseIntentRules>({
+    keywords: [],
+    notify: true,
+    move_to_stage_id: null,
+    take_over: false,
+  });
+  const [intentKeywordsText, setIntentKeywordsText] = useState("");
+  const { data: stages } = useStages();
 
   useEffect(() => {
     if (!config) return;
@@ -104,15 +116,28 @@ export default function AISettings() {
     const tr = (config.human_trigger_rules ?? {}) as unknown as Partial<HumanTriggerRules>;
     setTriggers({ keywords: tr.keywords ?? [], negative_sentiment: tr.negative_sentiment ?? false });
     setKeywordsText((tr.keywords ?? []).join(", "));
+    const pi = tr.purchase_intent;
+    setIntent({
+      keywords: pi?.keywords ?? [],
+      notify: pi?.notify ?? true,
+      move_to_stage_id: pi?.move_to_stage_id ?? null,
+      take_over: pi?.take_over ?? false,
+    });
+    setIntentKeywordsText((pi?.keywords ?? []).join(", "));
   }, [config]);
 
   const save = async () => {
     const keywords = keywordsText.split(",").map((k) => k.trim()).filter(Boolean);
+    const intentKeywords = intentKeywordsText.split(",").map((k) => k.trim()).filter(Boolean);
     try {
       await upsert.mutateAsync({
         ...form,
         working_hours: workingHours as never,
-        human_trigger_rules: { ...triggers, keywords } as never,
+        human_trigger_rules: {
+          ...triggers,
+          keywords,
+          purchase_intent: { ...intent, keywords: intentKeywords },
+        } as never,
       });
       toast.success("Configuração da IA salva.");
     } catch (error) {
@@ -262,6 +287,72 @@ export default function AISettings() {
                 onCheckedChange={(v) => setTriggers({ ...triggers, negative_sentiment: v })}
               />
               <span className="text-sm" style={{ color: "var(--via-text-body)" }}>Transferir ao detectar sentimento negativo</span>
+            </label>
+          </div>
+
+          <Separator />
+
+          {/* Detecção de intenção de compra (Parte 6 do Sprint 10A). */}
+          <div className="space-y-3">
+            <Label className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4" strokeWidth={1.5} />
+              Detecção de intenção de compra
+            </Label>
+            <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+              Quando o cliente usa uma destas palavras, a IA continua atendendo, mas o time é
+              avisado — e o negócio pode avançar de etapa sozinho.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="intent-keywords" className="text-xs font-normal">Palavras e frases que indicam intenção (separadas por vírgula)</Label>
+              <Input
+                id="intent-keywords"
+                value={intentKeywordsText}
+                onChange={(e) => setIntentKeywordsText(e.target.value)}
+                placeholder="quero comprar, fechar, quanto custa, me manda a proposta"
+                data-testid="intent-keywords"
+              />
+            </div>
+            <label className="flex items-center gap-2">
+              <Switch
+                aria-label="Notificar o agente responsável ao detectar intenção de compra"
+                checked={intent.notify}
+                onCheckedChange={(v) => setIntent({ ...intent, notify: v })}
+                data-testid="intent-notify"
+              />
+              <span className="text-sm" style={{ color: "var(--via-text-body)" }}>Notificar o agente responsável</span>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm" style={{ color: "var(--via-text-body)" }}>Mover o negócio para a etapa</span>
+              <Select
+                value={intent.move_to_stage_id ?? "__none__"}
+                onValueChange={(v) => setIntent({ ...intent, move_to_stage_id: v === "__none__" ? null : v })}
+              >
+                <SelectTrigger className="w-56" aria-label="Etapa de destino ao detectar intenção de compra" data-testid="intent-stage">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Não mover</SelectItem>
+                  {(stages ?? []).map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full" style={{ background: stage.color }} aria-hidden />
+                        {stage.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <label className="flex items-center gap-2">
+              <Switch
+                aria-label="Assumir a conversa automaticamente ao detectar intenção de compra"
+                checked={intent.take_over}
+                onCheckedChange={(v) => setIntent({ ...intent, take_over: v })}
+                data-testid="intent-take-over"
+              />
+              <span className="text-sm" style={{ color: "var(--via-text-body)" }}>
+                Assumir conversa automaticamente (transfere para humano)
+              </span>
             </label>
           </div>
 

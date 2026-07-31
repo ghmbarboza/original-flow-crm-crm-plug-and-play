@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WhatsAppStatusBadge } from "@/components/whatsapp/WhatsAppStatusBadge";
 import { ChannelBadge, channelMeta } from "@/components/whatsapp/ChannelBadge";
+import { SlaBadge } from "@/components/whatsapp/SlaBadge";
 import { conversationName, type Conversation } from "@/hooks/useConversations";
+import { useSlaConfig } from "@/hooks/useSla";
 import { formatDateTime } from "@/lib/format";
 
 const ALL_CHANNELS = "__all__";
@@ -22,11 +24,14 @@ interface Props {
   isLoading: boolean;
   selectedId: string | null;
   onSelect: (conversation: Conversation) => void;
+  /** Texto do estado vazio quando um recorte (ex.: modo foco) explica a ausência. */
+  emptyHint?: string;
 }
 
-export function ConversationList({ conversations, isLoading, selectedId, onSelect }: Props) {
+export function ConversationList({ conversations, isLoading, selectedId, onSelect, emptyHint }: Props) {
   const [search, setSearch] = useState("");
   const [channel, setChannel] = useState<string>(ALL_CHANNELS);
+  const { data: slaConfig } = useSlaConfig();
 
   // Canais presentes na lista (para montar os chips de filtro só quando fazem sentido).
   const channels = useMemo(() => {
@@ -107,7 +112,7 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
           <div className="p-8 text-center">
             <MessageCircle className="mx-auto mb-2 h-6 w-6" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
             <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
-              {search.trim() ? "Nenhuma conversa encontrada." : "Nenhuma conversa ainda."}
+              {search.trim() ? "Nenhuma conversa encontrada." : emptyHint ?? "Nenhuma conversa ainda."}
             </p>
           </div>
         ) : (
@@ -154,6 +159,7 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
                       </p>
                       <div className="mt-1 flex items-center gap-2">
                         <WhatsAppStatusBadge status={conversation.status} />
+                        <SlaBadge conversation={conversation} config={slaConfig} />
                         {conversation.unread_count > 0 && (
                           <span
                             className="inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium"

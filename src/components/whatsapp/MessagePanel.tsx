@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  ArrowRightLeft, Bot, CheckCheck, Flag, Link2, MessageCircle, Send, StickyNote, UserCheck, X,
+  ArrowRightLeft, Bot, CalendarClock, CheckCheck, Flag, Link2, MessageCircle, Send, StickyNote, UserCheck, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,9 @@ import { ChannelBadge } from "@/components/whatsapp/ChannelBadge";
 import { LinkContactDialog } from "@/components/whatsapp/LinkContactDialog";
 import { ReportAIResponseDialog } from "@/components/whatsapp/ReportAIResponseDialog";
 import { TransferDialog } from "@/components/whatsapp/TransferDialog";
+import { QuickReplyPicker, type QuickReplyPickerHandle } from "@/components/whatsapp/QuickReplyPicker";
+import { ScheduleMessageDialog } from "@/components/contacts/ScheduleMessageDialog";
+import { aplicarVariaveis, type QuickReply } from "@/hooks/useQuickReplies";
 import {
   conversationName, useMarkRead, useMessages, useSendMessage,
   useUpdateConversation, type Conversation, type Message,
@@ -106,8 +109,14 @@ export function MessagePanel({ conversation, provider }: Props) {
 
   const [text, setText] = useState("");
   const [isNote, setIsNote] = useState(false);
+  // Respostas rápidas: "/..." no início do composer abre a lista; o handler de
+  // teclado vem do picker via ref para as setas/Enter não enviarem a mensagem.
+  const [pickerFechado, setPickerFechado] = useState(false);
+  const pickerRef = useRef<QuickReplyPickerHandle | null>(null);
+  const pickerAberto = !isNote && !pickerFechado && text.startsWith("/") && !text.includes("\n");
   const [transferOpen, setTransferOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [agendarOpen, setAgendarOpen] = useState(false);
   const [reportando, setReportando] = useState<string | null>(null);
 
   // Reportar é ação de quem cuida da qualidade do atendimento, não do agente
@@ -127,6 +136,19 @@ export function MessagePanel({ conversation, provider }: Props) {
     // navegador rola o ancestral rolável mais próximo — que antes era a página.
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
+
+  const usarResposta = (r: QuickReply) => {
+    // O texto substitui o campo inteiro, com as variáveis do contato resolvidas.
+    // O agente ainda revisa antes de enviar — nada vai automático.
+    setText(aplicarVariaveis(r.message, {
+      "contact.first_name": conversation.contact?.first_name,
+      "contact.last_name": conversation.contact?.last_name,
+      "contact.name": conversation.contact
+        ? [conversation.contact.first_name, conversation.contact.last_name].filter(Boolean).join(" ")
+        : conversation.channel_contact_name,
+    }));
+    setPickerFechado(true);
+  };
 
   const handleSend = async () => {
     const content = text.trim();
@@ -284,19 +306,56 @@ export function MessagePanel({ conversation, provider }: Props) {
               <StickyNote className="h-3.5 w-3.5" strokeWidth={1.5} />
               Nota interna
             </Button>
+            {/* Agendar exige contato do CRM: a mensagem programada pertence ao
+                contato, e conversa sem vínculo não tem onde pendurá-la. */}
+            {conversation.contact && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setAgendarOpen(true)}
+                data-testid="inbox-agendar-mensagem"
+              >
+                <CalendarClock className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Agendar
+              </Button>
+            )}
             {isNote && (
               <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>
                 Visível só para a equipe — não vai ao cliente.
               </span>
             )}
           </div>
-          <div className="flex items-end gap-2">
+          <div className="relative flex items-end gap-2">
+            {pickerAberto && (
+              <QuickReplyPicker
+                busca={text.slice(1)}
+                onSelect={usarResposta}
+                onRegister={(h) => { pickerRef.current = h; }}
+              />
+            )}
             <Textarea
               rows={2}
-              placeholder={isNote ? "Escreva uma nota interna…" : "Escreva uma mensagem…"}
+              placeholder={isNote ? "Escreva uma nota interna…" : "Escreva uma mensagem… ( / para respostas rápidas )"}
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                // Reabrir a lista ao digitar de novo depois de um Esc.
+                if (!e.target.value.startsWith("/")) setPickerFechado(false);
+              }}
               onKeyDown={(e) => {
+                if (pickerAberto) {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setPickerFechado(true);
+                    return;
+                  }
+                  if (pickerRef.current?.handleKey(e)) {
+                    e.preventDefault();
+                    return;
+                  }
+                }
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
@@ -324,6 +383,14 @@ export function MessagePanel({ conversation, provider }: Props) {
         conversation={linkOpen ? conversation : null}
         onOpenChange={setLinkOpen}
       />
+      {conversation.contact && (
+        <ScheduleMessageDialog
+          open={agendarOpen}
+          onOpenChange={setAgendarOpen}
+          contactId={conversation.contact.id}
+          conversationId={conversation.id}
+        />
+      )}
     </div>
   );
 }

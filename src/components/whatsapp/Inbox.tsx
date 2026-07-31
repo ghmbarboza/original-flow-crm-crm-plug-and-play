@@ -1,14 +1,25 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { ConversationList } from "@/components/whatsapp/ConversationList";
 import { MessagePanel } from "@/components/whatsapp/MessagePanel";
 import { useConversations, type Conversation } from "@/hooks/useConversations";
+import { filtrarModoFoco } from "@/hooks/useModoFoco";
+import { useAuth } from "@/hooks/useAuth";
 import type { WhatsAppProvider } from "@/hooks/useWhatsAppConfig";
 
 /** Inbox unificado: lista à esquerda, painel de mensagens à direita. */
-export function Inbox({ provider }: { provider: WhatsAppProvider }) {
+export function Inbox({ provider, modoFoco = false }: { provider: WhatsAppProvider; modoFoco?: boolean }) {
   const { data: conversations, isLoading, error } = useConversations();
+  const { user } = useAuth();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Modo foco: só as conversas do agente logado, pendentes primeiro. A seleção
+  // busca na lista COMPLETA de propósito — ligar o foco com uma conversa de
+  // outro agente aberta não a fecha no meio da digitação.
+  const visiveis = useMemo(
+    () => (modoFoco ? filtrarModoFoco(conversations ?? [], user?.id) : (conversations ?? [])),
+    [conversations, modoFoco, user?.id],
+  );
 
   // Reusa o objeto da lista (já traz contato/status atualizados via realtime).
   const selected = (conversations ?? []).find((c) => c.id === selectedId) ?? null;
@@ -35,10 +46,11 @@ export function Inbox({ provider }: { provider: WhatsAppProvider }) {
           coluna encolha abaixo do conteúdo, e o scroll interno nunca ativa. */}
       <div className="min-h-0 overflow-hidden border-r" style={{ borderColor: "var(--via-border)" }}>
         <ConversationList
-          conversations={conversations ?? []}
+          conversations={visiveis}
           isLoading={isLoading}
           selectedId={selectedId}
           onSelect={handleSelect}
+          emptyHint={modoFoco ? "Nenhuma conversa sua no momento — o modo foco esconde as dos outros agentes." : undefined}
         />
       </div>
 

@@ -28,14 +28,23 @@ export const EMPTY_QUALIFICATION: Qualification = {
 /** Deal no recorte do Kanban e da lista: já traz etapa, contato e empresa embutidos. */
 export interface Deal extends DealRow {
   stage: { id: string; name: string; color: string; order: number } | null;
-  contact: { id: string; first_name: string; last_name: string | null } | null;
+  contact: {
+    id: string;
+    first_name: string;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp_phone: string | null;
+  } | null;
   company: { id: string; name: string } | null;
 }
 
+// Email/telefones do contato entram no recorte para a validação de campos
+// obrigatórios por etapa (Parte 5) rodar sem uma segunda query.
 const SELECT = `
   *,
   stage:pipeline_stages(id, name, color, order),
-  contact:contacts(id, first_name, last_name),
+  contact:contacts(id, first_name, last_name, email, phone, whatsapp_phone),
   company:companies(id, name)
 ` as const;
 
@@ -50,6 +59,32 @@ export function contactName(contact: Deal["contact"]): string | null {
  * coluna por etapa; sem etapas o board nasce vazio (a org já chega com o
  * pipeline default via trigger `seed_default_pipeline`).
  */
+/**
+ * Atualiza a configuração de uma etapa (Configurações > Pipeline): mensagem
+ * automática de entrada (template + delay), campos obrigatórios para entrar
+ * na etapa e o gatilho de resposta no WhatsApp (mover o deal para cá quando o
+ * lead responde — o trigger move_deal_on_reply no banco é quem executa).
+ */
+export function useUpdateStageConfig() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      auto_message_template?: string | null;
+      auto_message_delay_hours?: number;
+      required_fields?: Database["public"]["Tables"]["pipeline_stages"]["Update"]["required_fields"];
+      move_on_reply?: boolean;
+      move_on_reply_from_stage_id?: string | null;
+    }) => {
+      const { id, ...patch } = input;
+      const { error } = await supabase.from("pipeline_stages").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pipeline-stages", orgId] }),
+  });
+}
+
 export function useStages() {
   const orgId = useOrgId();
   return useQuery({

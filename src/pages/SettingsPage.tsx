@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GeneralSettings from "@/components/settings/GeneralSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
 import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
+import CalcomSettings from "@/components/settings/CalcomSettings";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import TeamSettings from "@/components/settings/TeamSettings";
 import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
@@ -12,9 +13,11 @@ import AISettings from "@/components/settings/AISettings";
 import FollowupSettings from "@/components/settings/FollowupSettings";
 import NotificationPreferences from "@/components/settings/NotificationPreferences";
 import CaptureFormsSettings from "@/components/settings/CaptureFormsSettings";
+import AtendimentoSettings from "@/components/settings/AtendimentoSettings";
+import PipelineSettings from "@/components/settings/PipelineSettings";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "notifications", "security", "channels", "integrations", "capture", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "notifications", "security", "channels", "pipeline", "atendimento", "integrations", "capture", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -41,6 +44,14 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
   capture: {
     title: "Captura de Leads",
     description: "Crie formulários públicos que capturam leads e os direcionam para um funil e uma automação.",
+  },
+  pipeline: {
+    title: "Pipeline",
+    description: "Automações por etapa do funil: o que acontece quando um deal entra em cada etapa.",
+  },
+  atendimento: {
+    title: "Atendimento",
+    description: "Respostas rápidas do inbox — as mensagens que o time usa todo dia, a um / de distância.",
   },
   ia: {
     title: "IA",
@@ -96,6 +107,8 @@ export default function SettingsPage() {
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="integrations">Integrações</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="channels">Canais</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="capture">Captura de Leads</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="pipeline">Pipeline</TabsTrigger>}
+            <TabsTrigger data-testid="settings-tab" value="atendimento">Atendimento</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="ia">IA</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="follow-up">Follow-up</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="onboarding">Onboarding</TabsTrigger>}
@@ -109,8 +122,15 @@ export default function SettingsPage() {
           <TabsContent value="notifications"><NotificationPreferences /></TabsContent>
           {isAdmin && <TabsContent value="security"><SecuritySettings /></TabsContent>}
           {isAdmin && <TabsContent value="channels"><ChannelsSettings /></TabsContent>}
-          {isAdmin && <TabsContent value="integrations"><ApiKeysSettings /></TabsContent>}
+          {isAdmin && (
+            <TabsContent value="integrations" className="space-y-6">
+              <ApiKeysSettings />
+              <CalcomSettings />
+            </TabsContent>
+          )}
           {isAdmin && <TabsContent value="capture"><CaptureFormsSettings /></TabsContent>}
+          {isAdmin && <TabsContent value="pipeline"><PipelineSettings /></TabsContent>}
+          <TabsContent value="atendimento"><AtendimentoSettings /></TabsContent>
           {isAdmin && <TabsContent value="ia"><AISettings /></TabsContent>}
           {isAdmin && <TabsContent value="follow-up"><FollowupSettings /></TabsContent>}
           {isAdmin && <TabsContent value="team"><TeamSettings /></TabsContent>}
