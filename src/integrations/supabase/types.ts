@@ -1956,6 +1956,10 @@ export type Database = {
           created_at: string
           delay_hours: number
           id: string
+          media_filename: string | null
+          media_path: string | null
+          media_type: string | null
+          media_url: string | null
           message_template: string
           order: number
           org_id: string
@@ -1964,6 +1968,10 @@ export type Database = {
           created_at?: string
           delay_hours?: number
           id?: string
+          media_filename?: string | null
+          media_path?: string | null
+          media_type?: string | null
+          media_url?: string | null
           message_template: string
           order?: number
           org_id: string
@@ -1972,6 +1980,10 @@ export type Database = {
           created_at?: string
           delay_hours?: number
           id?: string
+          media_filename?: string | null
+          media_path?: string | null
+          media_type?: string | null
+          media_url?: string | null
           message_template?: string
           order?: number
           org_id?: string

@@ -105,29 +105,58 @@ export function useUpsertFollowupConfig() {
   });
 }
 
+/** Anexo de uma etapa (Parte 10): tipo + upload no bucket OU URL externa. */
+export interface FollowupStepMedia {
+  media_type: "image" | "document" | "video" | null;
+  media_path: string | null;
+  media_url: string | null;
+  media_filename: string | null;
+}
+
 export function useSaveFollowupStep() {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id?: string; delay_hours: number; message_template: string; order: number }) => {
+    mutationFn: async (
+      input: {
+        id?: string;
+        delay_hours: number;
+        message_template: string;
+        order: number;
+      } & Partial<FollowupStepMedia>,
+    ) => {
       if (!orgId) throw new Error("Organização não carregada.");
-      if (input.id) {
-        const { error } = await supabase
-          .from("followup_steps")
-          .update({ delay_hours: input.delay_hours, message_template: input.message_template, order: input.order })
-          .eq("id", input.id);
+      const { id, ...fields } = input;
+      if (id) {
+        const { error } = await supabase.from("followup_steps").update(fields).eq("id", id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("followup_steps").insert({
-          org_id: orgId,
-          delay_hours: input.delay_hours,
-          message_template: input.message_template,
-          order: input.order,
-        });
+        const { error } = await supabase.from("followup_steps").insert({ org_id: orgId, ...fields });
         if (error) throw error;
       }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["followup-steps", orgId] }),
+  });
+}
+
+/**
+ * Sobe o anexo de uma etapa para o bucket whatsapp-media, no caminho
+ * <org_id>/followup/<step_id>/<arquivo> — o prefixo org_id é o que as
+ * policies do bucket exigem. Retorna o caminho gravado.
+ */
+export function useUploadFollowupMedia() {
+  const orgId = useOrgId();
+  return useMutation({
+    mutationFn: async ({ stepId, file }: { stepId: string; file: File }): Promise<string> => {
+      if (!orgId) throw new Error("Organização não carregada.");
+      const safeName = file.name.replace(/[^\w.-]+/g, "_");
+      const path = `${orgId}/followup/${stepId}/${Date.now()}-${safeName}`;
+      const { error } = await supabase.storage
+        .from("whatsapp-media")
+        .upload(path, file, { upsert: false, contentType: file.type || undefined });
+      if (error) throw error;
+      return path;
+    },
   });
 }
 

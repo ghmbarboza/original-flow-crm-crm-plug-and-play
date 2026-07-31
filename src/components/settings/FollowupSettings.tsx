@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
-import { Clock, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Clock, Paperclip, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,18 +14,45 @@ import {
 } from "@/components/ui/select";
 import {
   ON_LIMIT_OPTIONS, useDeleteFollowupStep, useFollowupConfig, useFollowupSteps,
-  useSaveFollowupStep, useUpsertFollowupConfig, type FollowupStep,
+  useSaveFollowupStep, useUploadFollowupMedia, useUpsertFollowupConfig,
+  type FollowupStep, type FollowupStepMedia,
 } from "@/hooks/useFollowup";
 
 /** Variáveis disponíveis nos templates de mensagem. */
 const VARIABLES = ["{{nome}}", "{{empresa}}", "{{agente}}"];
 
+const MEDIA_TYPES = [
+  { value: "image", label: "Imagem", accept: "image/*" },
+  { value: "document", label: "PDF", accept: ".pdf,application/pdf" },
+  { value: "video", label: "Vídeo", accept: "video/*" },
+] as const;
+
+const SEM_ANEXO = "__none__";
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function StepRow({ step, index }: { step: FollowupStep; index: number }) {
   const saveStep = useSaveFollowupStep();
   const deleteStep = useDeleteFollowupStep();
+  const uploadMedia = useUploadFollowupMedia();
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const [delay, setDelay] = useState(String(step.delay_hours));
   const [template, setTemplate] = useState(step.message_template);
-  const dirty = delay !== String(step.delay_hours) || template !== step.message_template;
+  // Anexo (Parte 10): tipo + arquivo do bucket OU URL externa.
+  const [mediaType, setMediaType] = useState<string>(step.media_type ?? SEM_ANEXO);
+  const [mediaUrl, setMediaUrl] = useState(step.media_url ?? "");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+
+  const mediaDirty =
+    mediaType !== (step.media_type ?? SEM_ANEXO) ||
+    mediaUrl !== (step.media_url ?? "") ||
+    !!pendingFile;
+  const dirty = delay !== String(step.delay_hours) || template !== step.message_template || mediaDirty;
 
   const save = async () => {
     if (!template.trim()) {
@@ -33,12 +60,45 @@ function StepRow({ step, index }: { step: FollowupStep; index: number }) {
       return;
     }
     try {
+      let media: FollowupStepMedia;
+      if (mediaType === SEM_ANEXO) {
+        media = { media_type: null, media_path: null, media_url: null, media_filename: null };
+      } else if (pendingFile) {
+        const path = await uploadMedia.mutateAsync({ stepId: step.id, file: pendingFile });
+        media = {
+          media_type: mediaType as FollowupStepMedia["media_type"],
+          media_path: path,
+          media_url: null,
+          media_filename: pendingFile.name,
+        };
+      } else if (mediaUrl.trim()) {
+        media = {
+          media_type: mediaType as FollowupStepMedia["media_type"],
+          media_path: null,
+          media_url: mediaUrl.trim(),
+          media_filename: mediaUrl.trim().split("/").pop() ?? null,
+        };
+      } else if (step.media_path) {
+        // Tipo mantido, arquivo já enviado antes: preserva.
+        media = {
+          media_type: mediaType as FollowupStepMedia["media_type"],
+          media_path: step.media_path,
+          media_url: null,
+          media_filename: step.media_filename,
+        };
+      } else {
+        toast.error("Escolha um arquivo ou informe a URL do anexo.");
+        return;
+      }
+
       await saveStep.mutateAsync({
         id: step.id,
         delay_hours: Math.max(0, Number(delay) || 0),
         message_template: template.trim(),
         order: step.order,
+        ...media,
       });
+      setPendingFile(null);
       toast.success("Etapa salva.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar.");
@@ -53,6 +113,14 @@ function StepRow({ step, index }: { step: FollowupStep; index: number }) {
       toast.error(error instanceof Error ? error.message : "Não foi possível remover.");
     }
   };
+
+  const acceptDoTipo = MEDIA_TYPES.find((t) => t.value === mediaType)?.accept;
+  const anexoAtual =
+    pendingFile
+      ? `${pendingFile.name} (${formatSize(pendingFile.size)})`
+      : mediaType !== SEM_ANEXO && step.media_type === mediaType && (step.media_filename || step.media_url)
+        ? step.media_filename ?? step.media_url
+        : null;
 
   return (
     <div className="via-card space-y-2 p-3">
@@ -85,9 +153,86 @@ function StepRow({ step, index }: { step: FollowupStep; index: number }) {
         onChange={(e) => setTemplate(e.target.value)}
         placeholder="Olá {{nome}}, ainda posso te ajudar?"
       />
+
+      {/* Anexo opcional (Parte 10): a mensagem sai com a mídia junto. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Label className="text-xs font-normal" htmlFor={`media-type-${step.id}`}>Anexo</Label>
+        <Select
+          value={mediaType}
+          onValueChange={(v) => {
+            setMediaType(v);
+            setPendingFile(null);
+            if (v === SEM_ANEXO) setMediaUrl("");
+          }}
+        >
+          <SelectTrigger id={`media-type-${step.id}`} className="h-8 w-32" data-testid={`followup-media-type-${index}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SEM_ANEXO}>Nenhum</SelectItem>
+            {MEDIA_TYPES.map((t) => (
+              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {mediaType !== SEM_ANEXO && (
+          <>
+            <input
+              ref={fileRef}
+              type="file"
+              accept={acceptDoTipo}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) {
+                  setPendingFile(f);
+                  setMediaUrl("");
+                }
+              }}
+            />
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => fileRef.current?.click()}>
+              <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Escolher arquivo
+            </Button>
+            <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>ou</span>
+            <Input
+              className="h-8 w-56"
+              placeholder="URL do arquivo"
+              value={mediaUrl}
+              onChange={(e) => {
+                setMediaUrl(e.target.value);
+                setPendingFile(null);
+              }}
+              aria-label="URL do anexo"
+            />
+          </>
+        )}
+      </div>
+
+      {anexoAtual && (
+        <p className="flex items-center gap-1.5 text-xs" style={{ color: "var(--via-text-body)" }} data-testid={`followup-media-preview-${index}`}>
+          <Paperclip className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
+          <span className="truncate">{anexoAtual}</span>
+          {pendingFile && (
+            <button
+              type="button"
+              onClick={() => setPendingFile(null)}
+              aria-label="Descartar arquivo escolhido"
+              className="rounded p-0.5 hover:bg-accent"
+            >
+              <X className="h-3 w-3" strokeWidth={1.5} />
+            </button>
+          )}
+        </p>
+      )}
+
       {dirty && (
         <div className="flex justify-end">
-          <Button size="sm" onClick={save} disabled={saveStep.isPending}>Salvar etapa</Button>
+          <Button size="sm" onClick={save} disabled={saveStep.isPending || uploadMedia.isPending}>
+            {uploadMedia.isPending ? "Enviando anexo…" : "Salvar etapa"}
+          </Button>
         </div>
       )}
     </div>
