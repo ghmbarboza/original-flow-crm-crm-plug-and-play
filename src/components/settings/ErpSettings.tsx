@@ -100,8 +100,14 @@ export default function ErpSettings() {
   };
 
   const copiar = async (texto: string, rotulo: string) => {
-    await navigator.clipboard.writeText(texto);
-    toast.success(`${rotulo} copiado.`);
+    // Clipboard pode ser negado (permissão, iframe, navegador antigo) — sem o
+    // catch isso vira exceção não tratada e o botão "não faz nada".
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast.success(`${rotulo} copiado.`);
+    } catch {
+      toast.error("Não foi possível copiar automaticamente. Selecione o texto e copie à mão.");
+    }
   };
 
   const linhasDoMapa = Object.entries(mappings[mappingEvent] ?? {});
@@ -288,9 +294,9 @@ export default function ErpSettings() {
           Receber dados (ERP → FlowCRM)
         </h4>
         <div className="space-y-2">
-          <Label>URL do seu webhook no FlowCRM</Label>
+          <Label htmlFor="erp-inbound-url">URL do seu webhook no FlowCRM</Label>
           <div className="flex flex-wrap gap-2">
-            <Input readOnly className="min-w-64 flex-1 text-xs" value={webhookUrl} />
+            <Input id="erp-inbound-url" readOnly className="min-w-64 flex-1 text-xs" value={webhookUrl} />
             <Button variant="outline" className="gap-1.5" onClick={() => copiar(webhookUrl, "URL")}>
               <Copy className="h-4 w-4" strokeWidth={1.5} />
               Copiar
@@ -298,9 +304,9 @@ export default function ErpSettings() {
           </div>
         </div>
         <div className="space-y-2">
-          <Label>Token de autenticação (header x-erp-token)</Label>
+          <Label htmlFor="erp-inbound-token">Token de autenticação (header x-erp-token)</Label>
           <div className="flex flex-wrap gap-2">
-            <Input readOnly className="min-w-64 flex-1 font-mono text-xs" value={config?.inbound_token ?? "salve a configuração para gerar"} />
+            <Input id="erp-inbound-token" readOnly className="min-w-64 flex-1 font-mono text-xs" value={config?.inbound_token ?? "salve a configuração para gerar"} />
             <Button
               variant="outline"
               className="gap-1.5"

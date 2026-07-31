@@ -53,14 +53,44 @@ import AxeBuilder from "@axe-core/playwright";
  * que foi pulado, para o pulo não passar por cobertura.
  */
 
-/** Rotas autenticadas sem parâmetro. `/setup` fica fora: tem guard próprio e
- *  visitá-lo altera `setup_progress`. É coberto por setup-wizard.spec.ts. */
+/** Rotas autenticadas. `/setup` fica fora: tem guard próprio e visitá-lo
+ *  altera `setup_progress`; é coberto por setup-wizard.spec.ts.
+ *
+ *  Sprint 10A/10B: as abas de /settings com telas novas (Atendimento = SLA +
+ *  NPS + importação de histórico; Integrações = Cal.com + ERP; Pipeline =
+ *  automações por etapa) entram como rotas próprias — a varredura da rota
+ *  /settings só enxerga a aba default. `/contacts/:id` (ficha com timeline) é
+ *  resolvida em tempo de teste para um contato real da org. */
 const ROTAS = [
-  "/dashboard", "/contacts", "/companies", "/deals", "/activities", "/tasks",
-  "/products", "/whatsapp", "/inbox", "/email-templates", "/campaigns",
-  "/library", "/automations", "/followup", "/email-sequences", "/reports",
-  "/sales-goals", "/lead-scoring", "/team", "/settings", "/help",
+  "/dashboard", "/contacts", "/contacts/:id", "/companies", "/deals",
+  "/activities", "/tasks", "/products", "/whatsapp", "/inbox",
+  "/email-templates", "/campaigns", "/library", "/automations", "/followup",
+  "/email-sequences", "/reports", "/sales-goals", "/lead-scoring", "/team",
+  "/settings", "/settings/atendimento", "/settings/integrations",
+  "/settings/pipeline", "/help",
 ];
+
+/**
+ * Resolve rota com parâmetro para uma URL concreta. Para /contacts/:id, pega o
+ * primeiro contato do org pela REST com os headers da própria sessão do app —
+ * nada hardcodado. Retorna null quando não há como resolver (org sem contato).
+ */
+async function resolver(page: Page, rota: string): Promise<string | null> {
+  if (!rota.includes(":id")) return rota;
+  const reqPromise = page
+    .waitForRequest((r) => /\/rest\/v1\//.test(r.url()) && !!r.headers()["apikey"], { timeout: 20_000 })
+    .catch(() => null);
+  await page.goto("/contacts", { waitUntil: "domcontentloaded" }).catch(() => {});
+  const req = await reqPromise;
+  if (!req) return null;
+  const headers = req.headers();
+  const base = new URL(req.url()).origin;
+  const resp = await page.request.get(`${base}/rest/v1/contacts?select=id&is_active=eq.true&limit=1`, {
+    headers: { apikey: headers["apikey"], Authorization: headers["authorization"] ?? "" },
+  });
+  const rows = (await resp.json().catch(() => [])) as Array<{ id: string }>;
+  return rows[0]?.id ? rota.replace(":id", rows[0].id) : null;
+}
 
 /** Nunca clicar: apaga, desconecta ou tira o usuário da sessão. */
 const DESTRUTIVO = /remov|exclu|apagar|deletar|delete|limpar|desconect|sair|logout|encerrar|revogar|resetar|zerar|cancelar assinatura|desativar|arquivar/i;
@@ -75,6 +105,13 @@ const RUIDO_CONSOLE = [
   // execução atribuiu um "Failed to fetch" a /help, que não usa Supabase — o erro
   // era da rota anterior, cancelada no meio. Não é defeito do produto.
   /Failed to fetch/i,
+  // Mesma classe: chamada de edge function cancelada pela navegação da própria
+  // varredura (a resolução de /contacts/:id navega duas vezes em sequência).
+  /FunctionsFetchError|Failed to send a request/i,
+  // Canal do Supabase Realtime derrubado quando a varredura troca de rota no
+  // meio do handshake. Falha real de realtime apareceria como defeito
+  // funcional (tela sem atualizar), não como este warning de navegação.
+  /WebSocket connection .* failed|realtime\/v1\/websocket/i,
 ];
 
 const DIR = "auditoria/parciais";
@@ -93,7 +130,9 @@ interface Parcial {
 }
 
 function slug(rota: string) {
-  return rota.replace(/\//g, "") || "raiz";
+  // Só caracteres seguros para nome de arquivo (":" de /contacts/:id quebraria
+  // no Windows). Rotas antigas mantêm o mesmo slug de antes.
+  return rota.replace(/[^a-z0-9-]/gi, "") || "raiz";
 }
 
 /** Acumula os achados de UMA rota e publica ao final do teste. Um arquivo por
@@ -138,9 +177,13 @@ function coletar(page: Page, c: Coletor) {
 /** Checagens de acessibilidade que não dependem de biblioteca externa. */
 async function acessibilidade(page: Page, c: Coletor) {
   const r = await page.evaluate(() => {
+    // Um <label> envolvente também nomeia (associação implícita de elementos
+    // rotuláveis — é como o axe e os leitores de tela resolvem o nome). Sem
+    // isso, todo Checkbox/Switch dentro de <label> vira falso positivo.
     const nomeDe = (el: Element) =>
       (el.getAttribute("aria-label") || el.getAttribute("title") ||
-       (el as HTMLElement).innerText || "").trim();
+       (el as HTMLElement).innerText ||
+       (el.closest("label")?.textContent ?? "")).trim();
 
     const semNome = [...document.querySelectorAll("button, a[href]")]
       .filter((el) => {
@@ -180,6 +223,10 @@ async function assinatura(page: Page) {
     dialogs: document.querySelectorAll('[role="dialog"], [role="alertdialog"]').length,
     toasts: document.querySelectorAll("[data-sonner-toast]").length,
     texto: document.body.innerText.length,
+    // Switch/checkbox alternado muda pouquíssimo DOM — sem contar o estado
+    // marcado, "Ativar X" aparecia como botão sem efeito (falso positivo da
+    // auditoria de 2026-07-31).
+    marcados: document.querySelectorAll('[data-state="checked"], [aria-checked="true"], [aria-pressed="true"]').length,
   }));
 }
 
@@ -215,9 +262,15 @@ for (const rota of ROTAS) {
     coletar(page, c);
 
     try {
+      const alvo = await resolver(page, rota);
+      if (!alvo) {
+        c.anota("falha-navegacao", "não foi possível resolver a rota (org sem contato?)");
+        return;
+      }
+
       // 1) A tela abre?
       try {
-        await page.goto(rota, { waitUntil: "domcontentloaded" });
+        await page.goto(alvo, { waitUntil: "domcontentloaded" });
         await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
       } catch (e) {
         c.anota("falha-navegacao", e instanceof Error ? e.message : String(e));
@@ -242,7 +295,7 @@ for (const rota of ROTAS) {
       const total = Math.min(await page.locator(seletor).count(), 25);
 
       for (let i = 0; i < total; i++) {
-        await page.goto(rota, { waitUntil: "domcontentloaded" }).catch(() => {});
+        await page.goto(alvo, { waitUntil: "domcontentloaded" }).catch(() => {});
         await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
 
         const botao: Locator = page.locator(seletor).nth(i);
@@ -296,6 +349,7 @@ for (const rota of ROTAS) {
           antes.url !== depois.url ||
           antes.dialogs !== depois.dialogs ||
           antes.toasts !== depois.toasts ||
+          antes.marcados !== depois.marcados ||
           Math.abs(antes.texto - depois.texto) > 20 ||
           Math.abs(antes.dom - depois.dom) > 200 ||
           requests > 0;
@@ -322,7 +376,9 @@ for (const rota of ROTAS) {
 
     const c = new Coletor("axe", rota);
     try {
-      await page.goto(rota, { waitUntil: "domcontentloaded" }).catch(() => {});
+      const alvo = await resolver(page, rota);
+      if (!alvo) { c.anota("axe-falhou", "não foi possível resolver a rota"); return; }
+      await page.goto(alvo, { waitUntil: "domcontentloaded" }).catch(() => {});
       await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
 
       const r = await new AxeBuilder({ page })
@@ -357,6 +413,8 @@ for (const rota of ROTAS) {
 
     const c = new Coletor("galeria", rota);
     try {
+      const alvo = await resolver(page, rota);
+      if (!alvo) { c.anota("captura-falhou", "não foi possível resolver a rota"); return; }
       mkdirSync("auditoria/telas", { recursive: true });
       const nome = slug(rota);
       const modos = [
@@ -367,7 +425,7 @@ for (const rota of ROTAS) {
       // Redimensionar na mesma passada é mais barato que abrir a rota duas vezes.
       for (const { modo, largura, altura } of modos) {
         await page.setViewportSize({ width: largura, height: altura });
-        await page.goto(rota, { waitUntil: "domcontentloaded" }).catch(() => {});
+        await page.goto(alvo, { waitUntil: "domcontentloaded" }).catch(() => {});
         await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
         // Deixa a animação de entrada terminar, senão a captura pega meio fade.
         await page.waitForTimeout(400);

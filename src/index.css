@@ -75,9 +75,12 @@
   --via-border-strong:   var(--via-navy-40);
 
   /* Status */
-  --via-success: #1F8A5B;
+  /* Escurecido de #1F8A5B em 2026-07-31: com texto branco dava 4,33:1, abaixo
+     dos 4,5:1 do WCAG AA (axe pegou em /activities). #187A4F rende 5,3:1. */
+  --via-success: #187A4F;
   --via-danger:  #B83A3A;
-  --via-coral:   #B85C5C;
+  /* Escurecido de #B85C5C: 4,43:1 com branco, na margem do reprovado. */
+  --via-coral:   #A64B4B;
   --via-coral-dark: #8C2C2C;
   --via-coral-deep: #A14848;
 
