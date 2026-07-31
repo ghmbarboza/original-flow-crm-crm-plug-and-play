@@ -2728,6 +2728,7 @@ export type Database = {
           brand_tone: string | null
           business_description: string | null
           business_sector: string | null
+          company_size: string | null
           created_at: string
           currency: string
           good_response_example: string | null
@@ -2746,6 +2747,7 @@ export type Database = {
           brand_tone?: string | null
           business_description?: string | null
           business_sector?: string | null
+          company_size?: string | null
           created_at?: string
           currency?: string
           good_response_example?: string | null
@@ -2764,6 +2766,7 @@ export type Database = {
           brand_tone?: string | null
           business_description?: string | null
           business_sector?: string | null
+          company_size?: string | null
           created_at?: string
           currency?: string
           good_response_example?: string | null

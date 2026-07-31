@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StepVoce } from "@/components/setup/StepVoce";
 import { StepEmpresa } from "@/components/setup/StepEmpresa";
 import { StepPublico } from "@/components/setup/StepPublico";
 import { StepIA } from "@/components/setup/StepIA";
@@ -31,7 +32,7 @@ export default function SetupPage() {
   useEffect(() => {
     if (step || !progresso) return;
     const salvo = progresso.current_step as SetupStepKey | null;
-    setStep(SETUP_STEPS.some((s) => s.key === salvo) ? salvo! : "empresa");
+    setStep(SETUP_STEPS.some((s) => s.key === salvo) ? salvo! : SETUP_STEPS[0].key);
   }, [progresso, step]);
 
   // Setup já concluído: não prende o usuário aqui. Ele pode ter chegado por
@@ -97,7 +98,8 @@ export default function SetupPage() {
         </div>
 
         <div className="via-card p-6" data-testid={`setup-step-${step}`}>
-          {step === "empresa" && <StepEmpresa onNext={proximo} />}
+          {step === "voce" && <StepVoce onNext={proximo} />}
+          {step === "empresa" && <StepEmpresa onNext={proximo} onBack={anterior} />}
           {step === "publico" && <StepPublico onNext={proximo} onBack={anterior} />}
           {step === "ia" && <StepIA onNext={proximo} onBack={anterior} />}
           {step === "pipeline" && <StepPipeline onNext={proximo} onBack={anterior} />}

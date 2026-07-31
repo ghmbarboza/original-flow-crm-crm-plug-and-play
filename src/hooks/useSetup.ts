@@ -8,6 +8,7 @@ export type SetupProgress = Database["public"]["Tables"]["setup_progress"]["Row"
 
 /** Etapas do wizard, na ordem em que aparecem. */
 export const SETUP_STEPS = [
+  { key: "voce", label: "Você" },
   { key: "empresa", label: "Empresa" },
   { key: "publico", label: "Público" },
   { key: "ia", label: "IA" },
@@ -17,6 +18,16 @@ export const SETUP_STEPS = [
 ] as const;
 
 export type SetupStepKey = (typeof SETUP_STEPS)[number]["key"];
+
+/** Faixas de tamanho da empresa (organizations.company_size). */
+export const COMPANY_SIZES = [
+  { value: "so_eu", label: "Só eu" },
+  { value: "2-5", label: "2–5 pessoas" },
+  { value: "6-20", label: "6–20 pessoas" },
+  { value: "21-50", label: "21–50 pessoas" },
+  { value: "51-200", label: "51–200 pessoas" },
+  { value: "200+", label: "Mais de 200" },
+] as const;
 
 export const BUSINESS_SECTORS = [
   { value: "imobiliario", label: "Imobiliário", icon: "🏠" },
@@ -95,6 +106,28 @@ export function useOrganization() {
 }
 
 /**
+ * Atualiza o contexto da organização FORA do wizard (Configurações > Geral >
+ * Sobre a empresa e Configurações > IA > tom/proibições/exemplo). Mesmo
+ * registro que o onboarding grava — fonte única, não cópia.
+ */
+export function useUpdateOrganization() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (patch: Partial<Database["public"]["Tables"]["organizations"]["Update"]>) => {
+      if (!orgId) throw new Error("Organização não carregada. Recarregue a página.");
+      const { error } = await supabase
+        .from("organizations")
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", orgId);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["organization", orgId] }),
+  });
+}
+
+/**
  * Progresso do wizard. A linha é criada na primeira leitura — assim o wizard
  * não precisa se preocupar em existir antes de gravar o primeiro passo.
  */
@@ -110,7 +143,7 @@ export function useSetupProgress() {
 
       const { data: criado, error } = await supabase
         .from("setup_progress")
-        .insert({ org_id: orgId!, completed_steps: [], current_step: "empresa" })
+        .insert({ org_id: orgId!, completed_steps: [], current_step: SETUP_STEPS[0].key })
         .select("*")
         .maybeSingle();
       if (error) throw error;

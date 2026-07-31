@@ -4,10 +4,169 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  BUSINESS_SECTORS, COMPANY_SIZES, useOrganization, useUpdateOrganization,
+} from "@/hooks/useSetup";
 import { toast } from "sonner";
+
+/**
+ * Sobre a empresa — MESMOS registros que o onboarding grava em `organizations`
+ * (etapas Empresa e Público). Editar aqui reflete no wizard e vice-versa;
+ * fonte única, não cópia. Só admin edita a organização (RLS).
+ */
+function SobreAEmpresa() {
+  const { data: org, isLoading } = useOrganization();
+  const salvar = useUpdateOrganization();
+
+  const [form, setForm] = useState({
+    name: "",
+    business_sector: "",
+    company_size: "",
+    business_description: "",
+    target_audience: "",
+    main_problem_solved: "",
+  });
+
+  useEffect(() => {
+    if (!org) return;
+    setForm({
+      name: org.name ?? "",
+      business_sector: org.business_sector ?? "",
+      company_size: org.company_size ?? "",
+      business_description: org.business_description ?? "",
+      target_audience: org.target_audience ?? "",
+      main_problem_solved: org.main_problem_solved ?? "",
+    });
+  }, [org]);
+
+  const submeter = async () => {
+    if (!form.name.trim()) {
+      toast.error("O nome da empresa não pode ficar vazio.");
+      return;
+    }
+    try {
+      await salvar.mutateAsync({
+        name: form.name.trim(),
+        business_sector: form.business_sector || null,
+        company_size: form.company_size || null,
+        business_description: form.business_description.trim() || null,
+        target_audience: form.target_audience.trim() || null,
+        main_problem_solved: form.main_problem_solved.trim() || null,
+      });
+      toast.success("Dados da empresa atualizados.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+    }
+  };
+
+  if (isLoading) return null;
+
+  // Setor customizado ("outro:pet shop") aparece como "Outro" no seletor.
+  const setorSelecionado = form.business_sector.startsWith("outro")
+    ? "outro"
+    : form.business_sector;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-semibold">Sobre a empresa</CardTitle>
+        <CardDescription>
+          O contexto preenchido no onboarding — a IA usa isso para se apresentar e vender.
+          Editar aqui atualiza o onboarding também: é o mesmo registro.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="empresa-nome">Nome da empresa</Label>
+          <Input
+            id="empresa-nome"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            maxLength={120}
+            data-testid="empresa-nome"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label id="empresa-setor-label">Setor de atuação</Label>
+          <Select
+            value={setorSelecionado || undefined}
+            onValueChange={(v) => setForm({ ...form, business_sector: v })}
+          >
+            <SelectTrigger aria-labelledby="empresa-setor-label" data-testid="empresa-setor">
+              <SelectValue placeholder="Selecionar" />
+            </SelectTrigger>
+            <SelectContent>
+              {BUSINESS_SECTORS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.icon} {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label id="empresa-tamanho-label">Tamanho da equipe</Label>
+          <Select
+            value={form.company_size || undefined}
+            onValueChange={(v) => setForm({ ...form, company_size: v })}
+          >
+            <SelectTrigger aria-labelledby="empresa-tamanho-label" data-testid="empresa-tamanho">
+              <SelectValue placeholder="Selecionar" />
+            </SelectTrigger>
+            <SelectContent>
+              {COMPANY_SIZES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="empresa-desc">O que sua empresa vende e para quem?</Label>
+          <Textarea
+            id="empresa-desc"
+            rows={2}
+            maxLength={300}
+            value={form.business_description}
+            onChange={(e) => setForm({ ...form, business_description: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="empresa-publico">Para quem você vende?</Label>
+          <Textarea
+            id="empresa-publico"
+            rows={2}
+            maxLength={200}
+            value={form.target_audience}
+            onChange={(e) => setForm({ ...form, target_audience: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="empresa-problema">Qual problema você resolve para seu cliente?</Label>
+          <Textarea
+            id="empresa-problema"
+            rows={2}
+            maxLength={200}
+            value={form.main_problem_solved}
+            onChange={(e) => setForm({ ...form, main_problem_solved: e.target.value })}
+          />
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-end">
+        <Button onClick={submeter} disabled={salvar.isPending} data-testid="empresa-salvar">
+          {salvar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Salvar empresa
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
 
 function getInitials(name?: string | null) {
   if (!name) return "?";
@@ -19,12 +178,11 @@ function getInitials(name?: string | null) {
 }
 
 export default function GeneralSettings() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, isAdmin } = useAuth();
   const [form, setForm] = useState({
     full_name: "",
     email: "",
     phone: "",
-    company: "",
   });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -43,7 +201,6 @@ export default function GeneralSettings() {
       full_name: profile.full_name ?? "",
       email: profile.email ?? "",
       phone: profile.phone ?? "",
-      company: profile.company ?? "",
     });
     setAvatarUrl(profile.avatar_url ?? null);
     setLoading(false);
@@ -100,7 +257,6 @@ export default function GeneralSettings() {
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || null,
-        company: form.company.trim() || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
@@ -204,6 +360,10 @@ export default function GeneralSettings() {
                   className="cursor-not-allowed opacity-70"
                 />
               </div>
+              {/* O campo "Empresa" (texto livre em profiles.company) saiu daqui:
+                  o nome real da empresa mora em organizations.name e é editado
+                  na seção "Sobre a empresa" abaixo — pedir duas vezes criava
+                  duas verdades. */}
               <div className="space-y-2">
                 <Label htmlFor="phone">Telefone</Label>
                 <Input
@@ -212,15 +372,6 @@ export default function GeneralSettings() {
                   onChange={handleChange("phone")}
                   placeholder="(11) 99999-9999"
                   maxLength={30}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="company">Empresa</Label>
-                <Input
-                  id="company"
-                  value={form.company}
-                  onChange={handleChange("company")}
-                  maxLength={120}
                 />
               </div>
             </div>
@@ -233,6 +384,9 @@ export default function GeneralSettings() {
           </Button>
         </CardFooter>
       </Card>
+
+      {/* Só admin edita a organização — o RLS recusaria o update de um membro. */}
+      {isAdmin && <SobreAEmpresa />}
 
       {/* A troca de senha na tela foi removida (validação de UX 2026-07-30):
           dois caminhos para a mesma coisa confundiam, e o link por email é o

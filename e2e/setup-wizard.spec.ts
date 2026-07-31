@@ -181,6 +181,40 @@ async function retomarEm(page: Page, step: string) {
   await expect(page.getByTestId(`setup-step-${step}`)).toBeVisible();
 }
 
+test("etapa Você lê e grava o perfil (fonte única com Configurações > Geral)", async ({ page }) => {
+  // Estado anterior do perfil, para restaurar ao final — o usuário E2E é
+  // compartilhado com os outros specs.
+  const { data: sess } = await db.auth.getSession();
+  const userId = sess.session!.user.id;
+  const { data: perfilAntes } = await db
+    .from("profiles").select("full_name, phone").eq("id", userId).single();
+
+  try {
+    await retomarEm(page, "voce");
+
+    // Pré-preenchido com o que está no banco — nada é pedido do zero.
+    await expect(page.getByTestId("setup-voce-nome")).toHaveValue(perfilAntes!.full_name ?? "");
+
+    await page.getByTestId("setup-voce-nome").fill("Pessoa E2E Wizard");
+    await page.getByTestId("setup-voce-telefone").fill("(11) 91234-5678");
+    await page.getByTestId("setup-next").click();
+
+    await expect(page.getByTestId("setup-step-empresa")).toBeVisible();
+
+    // Persistiu em profiles — o mesmo registro de Configurações > Geral.
+    await expect(async () => {
+      const { data } = await db
+        .from("profiles").select("full_name, phone").eq("id", userId).single();
+      expect(data!.full_name).toBe("Pessoa E2E Wizard");
+      expect(data!.phone).toBe("(11) 91234-5678");
+    }).toPass({ timeout: 10_000 });
+  } finally {
+    await db.from("profiles")
+      .update({ full_name: perfilAntes!.full_name, phone: perfilAntes!.phone })
+      .eq("id", userId);
+  }
+});
+
 test("passos 1 e 2 gravam o contexto da empresa", async ({ page }) => {
   await page.goto("/setup");
   await expect(page.getByTestId("setup-step-empresa")).toBeVisible();
@@ -244,6 +278,22 @@ test("passo 3 gera o prompt em blocos", async ({ page }) => {
  * que roda a cada execução, é determinístico e não gasta crédito de IA.
  */
 test("passo 3: falha da IA oferece rascunho e não trava o wizard", async ({ page }) => {
+  // A etapa hidrata do prompt salvo quando ele existe (fonte única com
+  // Configurações > IA) — e o teste anterior deste arquivo serial acabou de
+  // salvar um. Zerar o prompt reproduz o cenário real deste teste: primeira
+  // configuração com o provedor de IA fora do ar.
+  // String vazia, não null: a coluna é NOT NULL (o null falhava com 23502 e o
+  // prompt antigo sobrevivia, disparando a hidratação em vez da geração). A
+  // hidratação do StepIA trata "" como "sem prompt" via .trim().
+  const { error: limparErr } = await db
+    .from("ai_messaging_config")
+    .update({ system_prompt: "" })
+    .eq("org_id", orgId);
+  expect(limparErr, `não foi possível zerar o prompt: ${limparErr?.message}`).toBeNull();
+  const { data: confirmacao } = await db
+    .from("ai_messaging_config").select("system_prompt").eq("org_id", orgId).maybeSingle();
+  expect(confirmacao?.system_prompt ?? "", "o prompt deveria estar vazio antes do passo").toBe("");
+
   await page.route("**/functions/v1/generate-system-prompt", (route) =>
     route.fulfill({
       status: 503,

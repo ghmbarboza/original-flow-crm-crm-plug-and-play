@@ -24,6 +24,7 @@ import {
   type HumanTriggerRules, type PurchaseIntentRules, type WorkingHours,
 } from "@/hooks/useAIConfig";
 import { useGenerateSystemPrompt } from "@/hooks/useGenerateSystemPrompt";
+import { BRAND_TONES, useOrganization, useUpdateOrganization } from "@/hooks/useSetup";
 import { formatCurrency } from "@/lib/format";
 
 function defaultWorkingHours(): WorkingHours {
@@ -40,6 +41,26 @@ export default function AISettings() {
   const upsert = useUpsertAIConfig();
   const gerar = useGenerateSystemPrompt();
   const [regenerando, setRegenerando] = useState(false);
+
+  // Contexto da marca: MESMOS registros de organizations que o onboarding
+  // (etapa Público) grava — fonte única, não cópia. Salvos junto com o botão
+  // principal desta tela.
+  const { data: org } = useOrganization();
+  const salvarOrg = useUpdateOrganization();
+  const [marca, setMarca] = useState({
+    brand_tone: "profissional",
+    ai_prohibitions: "",
+    good_response_example: "",
+  });
+
+  useEffect(() => {
+    if (!org) return;
+    setMarca({
+      brand_tone: org.brand_tone ?? "profissional",
+      ai_prohibitions: org.ai_prohibitions ?? "",
+      good_response_example: org.good_response_example ?? "",
+    });
+  }, [org]);
 
   /**
    * Regenera o prompt a partir do contexto atual da organização.
@@ -139,6 +160,11 @@ export default function AISettings() {
           purchase_intent: { ...intent, keywords: intentKeywords },
         } as never,
       });
+      await salvarOrg.mutateAsync({
+        brand_tone: marca.brand_tone,
+        ai_prohibitions: marca.ai_prohibitions.trim() || null,
+        good_response_example: marca.good_response_example.trim() || null,
+      });
       toast.success("Configuração da IA salva.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar.");
@@ -226,6 +252,56 @@ export default function AISettings() {
           <div className="space-y-2">
             <Label htmlFor="fallback_message">Mensagem de fallback</Label>
             <Input id="fallback_message" value={form.fallback_message} onChange={(e) => setForm({ ...form, fallback_message: e.target.value })} placeholder="Vou chamar um atendente para te ajudar melhor." />
+          </div>
+
+          <Separator />
+
+          {/* Contexto da marca — mesmos registros do onboarding (etapa Público). */}
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+                Contexto da marca
+              </p>
+              <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                Preenchido no onboarding e usado na geração do prompt. Editar aqui atualiza o
+                onboarding também — é o mesmo registro.
+              </p>
+            </div>
+            <div className="space-y-2 sm:max-w-xs">
+              <Label id="brand-tone-label">Tom da marca</Label>
+              <Select value={marca.brand_tone} onValueChange={(v) => setMarca({ ...marca, brand_tone: v })}>
+                <SelectTrigger aria-labelledby="brand-tone-label" data-testid="ai-brand-tone">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BRAND_TONES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ai-prohibitions">O que a IA nunca deve fazer ou dizer</Label>
+              <Textarea
+                id="ai-prohibitions"
+                rows={3}
+                maxLength={300}
+                value={marca.ai_prohibitions}
+                onChange={(e) => setMarca({ ...marca, ai_prohibitions: e.target.value })}
+                placeholder="Ex.: Nunca prometer desconto sem aprovação do gerente."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ai-good-example">Exemplo de resposta ideal</Label>
+              <Textarea
+                id="ai-good-example"
+                rows={3}
+                maxLength={500}
+                value={marca.good_response_example}
+                onChange={(e) => setMarca({ ...marca, good_response_example: e.target.value })}
+                placeholder="Cole uma mensagem que representa bem o tom da empresa."
+              />
+            </div>
           </div>
         </TabsContent>
 
