@@ -906,7 +906,7 @@ export type Database = {
       contact_merges: {
         Row: {
           id: string
-          merged_at: string
+          merged_at: string | null
           merged_by: string | null
           merged_contact_id: string
           org_id: string
@@ -914,7 +914,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          merged_at?: string
+          merged_at?: string | null
           merged_by?: string | null
           merged_contact_id: string
           org_id: string
@@ -922,7 +922,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          merged_at?: string
+          merged_at?: string | null
           merged_by?: string | null
           merged_contact_id?: string
           org_id?: string
@@ -990,7 +990,7 @@ export type Database = {
           email: string | null
           first_name: string
           id: string
-          is_active: boolean
+          is_active: boolean | null
           is_demo: boolean
           last_name: string | null
           lead_score: number
@@ -1011,7 +1011,7 @@ export type Database = {
           email?: string | null
           first_name?: string
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           is_demo?: boolean
           last_name?: string | null
           lead_score?: number
@@ -1032,7 +1032,7 @@ export type Database = {
           email?: string | null
           first_name?: string
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           is_demo?: boolean
           last_name?: string | null
           lead_score?: number
@@ -1159,7 +1159,7 @@ export type Database = {
           provider: Database["public"]["Enums"]["messaging_provider"]
           provider_conversation_id: string | null
           resolved_at: string | null
-          sla_breached: boolean
+          sla_breached: boolean | null
           status: Database["public"]["Enums"]["conversation_status"]
           tags: Json
           team_id: string | null
@@ -1185,7 +1185,7 @@ export type Database = {
           provider?: Database["public"]["Enums"]["messaging_provider"]
           provider_conversation_id?: string | null
           resolved_at?: string | null
-          sla_breached?: boolean
+          sla_breached?: boolean | null
           status?: Database["public"]["Enums"]["conversation_status"]
           tags?: Json
           team_id?: string | null
@@ -1211,7 +1211,7 @@ export type Database = {
           provider?: Database["public"]["Enums"]["messaging_provider"]
           provider_conversation_id?: string | null
           resolved_at?: string | null
-          sla_breached?: boolean
+          sla_breached?: boolean | null
           status?: Database["public"]["Enums"]["conversation_status"]
           tags?: Json
           team_id?: string | null
@@ -2505,7 +2505,7 @@ export type Database = {
           order: number
           org_id: string
           pipeline_id: string
-          required_fields: Json
+          required_fields: Json | null
           win_probability: number
         }
         Insert: {
@@ -2520,7 +2520,7 @@ export type Database = {
           order?: number
           org_id: string
           pipeline_id: string
-          required_fields?: Json
+          required_fields?: Json | null
           win_probability?: number
         }
         Update: {
@@ -2535,7 +2535,7 @@ export type Database = {
           order?: number
           org_id?: string
           pipeline_id?: string
-          required_fields?: Json
+          required_fields?: Json | null
           win_probability?: number
         }
         Relationships: [
@@ -2737,39 +2737,39 @@ export type Database = {
       quick_replies: {
         Row: {
           category: string | null
-          created_at: string
+          created_at: string | null
           created_by: string | null
           id: string
-          is_active: boolean
+          is_active: boolean | null
           message: string
           org_id: string
           shortcut: string
           title: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           category?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           message: string
           org_id: string
           shortcut: string
           title: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           category?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           message?: string
           org_id?: string
           shortcut?: string
           title?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -2846,7 +2846,7 @@ export type Database = {
           channel: string | null
           contact_id: string
           conversation_id: string | null
-          created_at: string
+          created_at: string | null
           created_by: string | null
           deal_id: string | null
           error_msg: string | null
@@ -2862,7 +2862,7 @@ export type Database = {
           channel?: string | null
           contact_id: string
           conversation_id?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           deal_id?: string | null
           error_msg?: string | null
@@ -2878,7 +2878,7 @@ export type Database = {
           channel?: string | null
           contact_id?: string
           conversation_id?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           deal_id?: string | null
           error_msg?: string | null
@@ -2967,35 +2967,35 @@ export type Database = {
         Row: {
           active_channels: string[] | null
           alert_threshold_percent: number
-          created_at: string
+          created_at: string | null
           first_response_minutes: number
           id: string
-          is_active: boolean
+          is_active: boolean | null
           org_id: string
           resolution_hours: number
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           active_channels?: string[] | null
           alert_threshold_percent?: number
-          created_at?: string
+          created_at?: string | null
           first_response_minutes?: number
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           org_id: string
           resolution_hours?: number
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           active_channels?: string[] | null
           alert_threshold_percent?: number
-          created_at?: string
+          created_at?: string | null
           first_response_minutes?: number
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           org_id?: string
           resolution_hours?: number
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
