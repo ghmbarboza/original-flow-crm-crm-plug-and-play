@@ -1,4 +1,4 @@
-import { Building2, GripVertical, User } from "lucide-react";
+import { Building2, GripVertical, Target, User } from "lucide-react";
 import { contactName, type Deal } from "@/hooks/useDeals";
 import { formatCurrency } from "@/lib/format";
 
@@ -43,9 +43,23 @@ export function DealCard({ deal, onClick, onDragStart, onDragEnd, isDragging }: 
         </p>
       </div>
 
-      <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--via-text-primary)" }}>
-        {formatCurrency(deal.value, deal.currency)}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--via-text-primary)" }}>
+          {formatCurrency(deal.value, deal.currency)}
+        </p>
+        {/* Previsão de fechamento por IA (Parte 3 do Sprint 10B), quando já calculada. */}
+        {deal.ai_close_probability !== null && (
+          <span
+            className="inline-flex items-center gap-1 text-xs font-medium tabular-nums"
+            style={{ color: "var(--via-text-muted)" }}
+            aria-label={`Probabilidade de fechamento por IA: ${Math.round(Number(deal.ai_close_probability))}%`}
+            data-testid="deal-ai-probability"
+          >
+            <Target className="h-3 w-3" strokeWidth={1.5} aria-hidden />
+            {Math.round(Number(deal.ai_close_probability))}%
+          </span>
+        )}
+      </div>
 
       <div className="space-y-1">
         {name && (

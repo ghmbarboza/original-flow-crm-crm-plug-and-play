@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useReports } from "@/hooks/useReports";
+import { useAiForecast } from "@/hooks/useDealPrediction";
 import { useSlaReport } from "@/hooks/useSlaReport";
 import { useOrgMemberNames, useOrgMembers } from "@/hooks/useOrgMembers";
 import { formatWaitingTime } from "@/lib/sla";
@@ -67,6 +68,7 @@ export default function ReportsPage() {
 
   const { data, isLoading, error } = useReports(filters);
   const { data: sla } = useSlaReport(filters);
+  const { data: aiForecast } = useAiForecast();
   const memberNames = useOrgMemberNames();
 
   const conversationPie = useMemo(() => {
@@ -154,6 +156,25 @@ export default function ReportsPage() {
               <KPI label="Forecast (aberto)" value={formatCurrency(data.deals.forecast)} />
               <KPI label="Leads gerados" value={String(data.leads.total)} />
             </div>
+
+            {/* Forecast ponderado pela previsão de IA (Parte 3 do Sprint 10B). */}
+            {aiForecast && aiForecast.covered > 0 && (
+              <div className="via-card flex flex-wrap items-baseline justify-between gap-2 p-4" data-testid="ai-forecast">
+                <div>
+                  <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                    Forecast ponderado pela IA
+                  </p>
+                  <p className="text-2xl font-semibold tabular-nums" style={{ color: "var(--via-text-primary)" }}>
+                    {formatCurrency(aiForecast.weighted)}
+                  </p>
+                </div>
+                <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                  Soma de valor × probabilidade de fechamento dos negócios abertos.{" "}
+                  {aiForecast.covered} de {aiForecast.open} negócio(s) com previsão calculada — a
+                  previsão é gerada quando o negócio é aberto na tela.
+                </p>
+              </div>
+            )}
 
             <div className="grid gap-4 lg:grid-cols-2">
               <ChartCard title="Negócios por etapa">

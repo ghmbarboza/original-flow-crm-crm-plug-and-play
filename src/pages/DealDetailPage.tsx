@@ -20,6 +20,7 @@ import { DealProductsSection } from "@/components/deals/DealProductsSection";
 import { DealQualification } from "@/components/deals/DealQualification";
 import { DealActivitiesSection } from "@/components/deals/DealActivitiesSection";
 import { DealTimeline } from "@/components/deals/DealTimeline";
+import { DealPredictionCard } from "@/components/deals/DealPredictionCard";
 import { RequiredFieldsDialog } from "@/components/deals/RequiredFieldsDialog";
 import {
   contactName, useDeal, useLossReasons, useMoveDealStage, useStages, useUpdateDeal,
@@ -234,6 +235,7 @@ export default function DealDetailPage() {
             {/* Corpo em duas colunas: conteúdo à esquerda, timeline à direita. */}
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="space-y-6 lg:col-span-2">
+                <DealPredictionCard deal={deal} />
                 <DealProductsSection dealId={deal.id} currency={deal.currency} />
                 <DealActivitiesSection dealId={deal.id} contactId={deal.contact_id} />
                 <DealQualification deal={deal} />
