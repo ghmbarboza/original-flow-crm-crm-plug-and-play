@@ -2626,8 +2626,10 @@ export type Database = {
           conversation_id: string
           id: string
           org_id: string
-          responded_at: string
+          responded_at: string | null
           score: number | null
+          sent_at: string | null
+          thanked_at: string | null
         }
         Insert: {
           agent_id?: string | null
@@ -2637,8 +2639,10 @@ export type Database = {
           conversation_id: string
           id?: string
           org_id: string
-          responded_at?: string
+          responded_at?: string | null
           score?: number | null
+          sent_at?: string | null
+          thanked_at?: string | null
         }
         Update: {
           agent_id?: string | null
@@ -2648,8 +2652,10 @@ export type Database = {
           conversation_id?: string
           id?: string
           org_id?: string
-          responded_at?: string
+          responded_at?: string | null
           score?: number | null
+          sent_at?: string | null
+          thanked_at?: string | null
         }
         Relationships: [
           {

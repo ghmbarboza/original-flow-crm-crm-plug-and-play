@@ -55,3 +55,8 @@ verify_jwt = false
 # opcional do cron via ERP_CRON_SECRET.
 [functions.erp-outbound]
 verify_jwt = false
+
+# Dispatcher de NPS: acionado por cron (pg_cron + pg_net), sem JWT. Proteção
+# opcional via NPS_CRON_SECRET, mesmo padrão dos outros dispatchers.
+[functions.nps-dispatcher]
+verify_jwt = false
