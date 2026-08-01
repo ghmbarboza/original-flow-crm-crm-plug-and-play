@@ -130,7 +130,11 @@ test("usar um modelo cria a cópia com from_template_id e leva ao editor", async
 test("empty state de sequências aponta para a Biblioteca", async ({ page }) => {
   // Não força o empty state: se a org tiver sequências, o link não existe e o
   // teste não tem o que afirmar. Documenta a integração quando ela é visível.
-  await gotoPage(page, "/email-sequences", "Sequências de email");
+  // Reorganização de 2026-07-31: /email-sequences redireciona para a aba de
+  // Configurações; o título da aba é h2.
+  await page.goto("/email-sequences");
+  await expect(page).toHaveURL(/\/settings\/sequences/);
+  await expect(page.getByRole("heading", { name: "Sequências", level: 2 })).toBeVisible();
   const link = page.getByTestId("link-biblioteca");
   if (await link.count()) {
     await link.first().click();

@@ -5,7 +5,6 @@ import {
   BarChart2,
   Building2,
   CheckSquare,
-  GitBranch,
   HelpCircle,
   BookOpen,
   LayoutDashboard,
@@ -18,8 +17,6 @@ import {
   Target,
   TrendingUp,
   Users,
-  Users2,
-  Zap,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
@@ -65,24 +62,14 @@ export function AppSidebar() {
       ],
     },
     {
+      // Reorganização final de 2026-07-31: o sidebar ficou só com o dia a dia
+      // (CRM, Atendimento, Marketing, Analytics). Equipe, Automações e
+      // Sequências viraram abas de Configurações — as rotas antigas
+      // redirecionam. Follow-up e Templates de Email já tinham saído antes.
       label: "Atendimento",
       items: [
         { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
         { title: "Email", url: "/inbox", icon: Mail },
-        { title: "Equipe", url: "/team", icon: Users2 },
-      ],
-    },
-    {
-      // Automação separada de Marketing: automações e sequências operam o
-      // relacionamento contínuo; campanha e biblioteca são aquisição.
-      // Reorganização de 2026-07-31: Follow-up mora inteiro em Configurações >
-      // Follow-up (régua + execuções numa tela só) e Templates de Email são
-      // acessados pela Biblioteca (categoria "Meus Templates") — os dois saíram
-      // do sidebar, as rotas continuam vivas.
-      label: "Automação",
-      items: [
-        { title: "Automações", url: "/automations", icon: Zap },
-        { title: "Sequências", url: "/email-sequences", icon: GitBranch },
       ],
     },
     {

@@ -7,7 +7,9 @@ import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
 import CalcomSettings from "@/components/settings/CalcomSettings";
 import ErpSettings from "@/components/settings/ErpSettings";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
-import TeamSettings from "@/components/settings/TeamSettings";
+import EquipeSettings from "@/components/settings/EquipeSettings";
+import AutomationsSettings from "@/components/settings/AutomationsSettings";
+import SequencesSettings from "@/components/settings/SequencesSettings";
 import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
 import OnboardingSettings from "@/components/settings/OnboardingSettings";
 import AISettings from "@/components/settings/AISettings";
@@ -18,7 +20,7 @@ import AtendimentoSettings from "@/components/settings/AtendimentoSettings";
 import PipelineSettings from "@/components/settings/PipelineSettings";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "notifications", "security", "channels", "pipeline", "atendimento", "integrations", "capture", "ia", "follow-up", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "notifications", "security", "channels", "pipeline", "atendimento", "integrations", "capture", "ia", "follow-up", "automations", "sequences", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -62,6 +64,14 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
     title: "Follow-up",
     description: "Régua de mensagens automáticas para reengajar conversas de WhatsApp sem resposta.",
   },
+  automations: {
+    title: "Automações",
+    description: "Regras de gatilho e ação que rodam sozinhas quando algo acontece no CRM.",
+  },
+  sequences: {
+    title: "Sequências",
+    description: "Sequências de email em etapas, com inscrição de contatos e cadência própria.",
+  },
   team: {
     title: "Equipe",
     description: "Aprove, gerencie permissões e acompanhe os membros da sua equipe.",
@@ -103,7 +113,10 @@ export default function SettingsPage() {
           <TabsList>
             <TabsTrigger data-testid="settings-tab" value="general">Geral</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="security">Segurança</TabsTrigger>}
-            {isAdmin && <TabsTrigger data-testid="settings-tab" value="team">Equipe</TabsTrigger>}
+            {/* Equipe visível a todos: o conteúdo se auto-restringe por papel
+                (supervisão para gerente/diretor, gestão só para admin) — é o
+                gating que /team tinha antes de virar aba. */}
+            <TabsTrigger data-testid="settings-tab" value="team">Equipe</TabsTrigger>
             <TabsTrigger data-testid="settings-tab" value="notifications">Notificações</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="integrations">Integrações</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="channels">Canais</TabsTrigger>}
@@ -112,6 +125,8 @@ export default function SettingsPage() {
             <TabsTrigger data-testid="settings-tab" value="atendimento">Atendimento</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="ia">IA</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="follow-up">Follow-up</TabsTrigger>}
+            <TabsTrigger data-testid="settings-tab" value="automations">Automações</TabsTrigger>
+            <TabsTrigger data-testid="settings-tab" value="sequences">Sequências</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="onboarding">Onboarding</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="demonstration">Demonstração</TabsTrigger>}
           </TabsList>
@@ -135,7 +150,9 @@ export default function SettingsPage() {
           <TabsContent value="atendimento"><AtendimentoSettings /></TabsContent>
           {isAdmin && <TabsContent value="ia"><AISettings /></TabsContent>}
           {isAdmin && <TabsContent value="follow-up"><FollowupSettings /></TabsContent>}
-          {isAdmin && <TabsContent value="team"><TeamSettings /></TabsContent>}
+          <TabsContent value="automations"><AutomationsSettings /></TabsContent>
+          <TabsContent value="sequences"><SequencesSettings /></TabsContent>
+          <TabsContent value="team"><EquipeSettings /></TabsContent>
           {isAdmin && <TabsContent value="demonstration"><DemonstrationSettings /></TabsContent>}
           {isAdmin && <TabsContent value="onboarding"><OnboardingSettings /></TabsContent>}
         </Tabs>
