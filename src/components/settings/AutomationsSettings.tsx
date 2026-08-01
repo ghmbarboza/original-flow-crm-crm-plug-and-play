@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { History, Pencil, Plus, Trash2, Zap } from "lucide-react";
-import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
 import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { ErrorState } from "@/components/ErrorState";
@@ -73,7 +72,12 @@ function LogsSheet({ automation, onOpenChange }: { automation: Automation | null
   );
 }
 
-export default function AutomationsPage() {
+/**
+ * Configurações > Automações — reorganização final do sidebar (2026-07-31):
+ * a página /automations virou esta aba, com a MESMA funcionalidade; a rota
+ * antiga redireciona para cá.
+ */
+export default function AutomationsSettings() {
   const { data: automations, isLoading, error } = useAutomations();
   const toggle = useToggleAutomation();
   const deleteAutomation = useDeleteAutomation();
@@ -99,15 +103,10 @@ export default function AutomationsPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Zap className="h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-            <h1 className="font-display text-3xl font-medium tracking-tight" style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}>
-              Automações
-            </h1>
-          </div>
+        {/* O h1 saiu com o AppShell — o título vem do cabeçalho da aba. */}
+        <div className="flex justify-end">
           <Button onClick={openCreate} className="gap-1.5">
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Nova automação
@@ -182,6 +181,6 @@ export default function AutomationsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AppShell>
+    </>
   );
 }

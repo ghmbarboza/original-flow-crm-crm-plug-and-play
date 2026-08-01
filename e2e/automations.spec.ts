@@ -1,8 +1,11 @@
 import { test, expect } from "@playwright/test";
 
 test("cria uma automação simples", async ({ page }) => {
+  // Reorganização de 2026-07-31: /automations redireciona para a aba de
+  // Configurações — o título da aba é h2 (o h1 da página é "Configurações").
   await page.goto("/automations");
-  await expect(page.getByRole("heading", { name: "Automações", level: 1 })).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/automations/);
+  await expect(page.getByRole("heading", { name: "Automações", level: 2 })).toBeVisible();
 
   const name = `Automação E2E ${Date.now()}`;
 

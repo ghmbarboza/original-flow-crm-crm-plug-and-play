@@ -63,7 +63,11 @@ test.describe("Marketing", () => {
   });
 
   test("sequências de email abrem sem erro", async ({ page }) => {
-    await gotoPage(page, "/email-sequences", "Sequências de email");
+    // Reorganização de 2026-07-31: /email-sequences redireciona para a aba de
+    // Configurações; o título da aba é h2.
+    await page.goto("/email-sequences");
+    await expect(page).toHaveURL(/\/settings\/sequences/);
+    await expect(page.getByRole("heading", { name: "Sequências", level: 2 })).toBeVisible();
     await expectNoErrorState(page);
   });
 });

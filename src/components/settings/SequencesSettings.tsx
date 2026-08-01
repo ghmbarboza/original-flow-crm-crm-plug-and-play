@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { GitBranch, Plus, Trash2, Users } from "lucide-react";
-import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
 import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { ErrorState } from "@/components/ErrorState";
@@ -21,7 +20,12 @@ import {
   useDeleteSequence, useEmailSequences, useSaveSequence, type SequenceWithCounts,
 } from "@/hooks/useEmailSequences";
 
-export default function EmailSequencesPage() {
+/**
+ * Configurações > Sequências — reorganização final do sidebar (2026-07-31):
+ * a página /email-sequences virou esta aba, com a MESMA funcionalidade; a
+ * rota antiga redireciona para cá.
+ */
+export default function SequencesSettings() {
   const { data: sequences, isLoading, error } = useEmailSequences();
   const saveSequence = useSaveSequence();
   const deleteSequence = useDeleteSequence();
@@ -59,15 +63,10 @@ export default function EmailSequencesPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <GitBranch className="h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-            <h1 className="font-display text-3xl font-medium tracking-tight" style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}>
-              Sequências de email
-            </h1>
-          </div>
+        {/* O h1 saiu com o AppShell — o título vem do cabeçalho da aba. */}
+        <div className="flex justify-end">
           <Button onClick={() => setCreateOpen(true)} className="gap-1.5">
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Nova sequência
@@ -167,6 +166,6 @@ export default function EmailSequencesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AppShell>
+    </>
   );
 }

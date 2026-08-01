@@ -30,12 +30,9 @@ const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
 const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const InboxPage = lazy(() => import("./pages/InboxPage"));
 const EmailTemplatesPage = lazy(() => import("./pages/EmailTemplatesPage"));
-const EmailSequencesPage = lazy(() => import("./pages/EmailSequencesPage"));
-const AutomationsPage = lazy(() => import("./pages/AutomationsPage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const SalesGoalsPage = lazy(() => import("./pages/SalesGoalsPage"));
 const LeadScoringPage = lazy(() => import("./pages/LeadScoringPage"));
-const TeamPage = lazy(() => import("./pages/TeamPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const HelpPage = lazy(() => import("./pages/HelpPage"));
 
@@ -165,16 +162,14 @@ const App = () => (
             <Route path="/library" element={
               <ProtectedRoute><Page name="Biblioteca de Modelos"><LibraryPage /></Page></ProtectedRoute>
             } />
-            <Route path="/automations" element={
-              <ProtectedRoute><Page name="Automações"><AutomationsPage /></Page></ProtectedRoute>
-            } />
+            {/* Reorganização final do sidebar (2026-07-31): automações, sequências
+                e equipe viraram abas de Configurações. Redirects preservam links. */}
+            <Route path="/automations" element={<Navigate to="/settings/automations" replace />} />
             {/* Reorganização de 2026-07-31: o follow-up mora inteiro em
                 Configurações > Follow-up (régua + execuções). O redirect
                 preserva links salvos da rota antiga. */}
             <Route path="/followup" element={<Navigate to="/settings/follow-up" replace />} />
-            <Route path="/email-sequences" element={
-              <ProtectedRoute><Page name="Sequências de email"><EmailSequencesPage /></Page></ProtectedRoute>
-            } />
+            <Route path="/email-sequences" element={<Navigate to="/settings/sequences" replace />} />
 
             {/* Analytics */}
             <Route path="/reports" element={
@@ -190,9 +185,7 @@ const App = () => (
             {/* Sem allowedRoles: aquele filtro é por app_role (admin|member) e
                 barraria gerente/diretor, que precisam supervisionar. A própria
                 página checa crm_role e mostra o aviso de acesso restrito. */}
-            <Route path="/team" element={
-              <ProtectedRoute><Page name="Equipe"><TeamPage /></Page></ProtectedRoute>
-            } />
+            <Route path="/team" element={<Navigate to="/settings/team" replace />} />
             <Route path="/settings/*" element={
               <ProtectedRoute allowedRoles={["admin"]}><Page name="Configurações"><SettingsPage /></Page></ProtectedRoute>
             } />
