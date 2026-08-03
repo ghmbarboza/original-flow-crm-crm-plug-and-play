@@ -421,13 +421,8 @@ Deno.serve(async (req) => {
       // lado dele: a IA para de responder e nada explica o silêncio.
       const fallback = (config.fallback_message as string | null)?.trim();
       if (fallback) {
-        const fallbackMessageId = await deliver(
-          admin,
-          conversation.provider,
-          conversation.org_id,
-          conversation.phone_number,
-          fallback,
-        );
+        // Aviso de escalonamento vai sempre em texto: é uma mensagem de sistema.
+        const { providerMessageId: fallbackMessageId } = await deliver(admin, conversation, fallback);
         await admin.from("conversation_messages").insert({
           conversation_id,
           org_id: conversation.org_id,
