@@ -22,7 +22,7 @@ import {
 } from "@/lib/required-fields";
 
 /**
- * Configurações > Pipeline — automações por etapa.
+ * Configurações > Automações > Funil — automações por etapa.
  *
  * As etapas em si (nome, cor, ordem) nascem no setup e não são editadas aqui;
  * esta aba configura o que acontece QUANDO um deal entra em cada etapa:

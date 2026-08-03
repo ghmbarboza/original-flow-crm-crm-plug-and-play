@@ -19,7 +19,7 @@ const STATUS_EXECUCAO: Record<string, { rotulo: string; variante: "default" | "s
 /**
  * Histórico de execuções da régua — quem está nela, em que etapa, quando é a
  * próxima tentativa. Morava na rota /followup; a reorganização de 2026-07-31
- * unificou configuração e acompanhamento em Configurações > Follow-up.
+ * unificou configuração e acompanhamento em Configurações > Automações > Cadências.
  */
 export function FollowupExecucoes() {
   const { data: execucoes, isLoading, error, refetch } = useFollowupExecutions();

@@ -60,7 +60,7 @@ export function contactName(contact: Deal["contact"]): string | null {
  * pipeline default via trigger `seed_default_pipeline`).
  */
 /**
- * Atualiza a configuração de uma etapa (Configurações > Pipeline): mensagem
+ * Atualiza a configuração de uma etapa (Configurações > Automações > Funil): mensagem
  * automática de entrada (template + delay), campos obrigatórios para entrar
  * na etapa e o gatilho de resposta no WhatsApp (mover o deal para cá quando o
  * lead responde — o trigger move_deal_on_reply no banco é quem executa).

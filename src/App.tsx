@@ -172,10 +172,10 @@ const App = () => (
                 e equipe viraram abas de Configurações. Redirects preservam links. */}
             <Route path="/automations" element={<Navigate to="/settings/automations" replace />} />
             {/* Reorganização de 2026-07-31: o follow-up mora inteiro em
-                Configurações > Follow-up (régua + execuções). O redirect
+                Configurações > Automações > Cadências (régua + execuções). O redirect
                 preserva links salvos da rota antiga. */}
-            <Route path="/followup" element={<Navigate to="/settings/follow-up" replace />} />
-            <Route path="/email-sequences" element={<Navigate to="/settings/sequences" replace />} />
+            <Route path="/followup" element={<Navigate to="/settings/automations?secao=cadencias" replace />} />
+            <Route path="/email-sequences" element={<Navigate to="/settings/automations?secao=cadencias" replace />} />
 
             {/* Analytics */}
             <Route path="/reports" element={

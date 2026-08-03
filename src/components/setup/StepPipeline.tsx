@@ -201,7 +201,7 @@ export function StepPipeline({ onNext, onBack }: { onNext: () => void; onBack: (
         <div className="flex flex-wrap items-end gap-3">
           <PularEtapa
             step="pipeline"
-            impacto="Criamos um funil padrão simples; ajuste depois em Configurações > Pipeline."
+            impacto="Criamos um funil padrão simples; ajuste depois em Configurações > Automações > Funil."
             onPulado={onNext}
             disabled={aplicar.isPending}
             antesDePular={async () => {
