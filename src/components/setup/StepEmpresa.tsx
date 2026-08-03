@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BUSINESS_SECTORS, COMPANY_SIZES, useOrganization, useSaveSetupStep } from "@/hooks/useSetup";
+import { PularEtapa } from "@/components/setup/PularEtapa";
 
 /** Contador de caracteres que fica vermelho ao estourar o limite. */
 function Contador({ atual, max }: { atual: number; max: number }) {
@@ -209,11 +210,19 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
         </p>
       </div>
 
-      <div className={onBack ? "flex justify-between" : "flex justify-end"}>
-        {onBack && <Button variant="outline" onClick={onBack}>Voltar</Button>}
-        <Button onClick={avancar} disabled={!podeAvancar || salvar.isPending} data-testid="setup-next">
-          {salvar.isPending ? "Salvando…" : "Avançar"}
-        </Button>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        {onBack ? <Button variant="outline" onClick={onBack}>Voltar</Button> : <span />}
+        <div className="flex flex-wrap items-end gap-3">
+          <PularEtapa
+            step="empresa"
+            impacto="Sem esse contexto, a IA responde de forma genérica. Você completa depois em Configurações > Geral e > IA."
+            onPulado={onNext}
+            disabled={salvar.isPending}
+          />
+          <Button onClick={avancar} disabled={!podeAvancar || salvar.isPending} data-testid="setup-next">
+            {salvar.isPending ? "Salvando…" : "Avançar"}
+          </Button>
+        </div>
       </div>
     </div>
   );
