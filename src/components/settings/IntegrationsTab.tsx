@@ -1,13 +1,10 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowRight, AudioLines, CalendarCheck2, KeyRound, Mail, MessageSquare, Plug,
+  ArrowRight, AudioLines, CalendarCheck2, Mail, MessageSquare, Plug,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { supabase } from "@/integrations/supabase/client";
-import { useOrgId } from "@/hooks/useOrgId";
 import { useAIConfig } from "@/hooks/useAIConfig";
 import { useOrgApiKey } from "@/hooks/useOrgApiKey";
 import { useCalcomConfig } from "@/hooks/useCalcom";
@@ -15,7 +12,8 @@ import { useChannelStatus } from "@/hooks/useChannelStatus";
 import { useEmailConnection } from "@/hooks/useEmailConnection";
 import { useErpConfig, useSaveErpConfig } from "@/hooks/useErpIntegration";
 import { IntegrationCard, type StatusIntegracao } from "@/components/settings/IntegrationCard";
-import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
+import { ApiKeysList } from "@/components/settings/ApiKeysList";
+import { NewApiKeyButton } from "@/components/settings/NewApiKeyButton";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import CalcomSettings from "@/components/settings/CalcomSettings";
 import ErpSettings from "@/components/settings/ErpSettings";
@@ -24,14 +22,16 @@ import ErpSettings from "@/components/settings/ErpSettings";
  * Configurações > Integrações.
  *
  * Tudo colapsado por padrão e ordenado por importância para quem está começando
- * (Canais → Voz → E-mail → Agendamento → Chaves → ERP). Status vem sempre de
- * hooks que leem o estado real; nenhum card diz "conectado" por ter sido
- * visitado. `?integration=<id>` abre um card específico (navegação direcionada).
+ * (Canais → Voz → E-mail → Agendamento → ERP). Status vem sempre de hooks que
+ * leem o estado real; nenhum card diz "conectado" por ter sido visitado.
+ * `?integration=<id>` abre um card específico (navegação direcionada).
+ *
+ * Chaves de API não são uma seção: só um botão discreto no topo e, quando
+ * existem chaves, a lista compacta no fim da página.
  */
 export default function IntegrationsTab() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const orgId = useOrgId();
   const alvo = params.get("integration");
 
   const canal = useChannelStatus();
@@ -41,18 +41,6 @@ export default function IntegrationsTab() {
   const { data: calcom } = useCalcomConfig();
   const { data: erp } = useErpConfig();
   const salvarErp = useSaveErpConfig();
-
-  const { data: totalChaves } = useQuery({
-    queryKey: ["api-keys-count", orgId],
-    enabled: !!orgId,
-    queryFn: async (): Promise<number> => {
-      const { count, error } = await supabase
-        .from("api_keys_registry")
-        .select("service_name", { count: "exact", head: true });
-      if (error) throw error;
-      return count ?? 0;
-    },
-  });
 
   // Voz: a chave sozinha não faz a agente falar — o estado intermediário precisa
   // aparecer, senão o usuário acha que terminou.
@@ -75,6 +63,10 @@ export default function IntegrationsTab() {
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <NewApiKeyButton />
+      </div>
+
       <IntegrationCard
         icon={MessageSquare}
         title="Canais de atendimento (WhatsApp, Instagram…)"
@@ -165,19 +157,6 @@ export default function IntegrationsTab() {
       </IntegrationCard>
 
       <IntegrationCard
-        icon={KeyRound}
-        title="Chaves de API de serviços externos"
-        purpose="Guarda no cofre as chaves dos serviços que você já usa — a chave nunca volta para a tela."
-        recomendacao="opcional"
-        status={(totalChaves ?? 0) > 0 ? "ok" : "ausente"}
-        statusLabel={(totalChaves ?? 0) > 0 ? `${totalChaves} chave(s) guardada(s)` : "Nenhuma chave"}
-        abrirPorPadrao={alvo === "api-keys"}
-        testId="integration-api-keys"
-      >
-        <ApiKeysSettings />
-      </IntegrationCard>
-
-      <IntegrationCard
         icon={Plug}
         title="Conectividade ERP"
         purpose="Mantém contatos, negócios e pedidos em sincronia com seu sistema de gestão, nos dois sentidos."
@@ -197,6 +176,8 @@ export default function IntegrationsTab() {
       >
         <ErpSettings />
       </IntegrationCard>
+
+      <ApiKeysList />
     </div>
   );
 }
