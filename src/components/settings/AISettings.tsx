@@ -276,7 +276,7 @@ export default function AISettings() {
 
           {/* Voz da agente — a IA ouve áudios recebidos sempre; aqui se decide se
               ela também responde falando. */}
-          <div className="space-y-4">
+          <div className="space-y-4" id="voz-da-agente">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>

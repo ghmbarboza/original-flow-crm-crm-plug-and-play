@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CalendarCheck2, Copy, ExternalLink } from "lucide-react";
-import { IntegrationHeader } from "@/components/settings/IntegrationHeader";
+import { Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -64,17 +63,7 @@ export default function CalcomSettings() {
   if (isLoading) return <Skeleton className="h-40 w-full" />;
 
   return (
-    <div className="via-card space-y-4 p-5">
-      {/* Status = link de agendamento salvo: sem link a IA não tem o que oferecer
-          e o webhook do Cal.com é ignorado. */}
-      <IntegrationHeader
-        icon={CalendarCheck2}
-        title="Agendamento — Cal.com"
-        purpose="A IA passa a oferecer este link quando o cliente quer marcar uma reunião, e cada agendamento confirmado vira uma atividade no CRM."
-        recomendacao="recomendado"
-        connected={!!data?.config.scheduling_link?.trim()}
-      />
-
+    <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="calcom-link">Link de agendamento</Label>
         <div className="flex flex-wrap gap-2">

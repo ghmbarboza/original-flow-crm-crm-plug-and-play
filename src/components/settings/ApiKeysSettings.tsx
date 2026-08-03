@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Eye, EyeOff, Plus, ExternalLink, KeyRound } from "lucide-react";
 import { toast } from "sonner";
-import { IntegrationHeader } from "@/components/settings/IntegrationHeader";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { API_KEY_TUTORIALS, tutorialDoServico } from "@/lib/apiKeyTutorials";
 
@@ -84,26 +83,27 @@ export default function ApiKeysSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="via-card space-y-4 p-5">
-        <IntegrationHeader
-          icon={KeyRound}
-          title="Chaves de API de serviços externos"
-          purpose="Guardamos as chaves dos serviços que você usa (IA, e-mail, pagamentos, CRMs) no Vault — as automações da plataforma leem de lá e a chave nunca volta para a tela."
-          recomendacao="opcional"
-          connected={services.length > 0}
-          connectedLabel={`${services.length} chave(s) guardada(s)`}
-          disconnectedLabel="Nenhuma chave"
-          action={
-            <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova chave</Button>
-          }
-        />
+      {/* O cabeçalho (propósito, relevância e status) fica no card colapsável
+          da aba — aqui só a ação e a lista. */}
+      <div className="flex justify-end">
+        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova chave</Button>
       </div>
 
       {services.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            Nenhuma chave configurada. Só é necessária se você quiser usar um serviço externo
-            próprio — a IA da plataforma já funciona sem nada aqui.
+            <p>
+              Aqui ficam as chaves de serviços externos <strong>opcionais</strong>, que ligam
+              recursos extras à plataforma.
+            </p>
+            <ul className="mx-auto mt-3 max-w-md space-y-1 text-left">
+              <li>· <strong>ElevenLabs</strong> — a agente ouve áudios e responde com voz.</li>
+              <li>· <strong>Resend</strong> ou <strong>SendGrid</strong> — envio de e-mails pelas campanhas e sequências.</li>
+              <li>· <strong>Stripe</strong> — cobranças e pagamentos.</li>
+            </ul>
+            <p className="mt-3">
+              O atendimento por texto funciona sem nenhuma chave aqui.
+            </p>
           </CardContent>
         </Card>
       ) : (

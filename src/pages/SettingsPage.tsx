@@ -3,10 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GeneralSettings from "@/components/settings/GeneralSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
-import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
-import IntegrationShortcuts from "@/components/settings/IntegrationShortcuts";
-import CalcomSettings from "@/components/settings/CalcomSettings";
-import ErpSettings from "@/components/settings/ErpSettings";
+import IntegrationsTab from "@/components/settings/IntegrationsTab";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import EquipeSettings from "@/components/settings/EquipeSettings";
 import AutomationsSettings from "@/components/settings/AutomationsSettings";
@@ -140,11 +137,8 @@ export default function SettingsPage() {
           {isAdmin && <TabsContent value="security"><SecuritySettings /></TabsContent>}
           {isAdmin && <TabsContent value="channels"><ChannelsSettings /></TabsContent>}
           {isAdmin && (
-            <TabsContent value="integrations" className="space-y-6">
-              <IntegrationShortcuts />
-              <ApiKeysSettings />
-              <CalcomSettings />
-              <ErpSettings />
+            <TabsContent value="integrations">
+              <IntegrationsTab />
             </TabsContent>
           )}
           {isAdmin && <TabsContent value="capture"><CaptureFormsSettings /></TabsContent>}
