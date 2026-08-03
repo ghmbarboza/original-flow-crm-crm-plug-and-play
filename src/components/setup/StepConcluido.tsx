@@ -53,8 +53,8 @@ export function StepConcluido({ onClose }: { onClose?: () => void }) {
     {
       label: "Canal de atendimento conectado",
       ...checklist.canal,
-      to: "/settings/channels",
-      onde: "Configurações > Canais",
+      to: "/settings/integrations?integration=channels",
+      onde: "Configurações > Integrações > Canais",
     },
   ];
 

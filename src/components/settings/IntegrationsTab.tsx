@@ -16,6 +16,7 @@ import { useEmailConnection } from "@/hooks/useEmailConnection";
 import { useErpConfig, useSaveErpConfig } from "@/hooks/useErpIntegration";
 import { IntegrationCard, type StatusIntegracao } from "@/components/settings/IntegrationCard";
 import ApiKeysSettings from "@/components/settings/ApiKeysSettings";
+import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import CalcomSettings from "@/components/settings/CalcomSettings";
 import ErpSettings from "@/components/settings/ErpSettings";
 
@@ -85,22 +86,12 @@ export default function IntegrationsTab() {
         testId="integration-channels"
       >
         <div className="space-y-3">
-          <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-            {canal.detalhe ??
-              (canal.estado === "conectado"
-                ? "Canal conectado e recebendo mensagens."
-                : "Conecte um canal para a IA começar a atender.")}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => navigate("/settings/channels")}
-            data-testid="integrations-goto-channels"
-          >
-            Abrir Canais
-            <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-          </Button>
+          {canal.detalhe && (
+            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+              {canal.detalhe}
+            </p>
+          )}
+          <ChannelsSettings />
         </div>
       </IntegrationCard>
 

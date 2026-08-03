@@ -16,7 +16,7 @@ describe("statusDoCanal", () => {
 
     expect(status.estado).toBe("aguardando_pareamento");
     expect(status.label).toBe("Aguardando pareamento");
-    expect(status.detalhe).toContain("Configurações > Canais");
+    expect(status.detalhe).toContain("Configurações > Integrações > Canais");
   });
 
   it("aceita Meta apenas com webhook verificado e canal ativo", () => {

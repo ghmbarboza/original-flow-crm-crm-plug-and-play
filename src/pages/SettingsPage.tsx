@@ -1,10 +1,9 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GeneralSettings from "@/components/settings/GeneralSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
-import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import EquipeSettings from "@/components/settings/EquipeSettings";
 import AutomationsSettings from "@/components/settings/AutomationsSettings";
 import SequencesSettings from "@/components/settings/SequencesSettings";
@@ -18,7 +17,7 @@ import AtendimentoSettings from "@/components/settings/AtendimentoSettings";
 import PipelineSettings from "@/components/settings/PipelineSettings";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "notifications", "security", "channels", "pipeline", "atendimento", "integrations", "capture", "ia", "follow-up", "automations", "sequences", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "notifications", "security", "pipeline", "atendimento", "integrations", "capture", "ia", "follow-up", "automations", "sequences", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -33,10 +32,6 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
   security: {
     title: "Segurança",
     description: "Controle como novos usuários acessam a plataforma e quais domínios são permitidos.",
-  },
-  channels: {
-    title: "Canais",
-    description: "Gerencie o provedor de mensagens, os canais conectados e a distribuição de conversas.",
   },
   integrations: {
     title: "Integrações",
@@ -93,6 +88,12 @@ export default function SettingsPage() {
   const { isAdmin } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  // Canais foi fundida em Integrações: o link antigo continua valendo e abre o
+  // card de Canais já expandido.
+  if (pathname.replace(/^\/settings\/?/, "").split("/")[0] === "channels") {
+    return <Navigate to="/settings/integrations?integration=channels" replace />;
+  }
+
   const activeTab = getTabFromPath(pathname);
   const meta = TAB_META[activeTab];
 
@@ -117,7 +118,6 @@ export default function SettingsPage() {
             <TabsTrigger data-testid="settings-tab" value="team">Equipe</TabsTrigger>
             <TabsTrigger data-testid="settings-tab" value="notifications">Notificações</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="integrations">Integrações</TabsTrigger>}
-            {isAdmin && <TabsTrigger data-testid="settings-tab" value="channels">Canais</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="capture">Captura de Leads</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="pipeline">Pipeline</TabsTrigger>}
             <TabsTrigger data-testid="settings-tab" value="atendimento">Atendimento</TabsTrigger>
@@ -135,7 +135,6 @@ export default function SettingsPage() {
           <TabsContent value="general"><GeneralSettings /></TabsContent>
           <TabsContent value="notifications"><NotificationPreferences /></TabsContent>
           {isAdmin && <TabsContent value="security"><SecuritySettings /></TabsContent>}
-          {isAdmin && <TabsContent value="channels"><ChannelsSettings /></TabsContent>}
           {isAdmin && (
             <TabsContent value="integrations">
               <IntegrationsTab />
