@@ -12,6 +12,7 @@ import { LinkContactDialog } from "@/components/whatsapp/LinkContactDialog";
 import { ReportAIResponseDialog } from "@/components/whatsapp/ReportAIResponseDialog";
 import { TransferDialog } from "@/components/whatsapp/TransferDialog";
 import { QuickReplyPicker, type QuickReplyPickerHandle } from "@/components/whatsapp/QuickReplyPicker";
+import { AudioMessage } from "@/components/whatsapp/AudioMessage";
 import { ScheduleMessageDialog } from "@/components/contacts/ScheduleMessageDialog";
 import { aplicarVariaveis, type QuickReply } from "@/hooks/useQuickReplies";
 import {
@@ -31,6 +32,7 @@ function MessageBubble({
   onReport?: (messageId: string) => void;
 }) {
   const outbound = message.direction === "outbound";
+  const audio = message.type === "audio";
 
   if (message.is_internal_note) {
     return (
@@ -83,7 +85,35 @@ function MessageBubble({
             IA
           </p>
         )}
-        <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+        {audio && message.media_url && <AudioMessage path={message.media_url} escuro={outbound} />}
+        {message.content && (
+          <div>
+            {/* Em áudio, o texto é a transcrição (recebido) ou o roteiro falado
+                (enviado pela IA) — rotulado para não passar por mensagem escrita. */}
+            {audio && (
+              <p
+                className="text-[10px] font-medium uppercase tracking-wide"
+                style={{ color: outbound ? "rgba(255,255,255,0.7)" : "var(--via-text-muted)" }}
+              >
+                Transcrição
+              </p>
+            )}
+            <p
+              className="whitespace-pre-wrap text-sm"
+              style={audio ? { opacity: 0.8, fontSize: "0.8125rem" } : undefined}
+            >
+              {message.content}
+            </p>
+          </div>
+        )}
+        {audio && !message.content && (
+          <p
+            className="text-xs italic"
+            style={{ color: outbound ? "rgba(255,255,255,0.75)" : "var(--via-text-muted)" }}
+          >
+            Sem transcrição
+          </p>
+        )}
         <p
           className="flex items-center justify-end gap-1 text-[10px]"
           style={{ color: outbound ? "rgba(255,255,255,0.7)" : "var(--via-text-muted)" }}
