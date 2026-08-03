@@ -5,12 +5,11 @@ import { useEffect } from "react";
 
 export function ProtectedRoute({
   children, allowedRoles, allowUnapproved = false,
-  /** Rotas que nunca redirecionam para o setup (a própria /setup, por exemplo). */
-  skipSetupGuard = false,
 }: {
   children: React.ReactNode;
   allowedRoles?: AppRole[];
   allowUnapproved?: boolean;
+  /** Aceito por compatibilidade: o setup agora é modal e não desvia de rota. */
   skipSetupGuard?: boolean;
 }) {
   const { user, isLoading, isApproved, isActive, role, profile, signOut } = useAuth();
