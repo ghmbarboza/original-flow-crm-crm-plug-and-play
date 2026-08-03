@@ -9,7 +9,7 @@
 // quando a org tem webhook_secret configurado.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
-  baixarBinario, extensaoDeAudio, salvarAudioNoBucket, transcreverAudio,
+  baixarBinario, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -246,7 +246,9 @@ async function ingestInbound(
         admin, orgId, conversationId, midia.bytes,
         `${Date.now()}.${extensaoDeAudio(mimetype)}`, mimetype,
       );
-      transcricao = await transcreverAudio(midia.bytes, mimetype);
+      transcricao = await transcreverAudio(
+        midia.bytes, mimetype, await resolverChaveElevenLabs(admin, orgId),
+      );
     }
     await admin.from("conversation_messages").insert({
       conversation_id: conversationId,
