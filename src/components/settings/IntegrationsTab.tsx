@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowRight, AudioLines, CalendarCheck2, Mail, MessageSquare, Plug,
+  ArrowRight, AudioLines, CalendarCheck2, History, Mail, MessageSquare, Plug,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,14 @@ import { useCalcomConfig } from "@/hooks/useCalcom";
 import { useChannelStatus } from "@/hooks/useChannelStatus";
 import { useEmailConnection } from "@/hooks/useEmailConnection";
 import { useErpConfig, useSaveErpConfig } from "@/hooks/useErpIntegration";
+import { useConversationImports } from "@/hooks/useConversationImport";
 import { IntegrationCard, type StatusIntegracao } from "@/components/settings/IntegrationCard";
 import { ApiKeysList } from "@/components/settings/ApiKeysList";
 import { NewApiKeyButton } from "@/components/settings/NewApiKeyButton";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import CalcomSettings from "@/components/settings/CalcomSettings";
 import ErpSettings from "@/components/settings/ErpSettings";
+import ImportHistorySettings from "@/components/settings/ImportHistorySettings";
 
 /**
  * Configurações > Integrações.
@@ -41,6 +43,9 @@ export default function IntegrationsTab() {
   const { data: calcom } = useCalcomConfig();
   const { data: erp } = useErpConfig();
   const salvarErp = useSaveErpConfig();
+  const { data: importacoes } = useConversationImports();
+
+  const totalImportacoes = (importacoes ?? []).filter((i) => i.status === "completed").length;
 
   // Voz: a chave sozinha não faz a agente falar — o estado intermediário precisa
   // aparecer, senão o usuário acha que terminou.
@@ -175,6 +180,21 @@ export default function IntegrationsTab() {
         }
       >
         <ErpSettings />
+      </IntegrationCard>
+
+      <IntegrationCard
+        icon={History}
+        title="Importar histórico — outras ferramentas"
+        purpose="Traga conversas de outras plataformas de atendimento via CSV."
+        recomendacao="opcional"
+        status={totalImportacoes > 0 ? "ok" : "ausente"}
+        statusLabel={
+          totalImportacoes > 0 ? `${totalImportacoes} importação(ões)` : "Nenhuma importação"
+        }
+        abrirPorPadrao={alvo === "import-history"}
+        testId="integration-import-history"
+      >
+        <ImportHistorySettings />
       </IntegrationCard>
 
       <ApiKeysList />
