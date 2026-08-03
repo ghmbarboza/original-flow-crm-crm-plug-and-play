@@ -151,7 +151,7 @@ const SECTIONS: Section[] = [
     faqs: [
       {
         q: "Onde ajusto minhas informações pessoais?",
-        a: "Em Configurações · Geral você gerencia seu perfil. As demais abas (Segurança, Integrações, IA, Follow-up, Equipe, Demonstração, Onboarding) são de administrador.",
+        a: "Em Configurações · Geral você gerencia seu perfil. As demais abas (Segurança, Integrações, IA, Automações, Equipe, Demonstração, Onboarding) são de administrador.",
       },
       {
         q: "Como refaço o onboarding?",

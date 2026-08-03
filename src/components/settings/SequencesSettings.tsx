@@ -21,7 +21,7 @@ import {
 } from "@/hooks/useEmailSequences";
 
 /**
- * Configurações > Sequências — reorganização final do sidebar (2026-07-31):
+ * Configurações > Automações > Cadências — reorganização final do sidebar (2026-07-31):
  * a página /email-sequences virou esta aba, com a MESMA funcionalidade; a
  * rota antiga redireciona para cá.
  */

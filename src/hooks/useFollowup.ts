@@ -60,7 +60,7 @@ export type FollowupExecution = Database["public"]["Tables"]["followup_execution
  * Execuções do follow-up da organização, mais recentes primeiro.
  *
  * Alimenta a tela de USO (/followup) — o que a régua está fazendo agora —
- * separada da configuração (Configurações > Follow-up), que define mensagens e
+ * separada da configuração (Configurações > Automações > Cadências), que define mensagens e
  * parâmetros. Limite de 100: a tela é um painel de acompanhamento, não um
  * histórico completo.
  */

@@ -4,20 +4,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GeneralSettings from "@/components/settings/GeneralSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
 import IntegrationsTab from "@/components/settings/IntegrationsTab";
+import AutomationsTab from "@/components/settings/AutomationsTab";
 import EquipeSettings from "@/components/settings/EquipeSettings";
-import AutomationsSettings from "@/components/settings/AutomationsSettings";
-import SequencesSettings from "@/components/settings/SequencesSettings";
 import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
 import OnboardingSettings from "@/components/settings/OnboardingSettings";
 import AISettings from "@/components/settings/AISettings";
-import FollowupSettings from "@/components/settings/FollowupSettings";
 import NotificationPreferences from "@/components/settings/NotificationPreferences";
 import CaptureFormsSettings from "@/components/settings/CaptureFormsSettings";
 import AtendimentoSettings from "@/components/settings/AtendimentoSettings";
-import PipelineSettings from "@/components/settings/PipelineSettings";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "notifications", "security", "pipeline", "atendimento", "integrations", "capture", "ia", "follow-up", "automations", "sequences", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "notifications", "security", "atendimento", "integrations", "capture", "ia", "automations", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -41,10 +38,6 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
     title: "Captura de Leads",
     description: "Crie formulários públicos que capturam leads e os direcionam para um funil e uma automação.",
   },
-  pipeline: {
-    title: "Pipeline",
-    description: "Automações por etapa do funil: o que acontece quando um deal entra em cada etapa.",
-  },
   atendimento: {
     title: "Atendimento",
     description: "Respostas rápidas do inbox — as mensagens que o time usa todo dia, a um / de distância.",
@@ -53,17 +46,9 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
     title: "IA",
     description: "Configure a personalidade, a base de conhecimento e o comportamento do atendimento por IA no WhatsApp.",
   },
-  "follow-up": {
-    title: "Follow-up",
-    description: "Régua de mensagens automáticas para reengajar conversas de WhatsApp sem resposta.",
-  },
   automations: {
     title: "Automações",
-    description: "Regras de gatilho e ação que rodam sozinhas quando algo acontece no CRM.",
-  },
-  sequences: {
-    title: "Sequências",
-    description: "Sequências de email em etapas, com inscrição de contatos e cadência própria.",
+    description: "Tudo que roda sozinho no CRM: regras de gatilho, automações por etapa do funil e cadências de mensagens.",
   },
   team: {
     title: "Equipe",
@@ -90,8 +75,19 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   // Canais foi fundida em Integrações: o link antigo continua valendo e abre o
   // card de Canais já expandido.
-  if (pathname.replace(/^\/settings\/?/, "").split("/")[0] === "channels") {
+  const segmento = pathname.replace(/^\/settings\/?/, "").split("/")[0];
+  if (segmento === "channels") {
     return <Navigate to="/settings/integrations?integration=channels" replace />;
+  }
+  // Pipeline, Sequências e Follow-up foram fundidas na aba Automações: as rotas
+  // antigas continuam valendo e abrem a seção correspondente.
+  const SECAO_LEGADA: Record<string, string> = {
+    pipeline: "funil",
+    sequences: "cadencias",
+    "follow-up": "cadencias",
+  };
+  if (SECAO_LEGADA[segmento]) {
+    return <Navigate to={`/settings/automations?secao=${SECAO_LEGADA[segmento]}`} replace />;
   }
 
   const activeTab = getTabFromPath(pathname);
@@ -119,12 +115,9 @@ export default function SettingsPage() {
             <TabsTrigger data-testid="settings-tab" value="notifications">Notificações</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="integrations">Integrações</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="capture">Captura de Leads</TabsTrigger>}
-            {isAdmin && <TabsTrigger data-testid="settings-tab" value="pipeline">Pipeline</TabsTrigger>}
             <TabsTrigger data-testid="settings-tab" value="atendimento">Atendimento</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="ia">IA</TabsTrigger>}
-            {isAdmin && <TabsTrigger data-testid="settings-tab" value="follow-up">Follow-up</TabsTrigger>}
             <TabsTrigger data-testid="settings-tab" value="automations">Automações</TabsTrigger>
-            <TabsTrigger data-testid="settings-tab" value="sequences">Sequências</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="onboarding">Onboarding</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="demonstration">Demonstração</TabsTrigger>}
           </TabsList>
@@ -141,12 +134,9 @@ export default function SettingsPage() {
             </TabsContent>
           )}
           {isAdmin && <TabsContent value="capture"><CaptureFormsSettings /></TabsContent>}
-          {isAdmin && <TabsContent value="pipeline"><PipelineSettings /></TabsContent>}
           <TabsContent value="atendimento"><AtendimentoSettings /></TabsContent>
           {isAdmin && <TabsContent value="ia"><AISettings /></TabsContent>}
-          {isAdmin && <TabsContent value="follow-up"><FollowupSettings /></TabsContent>}
-          <TabsContent value="automations"><AutomationsSettings /></TabsContent>
-          <TabsContent value="sequences"><SequencesSettings /></TabsContent>
+          <TabsContent value="automations"><AutomationsTab /></TabsContent>
           <TabsContent value="team"><EquipeSettings /></TabsContent>
           {isAdmin && <TabsContent value="demonstration"><DemonstrationSettings /></TabsContent>}
           {isAdmin && <TabsContent value="onboarding"><OnboardingSettings /></TabsContent>}

@@ -47,8 +47,8 @@ export function StepConcluido({ onClose }: { onClose?: () => void }) {
     {
       label: "Pipeline de vendas definido",
       ...checklist.pipeline,
-      to: "/settings/pipeline",
-      onde: "Configurações > Pipeline",
+      to: "/settings/automations?secao=funil",
+      onde: "Configurações > Automações > Funil",
     },
     {
       label: "Canal de atendimento conectado",
