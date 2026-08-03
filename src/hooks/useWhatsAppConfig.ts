@@ -147,7 +147,7 @@ export function useConnectEvolution() {
   });
 }
 
-export interface EvolutionInstance {
+export interface EvolutionServerInstance {
   instance_name: string;
   state: string;
   profile_name: string | null;
@@ -168,7 +168,7 @@ export function useEvolutionInstances() {
       });
       if (error) throw await erroDeFunction(error, "Falha ao listar instâncias.");
       if (data?.error) throw new Error(data.error);
-      return (data?.instances ?? []) as EvolutionInstance[];
+      return (data?.instances ?? []) as EvolutionServerInstance[];
     },
   });
 }
