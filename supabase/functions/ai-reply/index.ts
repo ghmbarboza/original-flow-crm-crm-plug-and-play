@@ -659,22 +659,40 @@ Deno.serve(async (req) => {
     const delay = Number(config.response_delay_ms ?? 0);
     if (delay > 0) await new Promise((r) => setTimeout(r, Math.min(delay, 8000)));
 
-    const providerMessageId = await deliver(
-      admin,
-      conversation.provider,
-      conversation.org_id,
-      conversation.phone_number,
-      reply,
-    );
+    // Voz da agente: responde em áudio quando configurado. No modo padrão
+    // ('reply_to_audio') só espelha o cliente — se ele mandou áudio, recebe áudio.
+    const querVoz =
+      config.voice_enabled === true &&
+      (config.voice_response_mode === "always" || lastInbound?.type === "audio");
 
+    let audioBytes: Uint8Array | null = null;
+    if (querVoz) {
+      audioBytes = await gerarAudioDaResposta(reply, (config.voice_id as string | null) ?? "");
+    }
+
+    const { providerMessageId, comoAudio } = await deliver(admin, conversation, reply, audioBytes);
+
+    // Guarda o áudio enviado só quando o provedor o aceitou: em fallback para
+    // texto, um media_url apontando para áudio não entregue enganaria a timeline.
+    let mediaPath: string | null = null;
+    if (comoAudio && audioBytes) {
+      mediaPath = await salvarAudioNoBucket(
+        admin, conversation.org_id, conversation_id, audioBytes,
+        `ai-${Date.now()}.mp3`, "audio/mpeg",
+      );
+    }
+
+    // `content` recebe o texto mesmo no envio em áudio: é o que alimenta o
+    // contexto das próximas rodadas e a transcrição exibida na timeline.
     await admin.from("conversation_messages").insert({
       conversation_id,
       org_id: conversation.org_id,
       direction: "outbound",
       content: reply,
+      media_url: mediaPath,
       is_from_ai: true,
       provider_message_id: providerMessageId,
-      type: "text",
+      type: comoAudio ? "audio" : "text",
       status: providerMessageId ? "sent" : "failed",
     });
 
@@ -687,7 +705,7 @@ Deno.serve(async (req) => {
       })
       .eq("id", conversation_id);
 
-    return json({ ok: true, replied: reply, purchase_intent: purchaseIntent });
+    return json({ ok: true, replied: reply, como_audio: comoAudio, purchase_intent: purchaseIntent });
   } catch (err) {
     if (err instanceof ErroIA) return json({ error: err.publico }, err.status);
     return json({ error: err instanceof Error ? err.message : "Erro inesperado" }, 500);
