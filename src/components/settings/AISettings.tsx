@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KnowledgePanel } from "@/components/settings/ai/KnowledgePanel";
+import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { PromptVersionsPanel } from "@/components/settings/ai/PromptVersionsPanel";
 import { useActiveProducts } from "@/hooks/useProducts";
 import { useStages } from "@/hooks/useDeals";
@@ -25,6 +27,7 @@ import {
 } from "@/hooks/useAIConfig";
 import { useGenerateSystemPrompt } from "@/hooks/useGenerateSystemPrompt";
 import { BRAND_TONES, useOrganization, useUpdateOrganization } from "@/hooks/useSetup";
+import { useOrgApiKey, useSaveOrgApiKey } from "@/hooks/useOrgApiKey";
 import { formatCurrency } from "@/lib/format";
 
 function defaultWorkingHours(): WorkingHours {
@@ -41,6 +44,11 @@ export default function AISettings() {
   const upsert = useUpsertAIConfig();
   const gerar = useGenerateSystemPrompt();
   const [regenerando, setRegenerando] = useState(false);
+  // Voz da agente: a chave do ElevenLabs é da organização (Vault). Aqui só se
+  // sabe SE existe — o valor nunca volta para a tela.
+  const { data: chaveElevenLabs } = useOrgApiKey("elevenlabs");
+  const salvarChave = useSaveOrgApiKey("elevenlabs");
+  const [chaveNova, setChaveNova] = useState("");
 
   // Contexto da marca: MESMOS registros de organizations que o onboarding
   // (etapa Público) grava — fonte única, não cópia. Salvos junto com o botão
