@@ -21,6 +21,35 @@ export function elevenLabsKey(): string | null {
   return Deno.env.get("ELEVENLABS_API_KEY") ?? null;
 }
 
+/**
+ * Chave do ElevenLabs a usar para uma organização.
+ *
+ * Primeiro a chave própria da org (Vault, via `api_keys_registry` + a função
+ * `get_org_api_key`, acessível só com service_role); se ela não existir, cai na
+ * chave da plataforma (env) — é o que mantém as demos funcionando.
+ */
+export async function resolverChaveElevenLabs(
+  admin: SupabaseClient,
+  orgId: string | null | undefined,
+): Promise<string | null> {
+  if (orgId) {
+    try {
+      const { data, error } = await admin.rpc("get_org_api_key", {
+        _org_id: orgId,
+        _service: "elevenlabs",
+      });
+      if (error) {
+        console.error("[audio] falha ao ler chave da org:", error.message);
+      } else if (typeof data === "string" && data.trim()) {
+        return data.trim();
+      }
+    } catch (err) {
+      console.error("[audio] erro ao ler chave da org:", err instanceof Error ? err.message : err);
+    }
+  }
+  return elevenLabsKey();
+}
+
 /** Extensão a partir do mimetype do provedor, com fallback para ogg (PTT do WhatsApp). */
 export function extensaoDeAudio(mimetype: string | null | undefined): string {
   const mime = (mimetype ?? "").split(";")[0].trim().toLowerCase();
@@ -71,10 +100,11 @@ export function bytesParaBase64(bytes: Uint8Array): string {
 export async function transcreverAudio(
   bytes: Uint8Array,
   mimetype: string,
+  chave?: string | null,
 ): Promise<string | null> {
-  const key = elevenLabsKey();
+  const key = chave ?? elevenLabsKey();
   if (!key) {
-    console.error("[audio] ELEVENLABS_API_KEY não configurada — áudio salvo sem transcrição.");
+    console.error("[audio] sem chave do ElevenLabs (org ou plataforma) — áudio salvo sem transcrição.");
     return null;
   }
 
@@ -107,10 +137,11 @@ export async function transcreverAudio(
 export async function gerarAudioDaResposta(
   texto: string,
   voiceId: string,
+  chave?: string | null,
 ): Promise<Uint8Array | null> {
-  const key = elevenLabsKey();
+  const key = chave ?? elevenLabsKey();
   if (!key) {
-    console.error("[audio] ELEVENLABS_API_KEY não configurada — resposta seguirá em texto.");
+    console.error("[audio] sem chave do ElevenLabs (org ou plataforma) — resposta seguirá em texto.");
     return null;
   }
   if (!voiceId) {
