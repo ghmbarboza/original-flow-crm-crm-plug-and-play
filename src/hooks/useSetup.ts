@@ -232,6 +232,84 @@ export function useSaveSetupStep() {
   });
 }
 
+/**
+ * Registra a etapa como PULADA e avança.
+ *
+ * Nada é gravado na organização: pular tem que ser inócuo, não meio-salvo com
+ * campos vazios sobrescrevendo o que já existia.
+ */
+export function useSkipSetupStep() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ step }: { step: SetupStepKey }) => {
+      if (!orgId) throw new Error("Organização não carregada.");
+
+      const { data: atual } = await supabase
+        .from("setup_progress").select("completed_steps").eq("org_id", orgId).maybeSingle();
+
+      // Pular remove a marca de concluída: refazer o onboarding e pular uma
+      // etapa antes concluída não pode deixar o checklist dizendo "pronto".
+      const marcas = new Set((atual?.completed_steps ?? []).filter((s) => s !== step));
+      marcas.add(`${SKIPPED_PREFIX}${step}`);
+
+      const i = SETUP_STEPS.findIndex((s) => s.key === step);
+      const proxima = SETUP_STEPS[Math.min(i + 1, SETUP_STEPS.length - 1)].key;
+
+      const { error } = await supabase.from("setup_progress").upsert(
+        {
+          org_id: orgId,
+          completed_steps: [...marcas],
+          current_step: proxima,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "org_id" },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["setup-progress", orgId] }),
+  });
+}
+
+/**
+ * Reabre o assistente do começo (Configurações > Onboarding > Refazer).
+ *
+ * Zera SÓ o progresso do wizard (`setup_progress`). `organizations.setup_completed`
+ * fica intacto de propósito: o guard do ProtectedRoute usa esse campo, e limpá-lo
+ * prenderia todos os admins da organização dentro do wizard de novo.
+ */
+export function useResetSetup() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!orgId) throw new Error("Organização não carregada. Recarregue a página.");
+      const { error } = await supabase.from("setup_progress").upsert(
+        {
+          org_id: orgId,
+          completed_steps: [],
+          current_step: SETUP_STEPS[0].key,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "org_id" },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      // O SetupPage lê o passo atual do cache ao montar; escrever antes de
+      // invalidar evita ele abrir na última etapa enquanto o refetch está em voo.
+      queryClient.setQueryData(
+        ["setup-progress", orgId],
+        (anterior: Record<string, unknown> | undefined) =>
+          anterior ? { ...anterior, completed_steps: [], current_step: SETUP_STEPS[0].key } : anterior,
+      );
+      queryClient.invalidateQueries({ queryKey: ["setup-progress", orgId] });
+    },
+  });
+}
+
 /** Cores das etapas, do início ao fim do funil. Mesma escala do seed do Sprint 1. */
 const STAGE_COLORS = ["#0A1F3B", "#1E3A5F", "#2A4A6E", "#667085", "#1F8A5B", "#0F766E"];
 
