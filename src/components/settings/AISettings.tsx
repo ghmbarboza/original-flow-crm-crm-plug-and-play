@@ -286,6 +286,47 @@ export default function AISettings() {
             </div>
             {form.voice_enabled && (
               <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Label htmlFor="elevenlabs-key">Chave de API do ElevenLabs</Label>
+                    {chaveElevenLabs && (
+                      <Badge className="bg-success text-success-foreground">Configurada</Badge>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      id="elevenlabs-key"
+                      data-testid="ai-elevenlabs-key"
+                      type="password"
+                      className="sm:max-w-xs"
+                      value={chaveNova}
+                      onChange={(e) => setChaveNova(e.target.value)}
+                      placeholder={chaveElevenLabs ? "••••••••  (deixe vazio para manter)" : "sk_..."}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!chaveNova.trim() || salvarChave.isPending}
+                      onClick={async () => {
+                        try {
+                          await salvarChave.mutateAsync(chaveNova);
+                          setChaveNova("");
+                          toast.success("Chave do ElevenLabs guardada no Vault.");
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "Falha ao salvar a chave.");
+                        }
+                      }}
+                    >
+                      {salvarChave.isPending ? "Salvando…" : "Salvar chave"}
+                    </Button>
+                    <ApiKeyTutorialDialog service="elevenlabs" />
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                    A chave é da sua organização e fica no Vault. Sem chave própria, usamos a
+                    chave da plataforma (limitada, só para testes).
+                  </p>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="voice_id">ID da voz</Label>
                   <Input
