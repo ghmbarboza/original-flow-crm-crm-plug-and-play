@@ -24,6 +24,7 @@ import {
 import { SLA_CHANNELS, useSaveSlaConfig, useSlaConfig } from "@/hooks/useSla";
 import { NPS_CHANNELS, useNpsConfig, useSaveNpsConfig } from "@/hooks/useNps";
 import { channelMeta } from "@/components/whatsapp/ChannelBadge";
+import { ConnectedChannelsFieldset } from "@/components/settings/ConnectedChannelsFieldset";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { parseCsv } from "@/lib/csv";
@@ -138,23 +139,13 @@ function SlaSection() {
         </div>
       </div>
 
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
-          Canais com SLA ativo
-        </legend>
-        <div className="flex flex-wrap gap-4">
-          {SLA_CHANNELS.map((channel) => (
-            <label key={channel} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
-              <Checkbox
-                checked={form.active_channels.includes(channel)}
-                onCheckedChange={(v) => alternarCanal(channel, v === true)}
-                data-testid={`sla-channel-${channel}`}
-              />
-              {channelMeta(channel).label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <ConnectedChannelsFieldset
+        legend="Canais com SLA ativo"
+        allowed={SLA_CHANNELS}
+        selected={form.active_channels}
+        onToggle={(channel, checked) => alternarCanal(channel, checked)}
+        testIdPrefix="sla"
+      />
 
       <div className="flex justify-end">
         <Button onClick={submeter} disabled={salvar.isPending} data-testid="sla-salvar">
@@ -278,23 +269,13 @@ function NpsSection() {
         </div>
       </div>
 
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
-          Canais onde o NPS é enviado
-        </legend>
-        <div className="flex flex-wrap gap-4">
-          {NPS_CHANNELS.map((channel) => (
-            <label key={channel} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
-              <Checkbox
-                checked={form.active_channels.includes(channel)}
-                onCheckedChange={(v) => alternarCanal(channel, v === true)}
-                data-testid={`nps-channel-${channel}`}
-              />
-              {channelMeta(channel).label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <ConnectedChannelsFieldset
+        legend="Canais onde o NPS é enviado"
+        allowed={NPS_CHANNELS}
+        selected={form.active_channels}
+        onToggle={(channel, checked) => alternarCanal(channel, checked)}
+        testIdPrefix="nps"
+      />
 
       <div className="flex justify-end">
         <Button onClick={submeter} disabled={salvar.isPending} data-testid="nps-salvar">
