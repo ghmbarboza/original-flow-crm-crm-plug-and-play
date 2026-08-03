@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KnowledgePanel } from "@/components/settings/ai/KnowledgePanel";
+import { VoicePicker } from "@/components/settings/VoicePicker";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { PromptVersionsPanel } from "@/components/settings/ai/PromptVersionsPanel";
 import { useActiveProducts } from "@/hooks/useProducts";
@@ -336,17 +337,13 @@ export default function AISettings() {
                     chave da plataforma (limitada, só para testes).
                   </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="voice_id">ID da voz</Label>
-                  <Input
-                    id="voice_id"
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Voz da agente</Label>
+                  <VoicePicker
                     value={form.voice_id}
-                    onChange={(e) => setForm({ ...form, voice_id: e.target.value })}
-                    placeholder="EXAVITQu4vr4xnSDxMaL"
+                    onChange={(voiceId) => setForm({ ...form, voice_id: voiceId })}
+                    temChave={!!chaveElevenLabs}
                   />
-                  <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-                    Copie do ElevenLabs em Voices → a voz escolhida → Voice ID.
-                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label id="voice-mode-label">Quando responder em áudio</Label>

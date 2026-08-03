@@ -13,6 +13,7 @@ import { useAIConfig, useUpsertAIConfig } from "@/hooks/useAIConfig";
 import { useOrgApiKey, useSaveOrgApiKey } from "@/hooks/useOrgApiKey";
 import { useSaveSetupStep } from "@/hooks/useSetup";
 import { PularEtapa } from "@/components/setup/PularEtapa";
+import { VoicePicker } from "@/components/settings/VoicePicker";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 
 /**
@@ -113,18 +114,9 @@ export function StepVoz({ onNext, onBack }: { onNext: () => void; onBack: () => 
         </div>
       </div>
 
-      <div className="space-y-2 sm:max-w-xs">
-        <Label htmlFor="voz-voice-id">ID da voz</Label>
-        <Input
-          id="voz-voice-id"
-          data-testid="setup-voz-voice-id"
-          value={voiceId}
-          onChange={(e) => setVoiceId(e.target.value)}
-          placeholder="EXAVITQu4vr4xnSDxMaL"
-        />
-        <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-          Escolha a voz em elevenlabs.io/app/voice-library e copie o Voice ID.
-        </p>
+      <div className="space-y-2">
+        <Label>Escolha a voz</Label>
+        <VoicePicker value={voiceId} onChange={setVoiceId} temChave={!!chaveConfigurada} />
       </div>
 
       <div className="flex items-start justify-between gap-3">

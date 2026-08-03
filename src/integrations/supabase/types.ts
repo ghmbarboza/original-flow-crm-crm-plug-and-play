@@ -3692,6 +3692,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      create_secret: {
+        Args: { new_description?: string; new_name: string; new_secret: string }
+        Returns: string
+      }
       current_org_id: { Args: never; Returns: string }
       enqueue_automations: {
         Args: { p_org: string; p_trigger_data: Json; p_trigger_type: string }
@@ -3735,6 +3739,10 @@ export type Database = {
         Returns: number
       }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
+      vault_update_secret: {
+        Args: { new_secret: string; secret_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       activity_type: "call" | "email" | "meeting" | "note" | "task"
