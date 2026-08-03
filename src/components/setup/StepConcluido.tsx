@@ -27,6 +27,7 @@ export function StepConcluido({ onClose }: { onClose?: () => void }) {
   const conquistas = [
     {
       label: "Empresa configurada",
+      detalhe: undefined as string | undefined,
       ok: !!org?.name?.trim() && !!org?.business_sector && feitos.has("empresa") && feitos.has("publico"),
       to: "/settings",
       onde: "Configurações > Geral",
