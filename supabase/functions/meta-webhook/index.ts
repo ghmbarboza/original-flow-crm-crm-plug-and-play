@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
               status: "ai_active",
               assigned_to: assignedTo ?? null,
               last_message_at: new Date().toISOString(),
-              last_message_preview: content.slice(0, 120),
+              last_message_preview: preview,
               unread_count: 1,
             })
             .select("id, status")
@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
             .update({
               contact_id: contactId,
               last_message_at: new Date().toISOString(),
-              last_message_preview: content.slice(0, 120),
+              last_message_preview: preview,
               unread_count: (existingConversation?.unread_count ?? 0) + 1,
               updated_at: new Date().toISOString(),
             })
@@ -184,15 +184,49 @@ Deno.serve(async (req) => {
 
         if (!conversationId) continue;
 
-        await admin.from("conversation_messages").insert({
-          conversation_id: conversationId,
-          org_id: orgId,
-          direction: "inbound",
-          content,
-          provider_message_id: msg.id ?? null,
-          type: "text",
-          status: "received",
-        });
+        // Áudio: baixa, guarda no bucket e transcreve. A transcrição vai em
+        // `content`, de modo que o histórico lido pela IA segue textual. Falha de
+        // download ou transcrição nunca descarta a mensagem.
+        let transcricao: string | null = null;
+        if (audioId) {
+          const midia = await baixarMidiaMeta(audioId, instance.access_token as string);
+          let mediaPath: string | null = null;
+          if (midia) {
+            mediaPath = await salvarAudioNoBucket(
+              admin, orgId, conversationId, midia.bytes,
+              `${Date.now()}.${extensaoDeAudio(midia.mimetype)}`, midia.mimetype,
+            );
+            transcricao = await transcreverAudio(midia.bytes, midia.mimetype);
+          }
+
+          await admin.from("conversation_messages").insert({
+            conversation_id: conversationId,
+            org_id: orgId,
+            direction: "inbound",
+            content: transcricao,
+            media_url: mediaPath,
+            provider_message_id: msg.id ?? null,
+            type: "audio",
+            status: "received",
+          });
+
+          if (transcricao) {
+            await admin
+              .from("conversations")
+              .update({ last_message_preview: transcricao.slice(0, 120) })
+              .eq("id", conversationId);
+          }
+        } else {
+          await admin.from("conversation_messages").insert({
+            conversation_id: conversationId,
+            org_id: orgId,
+            direction: "inbound",
+            content: textoRecebido,
+            provider_message_id: msg.id ?? null,
+            type: "text",
+            status: "received",
+          });
+        }
 
         // Lead scoring por canal. Sem regra ativa a função não faz nada.
         if (contactId) {
@@ -208,7 +242,8 @@ Deno.serve(async (req) => {
           });
         }
 
-        if (status === "ai_active") {
+        // Áudio sem transcrição não dispara a IA: não há texto para ela ler.
+        if (status === "ai_active" && (!audioId || transcricao)) {
           const call = triggerAI(conversationId);
           const runtime = (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;
           if (!runtime) await call;
