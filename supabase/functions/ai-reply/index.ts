@@ -348,7 +348,7 @@ Deno.serve(async (req) => {
 
     const { data: conversation } = await admin
       .from("conversations")
-      .select("id, org_id, phone_number, provider, status, assigned_to, contact_id, deal_id, channel_contact_name")
+      .select("id, org_id, phone_number, provider, status, assigned_to, contact_id, deal_id, channel_contact_name, channel, provider_conversation_id")
       .eq("id", conversation_id)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversa não encontrada" }, 404);
@@ -380,7 +380,7 @@ Deno.serve(async (req) => {
     const windowSize = config.context_window_size ?? 20;
     const { data: history } = await admin
       .from("conversation_messages")
-      .select("direction, content, is_from_ai, sent_at, is_internal_note")
+      .select("direction, content, is_from_ai, sent_at, is_internal_note, type")
       .eq("conversation_id", conversation_id)
       .eq("is_internal_note", false)
       .order("sent_at", { ascending: false })
