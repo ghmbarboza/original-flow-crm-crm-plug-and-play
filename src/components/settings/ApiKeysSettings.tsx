@@ -11,34 +11,16 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Eye, EyeOff, Plus, ExternalLink, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { IntegrationHeader } from "@/components/settings/IntegrationHeader";
+import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
+import { API_KEY_TUTORIALS, tutorialDoServico } from "@/lib/apiKeyTutorials";
 
 interface RegistryRow { service_name: string; label: string | null; is_active: boolean | null; }
 interface Status { [service: string]: "valid" | "invalid" | "unconfigured" | "checking"; }
 
-const TUTORIAL_LINKS: Record<string, { label: string; url: string }> = {
-  openai: { label: "OpenAI", url: "https://platform.openai.com/docs/api-reference/authentication" },
-  anthropic: { label: "Anthropic", url: "https://docs.anthropic.com/en/api/getting-started" },
-  google: { label: "Google AI", url: "https://ai.google.dev/gemini-api/docs/api-key" },
-  gemini: { label: "Google Gemini", url: "https://ai.google.dev/gemini-api/docs/api-key" },
-  perplexity: { label: "Perplexity", url: "https://docs.perplexity.ai/guides/getting-started" },
-  groq: { label: "Groq", url: "https://console.groq.com/docs/quickstart" },
-  mistral: { label: "Mistral", url: "https://docs.mistral.ai/getting-started/quickstart/" },
-  cohere: { label: "Cohere", url: "https://docs.cohere.com/docs/the-cohere-platform" },
-  stripe: { label: "Stripe", url: "https://docs.stripe.com/keys" },
-  resend: { label: "Resend", url: "https://resend.com/docs/dashboard/api-keys/introduction" },
-  sendgrid: { label: "SendGrid", url: "https://www.twilio.com/docs/sendgrid/ui/account-and-settings/api-keys" },
-  twilio: { label: "Twilio", url: "https://www.twilio.com/docs/iam/api-keys" },
-  pipedrive: { label: "Pipedrive", url: "https://pipedrive.readme.io/docs/how-to-find-the-api-token" },
-  hubspot: { label: "HubSpot", url: "https://developers.hubspot.com/docs/api/private-apps" },
-};
-
-const tutorialFor = (name: string) => {
-  const key = name.trim().toLowerCase();
-  if (!key) return null;
-  if (TUTORIAL_LINKS[key]) return TUTORIAL_LINKS[key];
-  const partial = Object.keys(TUTORIAL_LINKS).find((k) => key.includes(k));
-  return partial ? TUTORIAL_LINKS[partial] : { label: name, url: `https://www.google.com/search?q=${encodeURIComponent(`${name} API key documentation`)}` };
-};
+// Catálogo e tutoriais moram em src/lib/apiKeyTutorials.ts — assim o copy é
+// editável sem tocar neste componente e é reaproveitado no onboarding.
+const TUTORIAL_LINKS = API_KEY_TUTORIALS;
+const tutorialFor = tutorialDoServico;
 
 export default function ApiKeysSettings() {
   const [services, setServices] = useState<RegistryRow[]>([]);
@@ -197,10 +179,13 @@ export default function ApiKeysSettings() {
               const tip = tutorialFor(serviceName);
               if (!tip) return null;
               return (
-                <a href={tip.url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-                  <ExternalLink className="h-3.5 w-3.5" /> Como obter a chave de {tip.label}
-                </a>
+                <div className="flex flex-wrap items-center gap-4">
+                  <ApiKeyTutorialDialog service={serviceName} />
+                  <a href={tip.url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                    <ExternalLink className="h-3.5 w-3.5" /> Como obter a chave de {tip.label}
+                  </a>
+                </div>
               );
             })()}
           </div>
