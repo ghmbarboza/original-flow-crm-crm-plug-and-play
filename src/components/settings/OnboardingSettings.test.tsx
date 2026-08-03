@@ -3,28 +3,28 @@ import { describe, expect, it, vi } from "vitest";
 import OnboardingSettings from "./OnboardingSettings";
 
 const navigate = vi.fn();
-const resetOnboarding = vi.fn();
+const mutateAsync = vi.fn();
 
 vi.mock("react-router-dom", () => ({
   useNavigate: () => navigate,
 }));
 
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn() },
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("@/hooks/useOnboarding", () => ({
-  useOnboarding: () => ({ resetOnboarding }),
+vi.mock("@/hooks/useSetup", () => ({
+  useResetSetup: () => ({ mutateAsync, isPending: false }),
 }));
 
 describe("OnboardingSettings", () => {
-  it("reinicia o progresso e abre /onboarding ao refazer", async () => {
-    resetOnboarding.mockResolvedValue(undefined);
+  it("reinicia o progresso do wizard e abre /setup ao refazer", async () => {
+    mutateAsync.mockResolvedValue(undefined);
 
     render(<OnboardingSettings />);
     fireEvent.click(screen.getByRole("button", { name: "Refazer onboarding" }));
 
-    await waitFor(() => expect(resetOnboarding).toHaveBeenCalledTimes(1));
-    expect(navigate).toHaveBeenCalledWith("/onboarding");
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(navigate).toHaveBeenCalledWith("/setup");
   });
 });
