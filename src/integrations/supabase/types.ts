@@ -3685,6 +3685,10 @@ export type Database = {
       }
       ensure_auth_trigger: { Args: never; Returns: Json }
       get_handle_new_user_def: { Args: never; Returns: string }
+      get_org_api_key: {
+        Args: { _org_id: string; _service: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
