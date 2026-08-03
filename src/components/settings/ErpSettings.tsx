@@ -137,12 +137,13 @@ export default function ErpSettings() {
         disconnectedLabel="Desativado"
         action={
           <Switch
-          aria-label="Ativar a integração ERP"
-          checked={isActive}
-          onCheckedChange={setIsActive}
-          data-testid="erp-ativo"
-        />
-      </div>
+            aria-label="Ativar a integração ERP"
+            checked={isActive}
+            onCheckedChange={setIsActive}
+            data-testid="erp-ativo"
+          />
+        }
+      />
 
       <Separator />
 
