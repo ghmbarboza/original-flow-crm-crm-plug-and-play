@@ -10,12 +10,15 @@
 // resposta direta, sem raciocínio no corpo, em qualquer um dos dois.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chamarIA, ErroIA, type FerramentaIA, type MensagemIA } from "../_shared/ai.ts";
+import { bytesParaBase64, gerarAudioDaResposta, salvarAudioNoBucket } from "../_shared/audio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+const ZERNIO_API = "https://zernio.com/api/v1";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
