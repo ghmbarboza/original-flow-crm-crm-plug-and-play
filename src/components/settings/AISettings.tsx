@@ -105,6 +105,9 @@ export default function AISettings() {
     response_delay_ms: 0,
     cooldown_ms: 3000,
     max_ai_turns_before_human: 0,
+    voice_enabled: false,
+    voice_id: "",
+    voice_response_mode: "reply_to_audio",
   });
   const [workingHours, setWorkingHours] = useState<WorkingHours>(defaultWorkingHours());
   const [triggers, setTriggers] = useState<HumanTriggerRules>({ keywords: [], negative_sentiment: false });
@@ -131,6 +134,9 @@ export default function AISettings() {
       response_delay_ms: config.response_delay_ms ?? 0,
       cooldown_ms: config.cooldown_ms ?? 3000,
       max_ai_turns_before_human: config.max_ai_turns_before_human ?? 0,
+      voice_enabled: config.voice_enabled ?? false,
+      voice_id: config.voice_id ?? "",
+      voice_response_mode: config.voice_response_mode ?? "reply_to_audio",
     });
     const wh = (config.working_hours ?? {}) as unknown as Partial<WorkingHours>;
     setWorkingHours(Object.keys(wh).length ? { ...defaultWorkingHours(), ...wh } : defaultWorkingHours());
@@ -153,6 +159,8 @@ export default function AISettings() {
     try {
       await upsert.mutateAsync({
         ...form,
+        // Coluna nullable: string vazia viraria um voice_id inválido no TTS.
+        voice_id: form.voice_id.trim() || null,
         working_hours: workingHours as never,
         human_trigger_rules: {
           ...triggers,
@@ -252,6 +260,61 @@ export default function AISettings() {
           <div className="space-y-2">
             <Label htmlFor="fallback_message">Mensagem de fallback</Label>
             <Input id="fallback_message" value={form.fallback_message} onChange={(e) => setForm({ ...form, fallback_message: e.target.value })} placeholder="Vou chamar um atendente para te ajudar melhor." />
+          </div>
+
+          <Separator />
+
+          {/* Voz da agente — a IA ouve áudios recebidos sempre; aqui se decide se
+              ela também responde falando. */}
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+                  Voz da agente
+                </p>
+                <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                  Áudios recebidos são sempre transcritos. Ative para a agente também responder
+                  em áudio; se a geração de voz falhar, a resposta segue em texto.
+                </p>
+              </div>
+              <Switch
+                aria-label="Responder em áudio"
+                data-testid="ai-voice-enabled"
+                checked={form.voice_enabled}
+                onCheckedChange={(v) => setForm({ ...form, voice_enabled: v })}
+              />
+            </div>
+            {form.voice_enabled && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="voice_id">ID da voz</Label>
+                  <Input
+                    id="voice_id"
+                    value={form.voice_id}
+                    onChange={(e) => setForm({ ...form, voice_id: e.target.value })}
+                    placeholder="EXAVITQu4vr4xnSDxMaL"
+                  />
+                  <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                    Copie do ElevenLabs em Voices → a voz escolhida → Voice ID.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label id="voice-mode-label">Quando responder em áudio</Label>
+                  <Select
+                    value={form.voice_response_mode}
+                    onValueChange={(v) => setForm({ ...form, voice_response_mode: v })}
+                  >
+                    <SelectTrigger aria-labelledby="voice-mode-label" data-testid="ai-voice-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="reply_to_audio">Só quando o cliente enviar áudio</SelectItem>
+                      <SelectItem value="always">Sempre</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
 
           <Separator />
