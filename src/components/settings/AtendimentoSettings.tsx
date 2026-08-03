@@ -23,10 +23,8 @@ import {
 } from "@/hooks/useQuickReplies";
 import { SLA_CHANNELS, useSaveSlaConfig, useSlaConfig } from "@/hooks/useSla";
 import { NPS_CHANNELS, useNpsConfig, useSaveNpsConfig } from "@/hooks/useNps";
-import { channelMeta } from "@/components/whatsapp/ChannelBadge";
 import { ConnectedChannelsFieldset } from "@/components/settings/ConnectedChannelsFieldset";
 import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
 import { parseCsv } from "@/lib/csv";
 
 /**
