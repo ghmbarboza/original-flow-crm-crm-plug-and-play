@@ -29,5 +29,10 @@ export function useApiKeysRegistry() {
  */
 export function useInvalidateApiKeysRegistry() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: API_KEYS_REGISTRY_KEY });
+  return () => {
+    queryClient.invalidateQueries({ queryKey: API_KEYS_REGISTRY_KEY });
+    // O status "Voz da agente" e o VoicePicker derivam de ["org-api-key", ...];
+    // com staleTime Infinity, sem esta invalidação o card só atualiza com F5.
+    queryClient.invalidateQueries({ queryKey: ["org-api-key"] });
+  };
 }

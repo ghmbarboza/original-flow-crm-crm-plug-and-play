@@ -121,7 +121,7 @@ export function ZernioSetup({ onConnected, onBack }: Props) {
             Selecione os canais que deseja ativar
           </p>
           <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-            Conecte cada canal pelo login seguro do Zernio. Você pode adicionar outros depois em Configurações › Canais.
+            Conecte cada canal pelo login seguro do Zernio. Você pode adicionar outros depois em Configurações › Integrações › Canais de atendimento.
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5">

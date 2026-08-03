@@ -104,6 +104,8 @@ Deno.serve(async (req) => {
       .select("id, org_id, provider, phone_number, channel, assigned_to, contact_id, resolved_at")
       .eq("org_id", orgId)
       .eq("status", "closed")
+      // Trava da demo: nunca disparar NPS real para conversa semeada.
+      .eq("is_demo", false)
       .is("import_id", null)
       .in("channel", channels)
       .not("resolved_at", "is", null)

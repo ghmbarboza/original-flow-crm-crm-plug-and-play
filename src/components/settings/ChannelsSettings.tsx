@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
 import { ProviderWizard } from "@/components/whatsapp/ProviderWizard";
 import { channelMeta } from "@/components/whatsapp/ChannelBadge";
+import { statusDoCanal } from "@/lib/channelStatus";
 import {
   useSetDistribution, useWhatsAppSetup, type DistributionMode, type WhatsAppProvider,
 } from "@/hooks/useWhatsAppConfig";
@@ -74,9 +75,18 @@ function ProviderTab() {
               Provedor de mensagens que atende esta organização.
             </CardDescription>
           </div>
-          <Badge className="gap-1 bg-success text-success-foreground">
-            <CheckCircle2 className="h-3 w-3" strokeWidth={2} /> Conectado
-          </Badge>
+          {(() => {
+            // Mesmo helper do card e do checklist: nunca dizer "Conectado" com
+            // Evolution em connecting (QR não pareado) ou Meta não verificada.
+            const st = statusDoCanal(setup);
+            return st.estado === "conectado" ? (
+              <Badge className="gap-1 bg-success text-success-foreground">
+                <CheckCircle2 className="h-3 w-3" strokeWidth={2} /> Conectado
+              </Badge>
+            ) : (
+              <Badge variant="secondary">{st.label}</Badge>
+            );
+          })()}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

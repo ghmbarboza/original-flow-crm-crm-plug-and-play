@@ -1,11 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  isStaleChunkError,
-  limparFlagDeChunkObsoleto,
-  recarregarUmaVezPorChunkObsoleto,
-} from "@/lib/staleChunk";
+import { isStaleChunkError, recarregarUmaVezPorChunkObsoleto } from "@/lib/staleChunk";
 
 interface Props {
   children: ReactNode;
@@ -28,11 +24,6 @@ export class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { error, recarregando: false };
-  }
-
-  componentDidMount() {
-    // Render bem-sucedido: libera uma futura tentativa de reload automático.
-    limparFlagDeChunkObsoleto(typeof window === "undefined" ? undefined : window.sessionStorage);
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {

@@ -31,7 +31,9 @@ export async function registrarEnvioSimulado(
   const providerMessageId = `${PREFIXO_SIMULADO}-${crypto.randomUUID()}`;
   const agora = new Date().toISOString();
 
-  await admin.from("conversation_messages").insert({
+  // Se nem o insert local funcionou, responder "ok" mentiria para a UI: a
+  // mensagem apareceria como enviada e sumiria no próximo refetch.
+  const { error: insertErr } = await admin.from("conversation_messages").insert({
     conversation_id: params.conversationId,
     org_id: params.orgId,
     direction: "outbound",
@@ -43,8 +45,11 @@ export async function registrarEnvioSimulado(
     status: "sent",
     is_demo: true,
   });
+  if (insertErr) {
+    throw new Error(`Falha ao gravar envio simulado da demo: ${insertErr.message}`);
+  }
 
-  await admin
+  const { error: updateErr } = await admin
     .from("conversations")
     .update({
       last_message_at: agora,
@@ -52,6 +57,10 @@ export async function registrarEnvioSimulado(
       updated_at: agora,
     })
     .eq("id", params.conversationId);
+  if (updateErr) {
+    // Preview desatualizado não invalida o envio simulado — só registra.
+    console.warn(`[demo] preview da conversa ${params.conversationId} não atualizado: ${updateErr.message}`);
+  }
 
   console.log(`[demo] envio simulado na conversa ${params.conversationId} — nada saiu para o provedor.`);
   return providerMessageId;

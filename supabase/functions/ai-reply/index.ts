@@ -446,6 +446,7 @@ Deno.serve(async (req) => {
           provider_message_id: fallbackMessageId,
           type: "text",
           status: fallbackMessageId ? "sent" : "failed",
+          is_demo: conversation.is_demo === true,
         });
         await admin
           .from("conversations")
@@ -680,7 +681,9 @@ Deno.serve(async (req) => {
       (config.voice_response_mode === "always" || lastInbound?.type === "audio");
 
     let audioBytes: Uint8Array | null = null;
-    if (querVoz) {
+    // Conversa demo nunca entrega áudio (deliver simula) — gerar TTS aqui só
+    // queimaria crédito do ElevenLabs por um arquivo que ninguém recebe.
+    if (querVoz && conversation.is_demo !== true) {
       audioBytes = await gerarAudioDaResposta(
         reply,
         (config.voice_id as string | null) ?? "",
@@ -712,6 +715,9 @@ Deno.serve(async (req) => {
       provider_message_id: providerMessageId,
       type: comoAudio ? "audio" : "text",
       status: providerMessageId ? "sent" : "failed",
+      // Resposta simulada em conversa demo é dado demo: o "Limpar demonstração"
+      // precisa removê-la e os counts do clear precisam bater.
+      is_demo: conversation.is_demo === true,
     });
 
     await admin

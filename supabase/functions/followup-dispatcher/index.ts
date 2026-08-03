@@ -146,6 +146,10 @@ Deno.serve(async (req) => {
       .select("id, org_id, provider, phone_number, contact_id, assigned_to, last_message_at, status, company:companies(name), contact:contacts(first_name, last_name)")
       .eq("org_id", orgId)
       .neq("status", "closed")
+      // Trava da demo: conversas semeadas têm números fictícios em formato
+      // válido e última mensagem outbound "vencida" — sem este filtro o cron
+      // mandaria WhatsApp real para números inventados.
+      .eq("is_demo", false)
       .limit(200);
 
     for (const conv of conversations ?? []) {

@@ -95,6 +95,20 @@ async function registrarWebhook(
     };
   }
 
+  // URL certa mas desabilitado ou sem MESSAGES_UPSERT = integração muda:
+  // conexão "funciona" e nenhuma mensagem chega. Confirmar tudo, não só a URL.
+  const enabled = node?.enabled;
+  const eventos: string[] = Array.isArray(node?.events) ? node.events : [];
+  const faltando = WEBHOOK_EVENTS.filter((e) => !eventos.includes(e));
+  if (enabled === false || faltando.length > 0) {
+    return {
+      ok: false,
+      erro:
+        `O webhook foi gravado mas ficou ${enabled === false ? "desabilitado" : "sem os eventos: " + faltando.join(", ")}. ` +
+        "Atualize o Evolution ou registre o webhook manualmente.",
+    };
+  }
+
   return { ok: true };
 }
 

@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { SetupWizardProvider, useSetupWizard } from "@/contexts/SetupWizardContext";
-import { SetupWizardDialog } from "@/components/setup/SetupWizardDialog";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +35,9 @@ const SalesGoalsPage = lazy(() => import("./pages/SalesGoalsPage"));
 const LeadScoringPage = lazy(() => import("./pages/LeadScoringPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const HelpPage = lazy(() => import("./pages/HelpPage"));
+const SetupWizardDialog = lazy(() =>
+  import("@/components/setup/SetupWizardDialog").then((m) => ({ default: m.SetupWizardDialog })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -77,6 +79,24 @@ function Page({ name, children }: { name: string; children: ReactNode }) {
   );
 }
 
+/**
+ * Monta o assistente só quando aberto: o chunk das etapas fica fora do bundle
+ * principal e qualquer erro de render das etapas fica contido no boundary —
+ * nunca tela branca no app inteiro (o modal reabre sozinho para admin com
+ * setup incompleto, então um crash aqui sem boundary seria irrecuperável).
+ */
+function SetupWizardHost() {
+  const { aberto } = useSetupWizard();
+  if (!aberto) return null;
+  return (
+    <ErrorBoundary moduleName="Configuração inicial">
+      <Suspense fallback={null}>
+        <SetupWizardDialog />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
 /** Rota /setup: abre o assistente em modal e devolve o usuário ao app real. */
 function AbrirSetup() {
   const { abrir } = useSetupWizard();
@@ -93,7 +113,7 @@ const App = () => (
         <AuthProvider>
           <TriggerHealthCheck />
           <SetupWizardProvider>
-          <SetupWizardDialog />
+          <SetupWizardHost />
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/auth" element={<AuthPage />} />

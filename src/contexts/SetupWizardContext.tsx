@@ -18,12 +18,16 @@ const SetupWizardContext = createContext<SetupWizardValue | null>(null);
  * ("Concluir depois") deixa o usuário no app; o progresso continua em
  * `setup_progress` e reabre por Configurações > Onboarding.
  */
+const CHAVE_DISPENSADO = "via:setup-dispensado";
+
 export function SetupWizardProvider({ children }: { children: ReactNode }) {
   const { isAdmin } = useAuth();
   const { data: org, isLoading } = useOrganization();
   const [aberto, setAberto] = useState(false);
-  // Fechou nesta sessão? Não reabrir sozinho a cada navegação.
-  const [dispensado, setDispensado] = useState(false);
+  // Fechou? Não reabrir sozinho — nem em navegação, nem em refresh (sessionStorage).
+  const [dispensado, setDispensado] = useState(
+    () => typeof window !== "undefined" && window.sessionStorage.getItem(CHAVE_DISPENSADO) === "1",
+  );
 
   useEffect(() => {
     if (dispensado || aberto) return;
@@ -32,10 +36,15 @@ export function SetupWizardProvider({ children }: { children: ReactNode }) {
   }, [dispensado, aberto, isLoading, org, isAdmin]);
 
   const abrir = useCallback(() => {
+    // Só admin configura a org: membro que abrir /setup por link salvo cai no
+    // app normal, sem ver um assistente que ele não pode concluir (RLS barraria).
+    if (!isAdmin) return;
+    window.sessionStorage.removeItem(CHAVE_DISPENSADO);
     setDispensado(false);
     setAberto(true);
-  }, []);
+  }, [isAdmin]);
   const fechar = useCallback(() => {
+    window.sessionStorage.setItem(CHAVE_DISPENSADO, "1");
     setDispensado(true);
     setAberto(false);
   }, []);

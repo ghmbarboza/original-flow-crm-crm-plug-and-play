@@ -5,6 +5,7 @@ import { useAIConfig } from "@/hooks/useAIConfig";
 import { useOrgApiKey } from "@/hooks/useOrgApiKey";
 import { statusDoCanal } from "@/lib/channelStatus";
 import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
+import { useSetupProgress } from "@/hooks/useSetup";
 
 /**
  * Estado REAL de cada item do checklist final do onboarding.
@@ -42,6 +43,7 @@ export function useSetupChecklist() {
   const { data: aiConfig } = useAIConfig();
   const { data: temChaveVoz } = useOrgApiKey("elevenlabs");
   const { data: totalEtapas } = usePipelineStageCount();
+  const { data: progresso } = useSetupProgress();
 
   // Canal: mesma regra usada no card de Integrações (helper único).
   const canalStatus = statusDoCanal(whatsapp);
@@ -62,7 +64,18 @@ export function useSetupChecklist() {
           : undefined,
   };
 
-  const pipeline: ItemChecklist = { ok: (totalEtapas ?? 0) > 0 };
+  // Contar etapas não basta: toda org nasce com funil padrão (trigger de seed),
+  // então stages > 0 é sempre verdade. O sinal honesto é a etapa do assistente:
+  // concluída = revisou o funil; "pulado:" = ficou com o padrão sem revisar.
+  const passos = progresso?.completed_steps ?? [];
+  const pipelineRevisado = passos.includes("pipeline");
+  const pipelinePulado = passos.includes("pulado:pipeline");
+  const pipeline: ItemChecklist = {
+    ok: progresso ? pipelineRevisado && (totalEtapas ?? 0) > 0 : (totalEtapas ?? 0) > 0,
+    detalhe: pipelinePulado
+      ? "Etapa pulada — aplicamos um funil padrão; ajuste as etapas na tela de Negócios"
+      : undefined,
+  };
 
   const voz: ItemChecklist = {
     ok: !!temChaveVoz && aiConfig?.voice_enabled === true,

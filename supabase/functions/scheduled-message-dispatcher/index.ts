@@ -134,9 +134,10 @@ Deno.serve(async (req) => {
     if (msg.conversation_id) {
       const { data } = await admin
         .from("conversations")
-        .select("id, provider, channel, phone_number, provider_conversation_id, status")
+        .select("id, provider, channel, phone_number, provider_conversation_id, status, is_demo")
         .eq("id", msg.conversation_id).maybeSingle();
-      if (data && data.status !== "closed") conv = data as unknown as Conversa;
+      // Trava da demo: conversa semeada nunca recebe envio agendado real.
+      if (data && data.status !== "closed" && data.is_demo !== true) conv = data as unknown as Conversa;
     }
     if (!conv) {
       const { data } = await admin
@@ -144,6 +145,7 @@ Deno.serve(async (req) => {
         .select("id, provider, channel, phone_number, provider_conversation_id")
         .eq("contact_id", msg.contact_id)
         .neq("status", "closed")
+        .eq("is_demo", false)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .limit(1).maybeSingle();
       conv = (data as unknown as Conversa) ?? null;

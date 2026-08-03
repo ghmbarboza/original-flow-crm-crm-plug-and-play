@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   isStaleChunkError,
-  limparFlagDeChunkObsoleto,
+  JANELA_ENTRE_RELOADS_MS,
   recarregarUmaVezPorChunkObsoleto,
 } from "./staleChunk";
 
@@ -11,7 +11,6 @@ function fakeStorage(inicial: Record<string, string> = {}) {
     dados,
     getItem: (k: string) => dados[k] ?? null,
     setItem: (k: string, v: string) => void (dados[k] = v),
-    removeItem: (k: string) => void delete dados[k],
   };
 }
 
@@ -35,31 +34,41 @@ describe("isStaleChunkError", () => {
 });
 
 describe("recarregarUmaVezPorChunkObsoleto", () => {
-  it("recarrega na primeira vez e marca a tentativa", () => {
+  it("recarrega na primeira vez e registra o instante", () => {
     const storage = fakeStorage();
     const recarregar = vi.fn();
 
-    expect(recarregarUmaVezPorChunkObsoleto(storage, recarregar)).toBe(true);
+    expect(recarregarUmaVezPorChunkObsoleto(storage, recarregar, 1_000)).toBe(true);
     expect(recarregar).toHaveBeenCalledTimes(1);
   });
 
-  it("não recarrega de novo quando o reload não resolveu", () => {
+  it("não recarrega de novo dentro da janela — mesmo após remontagem (pós-reload)", () => {
     const storage = fakeStorage();
     const recarregar = vi.fn();
-    recarregarUmaVezPorChunkObsoleto(storage, recarregar);
+    recarregarUmaVezPorChunkObsoleto(storage, recarregar, 1_000);
 
-    expect(recarregarUmaVezPorChunkObsoleto(storage, recarregar)).toBe(false);
+    // Simula o ciclo real de loop: reload → app remonta → chunk falha de novo.
+    expect(recarregarUmaVezPorChunkObsoleto(storage, recarregar, 3_000)).toBe(false);
+    expect(recarregarUmaVezPorChunkObsoleto(storage, recarregar, 30_000)).toBe(false);
     expect(recarregar).toHaveBeenCalledTimes(1);
   });
 
-  it("volta a permitir reload depois que o app renderiza com sucesso", () => {
+  it("volta a permitir reload num incidente futuro, passada a janela", () => {
     const storage = fakeStorage();
     const recarregar = vi.fn();
-    recarregarUmaVezPorChunkObsoleto(storage, recarregar);
-    limparFlagDeChunkObsoleto(storage);
+    recarregarUmaVezPorChunkObsoleto(storage, recarregar, 1_000);
 
-    expect(recarregarUmaVezPorChunkObsoleto(storage, recarregar)).toBe(true);
+    expect(
+      recarregarUmaVezPorChunkObsoleto(storage, recarregar, 1_000 + JANELA_ENTRE_RELOADS_MS),
+    ).toBe(true);
     expect(recarregar).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignora flag corrompida no storage", () => {
+    const storage = fakeStorage({ "via:stale-chunk-reload": "não-é-número" });
+    const recarregar = vi.fn();
+    expect(recarregarUmaVezPorChunkObsoleto(storage, recarregar, 1_000)).toBe(true);
+    expect(recarregar).toHaveBeenCalledTimes(1);
   });
 
   it("é inofensivo sem sessionStorage disponível", () => {

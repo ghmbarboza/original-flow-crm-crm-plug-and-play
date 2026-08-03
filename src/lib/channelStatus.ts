@@ -21,19 +21,44 @@ export interface StatusDoCanal {
 const AGUARDANDO =
   "Canal configurado, aguardando pareamento — finalize em Configurações > Integrações > Canais";
 
-type EntradaDeCanal = Partial<Pick<WhatsAppSetup, "evolution" | "meta" | "zernio">> | null | undefined;
+type EntradaDeCanal =
+  | Partial<Pick<WhatsAppSetup, "evolution" | "meta" | "zernio" | "provider">>
+  | null
+  | undefined;
+
+/**
+ * Só o provedor ATIVO conta. Uma linha antiga de Evolution "connected" não pode
+ * dizer "Conectado" quando a org migrou para Meta e ainda não verificou o
+ * webhook — configs de provedores abandonados ficam no banco e mentiriam aqui.
+ */
+function conexoesDoProvedorAtivo(setup: EntradaDeCanal) {
+  const provider = setup?.provider ?? null;
+  const evolutionConectada =
+    (!provider || provider === "evolution") && setup?.evolution?.status === "connected";
+  const metaVerificada =
+    (!provider || provider === "meta_official") &&
+    !!setup?.meta?.webhook_verified &&
+    setup?.meta?.is_active !== false;
+  const zernioConectado =
+    (!provider || provider === "zernio") &&
+    !!setup?.zernio &&
+    ["connected", "active"].includes(setup.zernio.status ?? "");
+  const iniciado =
+    (!provider && (!!setup?.evolution || !!setup?.meta || !!setup?.zernio)) ||
+    (provider === "evolution" && !!setup?.evolution) ||
+    (provider === "meta_official" && !!setup?.meta) ||
+    (provider === "zernio" && !!setup?.zernio);
+  return { evolutionConectada, metaVerificada, zernioConectado, iniciado };
+}
 
 export function statusDoCanal(setup: EntradaDeCanal): StatusDoCanal {
-  const evolutionConectada = setup?.evolution?.status === "connected";
-  const metaVerificada = !!setup?.meta?.webhook_verified && setup?.meta?.is_active !== false;
-  const zernioConectado =
-    !!setup?.zernio && ["connected", "active"].includes(setup.zernio.status ?? "");
+  const { evolutionConectada, metaVerificada, zernioConectado, iniciado } =
+    conexoesDoProvedorAtivo(setup);
 
   if (evolutionConectada || metaVerificada || zernioConectado) {
     return { estado: "conectado", label: "Conectado" };
   }
 
-  const iniciado = !!setup?.evolution || !!setup?.meta || !!setup?.zernio;
   if (iniciado) {
     return { estado: "aguardando_pareamento", label: "Aguardando pareamento", detalhe: AGUARDANDO };
   }
@@ -58,12 +83,11 @@ export function canaisAtivos(
   contasZernio?: ContaDeCanal[] | null,
 ): string[] {
   const canais = new Set<string>();
+  const { evolutionConectada, metaVerificada, zernioConectado } = conexoesDoProvedorAtivo(setup);
 
-  if (setup?.evolution?.status === "connected") canais.add("whatsapp");
-  if (!!setup?.meta?.webhook_verified && setup?.meta?.is_active !== false) canais.add("whatsapp");
+  if (evolutionConectada || metaVerificada) canais.add("whatsapp");
 
-  const zernioLigado = !!setup?.zernio && ["connected", "active"].includes(setup.zernio.status ?? "");
-  if (zernioLigado) {
+  if (zernioConectado) {
     for (const conta of contasZernio ?? []) {
       if (conta.isActive) canais.add(conta.platform);
     }

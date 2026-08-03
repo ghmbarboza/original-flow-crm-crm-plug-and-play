@@ -318,7 +318,6 @@ async function seed(admin: Admin, orgId: string) {
       direction: "inbound", type: "audio",
       content: TRANSCRICAO_DEMO,
       media_url: path,
-      media_type: path ? "audio/mpeg" : null,
       is_from_ai: false, is_internal_note: false, status: "received",
       sent_at: daysFromNow(-0.4),
     });
@@ -367,28 +366,30 @@ async function seed(admin: Admin, orgId: string) {
     followupSteps = FU_STEPS.length;
   }
 
-  // Automações — pausadas.
+  // Automações — pausadas. Tipos e formato batem com o automation-dispatcher
+  // (actions: [{ type, params }]; só tipos que ele implementa), senão o builder
+  // abre com ação vazia e ativar a automação não faz nada.
   const AUTOMATIONS = [
     {
       name: "Tarefa ao criar contato",
       description: "Cria uma tarefa de primeiro contato assim que um lead entra.",
       trigger: { type: "contact_created" },
       conditions: [],
-      actions: [{ type: "create_task", title: "Fazer primeiro contato", delay_hours: 2 }],
+      actions: [{ type: "create_activity", params: { title: "Fazer primeiro contato" } }],
     },
     {
-      name: "Aviso de negócio parado",
+      name: "Aviso de negócio em nova etapa",
       description: "Notifica o responsável quando o negócio muda de etapa.",
       trigger: { type: "deal_stage_changed" },
       conditions: [],
-      actions: [{ type: "notify_owner", message: "O negócio avançou de etapa — confirme os próximos passos." }],
+      actions: [{ type: "notify_agent", params: { message: "O negócio avançou de etapa — confirme os próximos passos." } }],
     },
     {
-      name: "Boas-vindas no WhatsApp",
-      description: "Manda uma saudação quando o cliente escreve pela primeira vez.",
+      name: "Aviso de nova conversa",
+      description: "Notifica o agente quando um cliente escreve pela primeira vez.",
       trigger: { type: "message_received" },
       conditions: [],
-      actions: [{ type: "send_whatsapp", message: "Olá! Recebemos sua mensagem e já estamos vendo por aqui." }],
+      actions: [{ type: "notify_agent", params: { message: "Novo cliente escreveu no WhatsApp — responda no Inbox." } }],
     },
   ];
   const { error: autoErr } = await admin.from("automations").insert(
