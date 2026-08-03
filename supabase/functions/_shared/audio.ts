@@ -81,7 +81,7 @@ export async function transcreverAudio(
   const form = new FormData();
   // O nome do arquivo precisa refletir o container real: a API infere o
   // formato pela extensão e recusa quando ela mente sobre os bytes.
-  form.append("file", new Blob([bytes], { type: mimetype }), `audio.${extensaoDeAudio(mimetype)}`);
+  form.append("file", new Blob([bytes as unknown as BlobPart], { type: mimetype }), `audio.${extensaoDeAudio(mimetype)}`);
   form.append("model_id", STT_MODEL);
 
   try {

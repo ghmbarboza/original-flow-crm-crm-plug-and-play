@@ -7,7 +7,7 @@
 // Endpoint público (verify_jwt=false). A segurança vem de: (1) resolver a org pelo
 // profileId da conta; e (2) verificar a assinatura HMAC-SHA256 (X-Zernio-Signature)
 // quando a org tem webhook_secret configurado.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
   baixarBinario, extensaoDeAudio, salvarAudioNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
@@ -116,7 +116,7 @@ function extrairAudioZernio(message: Record<string, unknown>): AudioRecebido | n
  * `custom_fields`, até que um agente vincule manualmente um telefone.
  */
 async function resolveContact(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   orgId: string,
   channel: string,
   identifier: string,
@@ -155,7 +155,7 @@ async function resolveContact(
 
 /** Cria/atualiza contato+conversa e grava a mensagem inbound. Devolve o status da conversa. */
 async function ingestInbound(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   orgId: string,
   channel: string,
   sender: Sender,
@@ -223,7 +223,7 @@ async function ingestInbound(
       .update({
         last_message_at: now,
         last_message_preview: preview,
-        unread_count: (existing?.unread_count ?? 0) + 1,
+        unread_count: Number(existing?.unread_count ?? 0) + 1,
         // Preenche o id do Zernio se ainda não tínhamos (ex.: conversa criada por outro evento).
         provider_conversation_id: providerConversationId ?? undefined,
         updated_at: now,
@@ -243,8 +243,7 @@ async function ingestInbound(
     if (midia) {
       const mimetype = audio.mimetype ?? midia.mimetype;
       mediaPath = await salvarAudioNoBucket(
-        admin as unknown as Parameters<typeof salvarAudioNoBucket>[0],
-        orgId, conversationId, midia.bytes,
+        admin, orgId, conversationId, midia.bytes,
         `${Date.now()}.${extensaoDeAudio(mimetype)}`, mimetype,
       );
       transcricao = await transcreverAudio(midia.bytes, mimetype);
