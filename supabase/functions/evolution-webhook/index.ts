@@ -8,12 +8,54 @@
 // Endpoint público (a Evolution não envia auth). A segurança vem de resolver a
 // instância pelo instance_name: eventos de instâncias desconhecidas são ignorados.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  base64ParaBytes, extensaoDeAudio, salvarAudioNoBucket, transcreverAudio,
+} from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 function ok(body: unknown = { received: true }) {
   return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+}
+
+/**
+ * Baixa o binário de uma mídia pela própria Evolution.
+ *
+ * A URL do payload vem criptografada (mediaKey); descriptografar na mão é
+ * frágil e desnecessário — a Evolution expõe o endpoint que devolve o base64
+ * já decifrado.
+ */
+async function baixarMidiaEvolution(
+  serverUrl: string,
+  apiKey: string,
+  instanceName: string,
+  mensagemOriginal: unknown,
+): Promise<{ bytes: Uint8Array; mimetype: string } | null> {
+  try {
+    const resp = await fetch(`${serverUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({ message: mensagemOriginal, convertToMp4: false }),
+    });
+    if (!resp.ok) {
+      console.error(`[evolution] getBase64FromMediaMessage recusou [${resp.status}]: ${(await resp.text()).slice(0, 300)}`);
+      return null;
+    }
+    const data = await resp.json().catch(() => ({}));
+    const base64 = data?.base64 ?? data?.data?.base64;
+    if (typeof base64 !== "string" || !base64) {
+      console.error("[evolution] resposta de mídia sem base64:", JSON.stringify(data).slice(0, 300));
+      return null;
+    }
+    return {
+      bytes: base64ParaBytes(base64),
+      mimetype: data?.mimetype ?? data?.data?.mimetype ?? "audio/ogg",
+    };
+  } catch (err) {
+    console.error("[evolution] falha ao baixar mídia:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 /** Dispara a resposta da IA sem bloquear a resposta ao provedor. */
