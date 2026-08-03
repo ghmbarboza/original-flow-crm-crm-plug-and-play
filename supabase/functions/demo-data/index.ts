@@ -10,7 +10,16 @@
 //
 // Não existe tabela `tasks` neste schema: tarefas são `activities` com
 // type = 'task'. Por isso "atividades e tarefas" vivem em `activities`.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  gerarAudioDaResposta, resolverChaveElevenLabs, salvarAudioNoBucket,
+} from "../_shared/audio.ts";
+
+/** Voz padrão do ElevenLabs (Sarah) para o áudio da conversa demo. */
+const VOZ_DEMO = "EXAVITQu4vr4xnSDxMaL";
+/** Transcrição fictícia do áudio inbound da demo. */
+const TRANSCRICAO_DEMO =
+  "Oi, tudo bem? Vi a proposta que vocês mandaram e gostei bastante. Só queria entender melhor o prazo de implantação antes de fechar.";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +34,10 @@ function json(body: unknown, status = 200) {
   });
 }
 
-type Admin = ReturnType<typeof createClient>;
+// `ReturnType<typeof createClient>` resolve os genéricos como `never` e recusa o
+// cliente real (`SupabaseClient<any, "public", any>`) no `deno check`. Tipar pela
+// instância evita isso.
+type Admin = SupabaseClient;
 
 // ---- Dados fictícios (pt-BR) -------------------------------------------------
 
@@ -282,6 +294,144 @@ async function seed(admin: Admin, orgId: string) {
   const { error: msgErr } = await admin.from("conversation_messages").insert(messages);
   if (msgErr) throw new Error(`Falha ao inserir mensagens: ${msgErr.message}`);
 
+  // Mensagem de ÁUDIO na primeira conversa: é o único jeito de mostrar o player
+  // e a transcrição sem depender de um cliente real mandar um voice note.
+  //
+  // Sem chave do ElevenLabs o áudio não é gerado, e a mensagem entra SEM
+  // media_url — a UI então mostra "Áudio indisponível" com a transcrição ao
+  // lado. Preferimos isso a não semear nada: a transcrição é o que a IA
+  // realmente consome, e ela continua visível.
+  let audioDemo = false;
+  if (convIds[0]) {
+    const chave = await resolverChaveElevenLabs(admin, orgId);
+    let path: string | null = null;
+    if (chave) {
+      const bytes = await gerarAudioDaResposta(TRANSCRICAO_DEMO, VOZ_DEMO, chave);
+      if (bytes) {
+        path = await salvarAudioNoBucket(
+          admin, orgId, convIds[0], bytes, "demo-inbound.mp3", "audio/mpeg",
+        );
+      }
+    }
+    const { error: audioErr } = await admin.from("conversation_messages").insert({
+      org_id: orgId, is_demo: true, conversation_id: convIds[0],
+      direction: "inbound", type: "audio",
+      content: TRANSCRICAO_DEMO,
+      media_url: path,
+      media_type: path ? "audio/mpeg" : null,
+      is_from_ai: false, is_internal_note: false, status: "received",
+      sent_at: daysFromNow(-0.4),
+    });
+    if (audioErr) throw new Error(`Falha ao inserir mensagem de áudio: ${audioErr.message}`);
+    audioDemo = true;
+  }
+
+  // ---- Módulos recentes ------------------------------------------------------
+  // Regra da demo: nada aqui pode DISPARAR nada. Follow-up, automações e NPS
+  // entram com is_active = false; quem quiser ver rodando ativa manualmente.
+
+  // Respostas rápidas (atalhos do Inbox).
+  const QUICK_REPLIES = [
+    { shortcut: "/oi", title: "Saudação", category: "Abertura", message: "Olá! Sou do time comercial. Como posso ajudar você hoje?" },
+    { shortcut: "/preco", title: "Tabela de preços", category: "Comercial", message: "Nossos planos começam em R$ 149/mês. Posso te enviar a comparação completa?" },
+    { shortcut: "/prazo", title: "Prazo de implantação", category: "Comercial", message: "A implantação leva de 7 a 15 dias, dependendo do volume de dados a migrar." },
+    { shortcut: "/reuniao", title: "Convite de reunião", category: "Agenda", message: "Consigo te mostrar em 20 minutos de call. Prefere amanhã de manhã ou à tarde?" },
+    { shortcut: "/obrigado", title: "Encerramento", category: "Fechamento", message: "Obrigado pelo contato! Qualquer dúvida, é só chamar por aqui." },
+  ];
+  const { error: qrErr } = await admin.from("quick_replies").insert(
+    QUICK_REPLIES.map((q) => ({ org_id: orgId, is_demo: true, is_active: true, ...q })),
+  );
+  if (qrErr) throw new Error(`Falha ao inserir respostas rápidas: ${qrErr.message}`);
+
+  // Follow-up: config é única por org. Só cria se o org ainda não tem uma —
+  // sobrescrever a config real do cliente seria destrutivo.
+  const { data: fuExistente } = await admin
+    .from("followup_configs").select("id").eq("org_id", orgId).maybeSingle();
+  let followupSteps = 0;
+  if (!fuExistente?.id) {
+    const { error: fuErr } = await admin.from("followup_configs").insert({
+      org_id: orgId, is_demo: true, is_active: false,
+      max_attempts: 3, on_limit_reached: "notify_agent",
+    });
+    if (fuErr) throw new Error(`Falha ao inserir configuração de follow-up: ${fuErr.message}`);
+
+    const FU_STEPS = [
+      { order: 1, delay_hours: 24, message_template: "Oi {{primeiro_nome}}! Passando para saber se você conseguiu ver a proposta." },
+      { order: 2, delay_hours: 72, message_template: "{{primeiro_nome}}, ficou alguma dúvida sobre os valores? Consigo ajustar o escopo se precisar." },
+      { order: 3, delay_hours: 168, message_template: "Vou deixar o assunto em pausa por aqui, mas seguimos à disposição quando fizer sentido retomar." },
+    ];
+    const { error: fsErr } = await admin.from("followup_steps").insert(
+      FU_STEPS.map((s) => ({ org_id: orgId, is_demo: true, ...s })),
+    );
+    if (fsErr) throw new Error(`Falha ao inserir etapas de follow-up: ${fsErr.message}`);
+    followupSteps = FU_STEPS.length;
+  }
+
+  // Automações — pausadas.
+  const AUTOMATIONS = [
+    {
+      name: "Tarefa ao criar contato",
+      description: "Cria uma tarefa de primeiro contato assim que um lead entra.",
+      trigger: { type: "contact_created" },
+      conditions: [],
+      actions: [{ type: "create_task", title: "Fazer primeiro contato", delay_hours: 2 }],
+    },
+    {
+      name: "Aviso de negócio parado",
+      description: "Notifica o responsável quando o negócio muda de etapa.",
+      trigger: { type: "deal_stage_changed" },
+      conditions: [],
+      actions: [{ type: "notify_owner", message: "O negócio avançou de etapa — confirme os próximos passos." }],
+    },
+    {
+      name: "Boas-vindas no WhatsApp",
+      description: "Manda uma saudação quando o cliente escreve pela primeira vez.",
+      trigger: { type: "message_received" },
+      conditions: [],
+      actions: [{ type: "send_whatsapp", message: "Olá! Recebemos sua mensagem e já estamos vendo por aqui." }],
+    },
+  ];
+  const { error: autoErr } = await admin.from("automations").insert(
+    AUTOMATIONS.map((a) => ({ org_id: orgId, is_demo: true, is_active: false, ...a })),
+  );
+  if (autoErr) throw new Error(`Falha ao inserir automações: ${autoErr.message}`);
+
+  // NPS: config única por org, mesma regra do follow-up. As respostas são
+  // semeadas de todo jeito — são o que alimenta o relatório na tela.
+  const { data: npsExistente } = await admin
+    .from("nps_configs").select("id").eq("org_id", orgId).maybeSingle();
+  if (!npsExistente?.id) {
+    const { error: npsCfgErr } = await admin.from("nps_configs").insert({
+      org_id: orgId, is_demo: true, is_active: false,
+      delay_minutes: 60,
+      active_channels: ["whatsapp"],
+      message: "De 0 a 10, quanto você recomendaria nosso atendimento para um amigo?",
+      thank_you_message: "Obrigado pela nota! Seu retorno ajuda a melhorar o atendimento.",
+    });
+    if (npsCfgErr) throw new Error(`Falha ao inserir configuração de NPS: ${npsCfgErr.message}`);
+  }
+
+  const NPS = [
+    { conv: 3, contact: 2, score: 10, comment: "Atendimento rápido e sem enrolação." },
+    { conv: 0, contact: 0, score: 9, comment: "Muito bom, só o prazo que poderia ser menor." },
+    { conv: 1, contact: 8, score: 7, comment: "Resolveram, mas demorou para responder." },
+    { conv: 2, contact: 11, score: 5, comment: "Faltou clareza na explicação do contrato." },
+    { conv: 4, contact: 4, score: 9, comment: null },
+  ].filter((n) => !!convIds[n.conv]);
+  const { error: npsErr } = await admin.from("nps_responses").insert(
+    NPS.map((n, i) => ({
+      org_id: orgId, is_demo: true,
+      conversation_id: convIds[n.conv],
+      contact_id: contactIds[n.contact] ?? null,
+      channel: CONVERSATIONS[n.conv].channel,
+      score: n.score,
+      comment: n.comment,
+      sent_at: daysFromNow(-i - 2),
+      responded_at: daysFromNow(-i - 1.5),
+    })),
+  );
+  if (npsErr) throw new Error(`Falha ao inserir respostas de NPS: ${npsErr.message}`);
+
   // Emails vinculados a contatos/negócios.
   const emailAddr = (ci: number) =>
     `${FIRST_NAMES_FOR_EMAIL(CONTACTS[ci].first_name, CONTACTS[ci].last_name)}@${COMPANIES[CONTACTS[ci].company].domain}`;
@@ -342,7 +492,11 @@ async function seed(admin: Admin, orgId: string) {
       deals: dealIds.length,
       activities: activities.length,
       conversations: convIds.length,
-      messages: messages.length,
+      messages: messages.length + (audioDemo ? 1 : 0),
+      quick_replies: QUICK_REPLIES.length,
+      followup_steps: followupSteps,
+      automations: AUTOMATIONS.length,
+      nps_responses: NPS.length,
       emails: EMAILS.length,
       sales_goals: 2,
       lead_score_history: SCORES.length,
@@ -356,6 +510,7 @@ async function clear(admin: Admin, orgId: string) {
   // Ordem de dependência: filhos antes dos pais. Conversas/emails/scores
   // referenciam contatos/deals, então saem antes deles; mensagens antes das conversas.
   const order: Array<{ table: string; key: keyof typeof counts }> = [
+    { table: "nps_responses", key: "nps_responses" },
     { table: "conversation_messages", key: "messages" },
     { table: "conversations", key: "conversations" },
     { table: "emails", key: "emails" },
@@ -366,10 +521,17 @@ async function clear(admin: Admin, orgId: string) {
     { table: "contacts", key: "contacts" },
     { table: "companies", key: "companies" },
     { table: "products", key: "products" },
+    { table: "quick_replies", key: "quick_replies" },
+    { table: "followup_steps", key: "followup_steps" },
+    { table: "followup_configs", key: "followup_configs" },
+    { table: "automations", key: "automations" },
+    { table: "nps_configs", key: "nps_configs" },
   ];
   const counts = {
     messages: 0, conversations: 0, emails: 0, lead_score_history: 0, sales_goals: 0,
     activities: 0, deals: 0, contacts: 0, companies: 0, products: 0,
+    quick_replies: 0, followup_steps: 0, followup_configs: 0, automations: 0,
+    nps_configs: 0, nps_responses: 0,
   };
 
   for (const { table, key } of order) {
@@ -381,6 +543,24 @@ async function clear(admin: Admin, orgId: string) {
       .select("id");
     if (error) throw new Error(`Falha ao limpar ${table}: ${error.message}`);
     counts[key] = (data ?? []).length;
+  }
+
+  // Áudios da demo no bucket: as linhas já saíram, os arquivos ficariam órfãos.
+  // Cada conversa demo tem sua pasta sob {org}/audio/{conversation_id}, e os ids
+  // já não existem mais — então varremos o que sobrou de mp3 de demo por nome.
+  try {
+    const { data: pastas } = await admin.storage.from("whatsapp-media").list(`${orgId}/audio`);
+    for (const pasta of pastas ?? []) {
+      const prefixo = `${orgId}/audio/${pasta.name}`;
+      const { data: arquivos } = await admin.storage.from("whatsapp-media").list(prefixo);
+      const demo = (arquivos ?? [])
+        .filter((a) => a.name.startsWith("demo-"))
+        .map((a) => `${prefixo}/${a.name}`);
+      if (demo.length > 0) await admin.storage.from("whatsapp-media").remove(demo);
+    }
+  } catch (err) {
+    // Arquivo órfão não impede a limpeza dos dados: registra e segue.
+    console.error("[demo-data] falha ao limpar áudios do bucket:", err);
   }
 
   return { counts };

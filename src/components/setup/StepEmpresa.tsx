@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BUSINESS_SECTORS, COMPANY_SIZES, useOrganization, useSaveSetupStep } from "@/hooks/useSetup";
 import { PularEtapa } from "@/components/setup/PularEtapa";
+import { MelhorarComIA } from "@/components/ai/MelhorarComIA";
 
 /** Contador de caracteres que fica vermelho ao estourar o limite. */
 function Contador({ atual, max }: { atual: number; max: number }) {
@@ -133,7 +134,16 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
 
       {form.business_sector === "outro" && (
         <div className="space-y-2">
-          <Label htmlFor="org-outro">Descreva seu setor</Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="org-outro">Descreva seu setor</Label>
+            <MelhorarComIA
+              valor={form.outro_descricao}
+              onChange={(t) => setForm((f) => ({ ...f, outro_descricao: t }))}
+              contexto="o setor de atuação da empresa, em poucas palavras"
+              maxChars={80}
+              data-testid="melhorar-setor"
+            />
+          </div>
           <Input
             id="org-outro"
             data-testid="setup-outro-descricao"
@@ -177,7 +187,16 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
           <Label htmlFor="org-desc">O que sua empresa vende e para quem?</Label>
-          <Contador atual={form.business_description.length} max={300} />
+          <div className="flex items-baseline gap-2">
+            <MelhorarComIA
+              valor={form.business_description}
+              onChange={(t) => setForm((f) => ({ ...f, business_description: t }))}
+              contexto="o que a empresa vende e para quem"
+              maxChars={300}
+              data-testid="melhorar-descricao"
+            />
+            <Contador atual={form.business_description.length} max={300} />
+          </div>
         </div>
         <Textarea
           id="org-desc"
@@ -195,7 +214,16 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
           <Label htmlFor="org-problem">Qual problema você resolve para seu cliente?</Label>
-          <Contador atual={form.main_problem_solved.length} max={200} />
+          <div className="flex items-baseline gap-2">
+            <MelhorarComIA
+              valor={form.main_problem_solved}
+              onChange={(t) => setForm((f) => ({ ...f, main_problem_solved: t }))}
+              contexto="o problema que a empresa resolve para o cliente"
+              maxChars={200}
+              data-testid="melhorar-problema"
+            />
+            <Contador atual={form.main_problem_solved.length} max={200} />
+          </div>
         </div>
         <Textarea
           id="org-problem"

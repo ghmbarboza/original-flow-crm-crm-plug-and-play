@@ -9,6 +9,7 @@ const resposta = (shortcut: string, title: string): QuickReply => ({
   message: "m",
   category: null,
   is_active: true,
+  is_demo: false,
   created_by: null,
   created_at: "",
   updated_at: "",

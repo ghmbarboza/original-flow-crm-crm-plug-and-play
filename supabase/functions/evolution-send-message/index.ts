@@ -4,6 +4,7 @@
 // Evolution da org, entrega ao servidor e grava a mensagem outbound. A conversa
 // tem seu preview/última mensagem atualizados.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { registrarEnvioSimulado } from "../_shared/demo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +42,7 @@ Deno.serve(async (req) => {
 
     const { data: conversation } = await admin
       .from("conversations")
-      .select("id, org_id, phone_number")
+      .select("id, org_id, phone_number, is_demo")
       .eq("id", conversation_id)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversa não encontrada" }, 404);
@@ -53,6 +54,18 @@ Deno.serve(async (req) => {
       .eq("id", user.id)
       .maybeSingle();
     if (profile?.org_id !== conversation.org_id) return json({ error: "Sem acesso a esta conversa" }, 403);
+
+    // Conversa de demonstração: registra como enviada e para aqui. O número é
+    // fictício — mandar de verdade poderia acertar um desconhecido.
+    if (conversation.is_demo) {
+      const id = await registrarEnvioSimulado(admin, {
+        conversationId: conversation_id,
+        orgId: conversation.org_id as string,
+        content,
+        sentBy: user.id,
+      });
+      return json({ ok: true, simulated: true, provider_message_id: id });
+    }
 
     const { data: instance } = await admin
       .from("evolution_configs")

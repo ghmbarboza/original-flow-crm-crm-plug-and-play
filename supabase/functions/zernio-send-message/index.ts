@@ -4,6 +4,7 @@
 // org, o id da conversa no Zernio (provider_conversation_id) e a conta conectada
 // do canal (accountId), entrega ao Zernio e grava a mensagem outbound.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { registrarEnvioSimulado } from "../_shared/demo.ts";
 
 const ZERNIO_API = "https://zernio.com/api/v1";
 
@@ -43,7 +44,7 @@ Deno.serve(async (req) => {
 
     const { data: conversation } = await admin
       .from("conversations")
-      .select("id, org_id, channel, provider, provider_conversation_id")
+      .select("id, org_id, channel, provider, provider_conversation_id, is_demo")
       .eq("id", conversation_id)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversa não encontrada" }, 404);
@@ -55,6 +56,17 @@ Deno.serve(async (req) => {
       .from("profiles").select("org_id").eq("id", user.id).maybeSingle();
     if (profile?.org_id !== conversation.org_id) {
       return json({ error: "Sem acesso a esta conversa" }, 403);
+    }
+
+    // Conversa de demonstração: nada vai para o Zernio.
+    if (conversation.is_demo) {
+      const id = await registrarEnvioSimulado(admin, {
+        conversationId: conversation_id,
+        orgId: conversation.org_id as string,
+        content,
+        sentBy: user.id,
+      });
+      return json({ ok: true, simulated: true, provider_message_id: id });
     }
 
     const zernioConversationId = conversation.provider_conversation_id as string | null;
