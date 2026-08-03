@@ -43,42 +43,23 @@ Deno.serve(async (req) => {
       .eq("id", user.id)
       .maybeSingle();
 
-    // Try to update existing vault secret if registry has one
-    const { data: existing } = await admin
-      .from("api_keys_registry")
-      .select("vault_secret_id")
-      .eq("user_id", user.id)
-      .eq("service_name", service_name)
-      .maybeSingle();
+    // `public.create_secret` é idempotente: se já existe um segredo com esse
+    // nome, ele atualiza o valor e devolve o MESMO id. Por isso não há ramo de
+    // update aqui — um único caminho cobre cadastro e troca de chave.
+    const { data: secretId, error: secretErr } = await admin.rpc("create_secret", {
+      new_secret: api_key,
+      new_name: secretName,
+      new_description: label ?? service_name,
+    });
 
-    let vaultSecretId: string;
-
-    if (existing?.vault_secret_id) {
-      // Best-effort: tenta atualizar o segredo existente antes do swap por delete+create.
-      await admin.rpc("vault_update_secret", {
-        secret_id: existing.vault_secret_id, new_secret: api_key,
-      }).select?.();
-      // Fallback: direct call via raw SQL not available — rely on insert+swap
-      vaultSecretId = existing.vault_secret_id;
-      // Best-effort: Supabase client lacks a Vault RPC; we replace by deleting + creating
-      try {
-        await admin.from("vault.secrets").delete().eq("id", existing.vault_secret_id);
-      } catch (_) { /* ignore */ }
-      const { data: ins } = await admin.rpc("create_secret", {
-        new_secret: api_key, new_name: secretName, new_description: label ?? service_name,
-      });
-      if (ins) vaultSecretId = ins as unknown as string;
-    } else {
-      const { data: ins, error: insErr } = await admin.rpc("create_secret", {
-        new_secret: api_key, new_name: secretName, new_description: label ?? service_name,
-      });
-      if (insErr || !ins) {
-        return new Response(JSON.stringify({ error: "Falha ao salvar no Vault", details: insErr?.message }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      vaultSecretId = ins as unknown as string;
+    if (secretErr || !secretId) {
+      return new Response(
+        JSON.stringify({ error: "Falha ao salvar no Vault", details: secretErr?.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
+
+    const vaultSecretId = secretId as unknown as string;
 
     await admin.from("api_keys_registry").upsert({
       user_id: user.id,
