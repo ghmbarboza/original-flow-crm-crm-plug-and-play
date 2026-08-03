@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
+import { MelhorarComIA } from "@/components/ai/MelhorarComIA";
 import { Bot, Clock, MessageSquare, ShoppingCart, Sliders, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -393,7 +394,15 @@ export default function AISettings() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ai-prohibitions">O que a IA nunca deve fazer ou dizer</Label>
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="ai-prohibitions">O que a IA nunca deve fazer ou dizer</Label>
+                <MelhorarComIA
+                  valor={marca.ai_prohibitions}
+                  onChange={(t) => setMarca((m) => ({ ...m, ai_prohibitions: t }))}
+                  contexto="as proibições que a IA deve respeitar ao falar com clientes"
+                  maxChars={300}
+                />
+              </div>
               <Textarea
                 id="ai-prohibitions"
                 rows={3}
@@ -404,7 +413,15 @@ export default function AISettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ai-good-example">Exemplo de resposta ideal</Label>
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="ai-good-example">Exemplo de resposta ideal</Label>
+                <MelhorarComIA
+                  valor={marca.good_response_example}
+                  onChange={(t) => setMarca((m) => ({ ...m, good_response_example: t }))}
+                  contexto="um exemplo de mensagem que representa bem o tom da empresa"
+                  maxChars={500}
+                />
+              </div>
               <Textarea
                 id="ai-good-example"
                 rows={3}

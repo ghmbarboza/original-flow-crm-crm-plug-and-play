@@ -15,6 +15,7 @@ import {
   BUSINESS_SECTORS, COMPANY_SIZES, useOrganization, useUpdateOrganization,
 } from "@/hooks/useSetup";
 import { toast } from "sonner";
+import { MelhorarComIA } from "@/components/ai/MelhorarComIA";
 
 /**
  * Sobre a empresa — MESMOS registros que o onboarding grava em `organizations`
@@ -145,7 +146,15 @@ function SobreAEmpresa() {
           </Select>
         </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="empresa-desc">O que sua empresa vende e para quem?</Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="empresa-desc">O que sua empresa vende e para quem?</Label>
+            <MelhorarComIA
+              valor={form.business_description}
+              onChange={(t) => setForm((f) => ({ ...f, business_description: t }))}
+              contexto="o que a empresa vende e para quem"
+              maxChars={300}
+            />
+          </div>
           <Textarea
             id="empresa-desc"
             rows={2}
@@ -155,7 +164,15 @@ function SobreAEmpresa() {
           />
         </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="empresa-publico">Para quem você vende?</Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="empresa-publico">Para quem você vende?</Label>
+            <MelhorarComIA
+              valor={form.target_audience}
+              onChange={(t) => setForm((f) => ({ ...f, target_audience: t }))}
+              contexto="o público para quem a empresa vende"
+              maxChars={200}
+            />
+          </div>
           <Textarea
             id="empresa-publico"
             rows={2}
@@ -165,7 +182,15 @@ function SobreAEmpresa() {
           />
         </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="empresa-problema">Qual problema você resolve para seu cliente?</Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="empresa-problema">Qual problema você resolve para seu cliente?</Label>
+            <MelhorarComIA
+              valor={form.main_problem_solved}
+              onChange={(t) => setForm((f) => ({ ...f, main_problem_solved: t }))}
+              contexto="o problema que a empresa resolve para o cliente"
+              maxChars={200}
+            />
+          </div>
           <Textarea
             id="empresa-problema"
             rows={2}

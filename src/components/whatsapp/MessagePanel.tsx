@@ -85,7 +85,19 @@ function MessageBubble({
             IA
           </p>
         )}
-        {audio && message.media_url && <AudioMessage path={message.media_url} escuro={outbound} />}
+        {audio && (message.media_url
+          ? <AudioMessage path={message.media_url} escuro={outbound} />
+          : (
+            // Áudio sem arquivo: acontece na conversa de demonstração quando não
+            // há chave do ElevenLabs para gerar o exemplo, e em falha de download
+            // do provedor. A transcrição abaixo é o que a IA de fato leu.
+            <p
+              className="text-xs"
+              style={{ color: outbound ? "rgba(255,255,255,0.75)" : "var(--via-text-muted)" }}
+            >
+              Áudio indisponível
+            </p>
+          ))}
         {message.content && (
           <div>
             {/* Em áudio, o texto é a transcrição (recebido) ou o roteiro falado
@@ -308,6 +320,22 @@ export function MessagePanel({ conversation, provider }: Props) {
         )}
         <div ref={bottomRef} />
       </div>
+
+      {/* Aviso de demonstração: o composer parece igual ao real, então sem este
+          aviso a pessoa acredita que mandou mensagem para o cliente. */}
+      {conversation.is_demo && (
+        <div
+          className="shrink-0 border-t px-4 py-2 text-center text-xs"
+          data-testid="inbox-aviso-demo"
+          style={{
+            borderColor: "var(--via-border)",
+            background: "var(--via-surface)",
+            color: "var(--via-text-muted)",
+          }}
+        >
+          Conversa de demonstração — envios são simulados e nada sai para o cliente.
+        </div>
+      )}
 
       {/* Composer */}
       {conversation.status === "closed" ? (

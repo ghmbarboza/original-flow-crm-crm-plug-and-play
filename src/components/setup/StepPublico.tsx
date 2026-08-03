@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MelhorarComIA } from "@/components/ai/MelhorarComIA";
 import { BRAND_TONES, useOrganization, useSaveSetupStep } from "@/hooks/useSetup";
 import { PularEtapa } from "@/components/setup/PularEtapa";
 
@@ -68,7 +69,16 @@ export function StepPublico({ onNext, onBack }: { onNext: () => void; onBack: ()
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="audience">Para quem você vende?</Label>
+        <div className="flex items-baseline justify-between gap-2">
+          <Label htmlFor="audience">Para quem você vende?</Label>
+          <MelhorarComIA
+            valor={form.target_audience}
+            onChange={(t) => setForm((f) => ({ ...f, target_audience: t }))}
+            contexto="o público para quem a empresa vende (perfil, faixa de renda, momento de compra)"
+            maxChars={200}
+            data-testid="melhorar-publico"
+          />
+        </div>
         <Textarea
           id="audience"
           data-testid="setup-audience"

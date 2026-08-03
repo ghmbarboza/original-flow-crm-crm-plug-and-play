@@ -13,6 +13,7 @@ import { chamarIA, ErroIA, type FerramentaIA, type MensagemIA } from "../_shared
 import {
   bytesParaBase64, gerarAudioDaResposta, resolverChaveElevenLabs, salvarAudioNoBucket,
 } from "../_shared/audio.ts";
+import { PREFIXO_SIMULADO } from "../_shared/demo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -148,6 +149,8 @@ interface ConversaEntrega {
   phone_number: string;
   channel?: string | null;
   provider_conversation_id?: string | null;
+  /** Conversa de demonstração: nada é entregue a provedor nenhum. */
+  is_demo?: boolean | null;
 }
 
 interface Entrega {
@@ -173,6 +176,15 @@ async function deliver(
   audio: Uint8Array | null = null,
 ): Promise<Entrega> {
   const { provider, org_id: orgId, phone_number: phone } = conversation;
+
+  // Trava do modo demonstração. Os números/ids das conversas demo são
+  // fictícios: entregar de verdade poderia mandar a resposta da IA para um
+  // desconhecido. A mensagem ainda é gravada por quem chamou, então a demo
+  // continua parecendo um atendimento real.
+  if (conversation.is_demo) {
+    console.log(`[demo] resposta da IA simulada na org ${orgId} — nada saiu para o provedor.`);
+    return { providerMessageId: `${PREFIXO_SIMULADO}-${crypto.randomUUID()}`, comoAudio: false };
+  }
 
   if (provider === "evolution") {
     const { data: instance } = await admin
@@ -350,7 +362,7 @@ Deno.serve(async (req) => {
 
     const { data: conversation } = await admin
       .from("conversations")
-      .select("id, org_id, phone_number, provider, status, assigned_to, contact_id, deal_id, channel_contact_name, channel, provider_conversation_id")
+      .select("id, org_id, phone_number, provider, status, assigned_to, contact_id, deal_id, channel_contact_name, channel, provider_conversation_id, is_demo")
       .eq("id", conversation_id)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversa não encontrada" }, 404);

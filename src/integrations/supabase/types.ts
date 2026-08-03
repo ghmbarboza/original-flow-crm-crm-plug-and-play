@@ -487,6 +487,7 @@ export type Database = {
           from_template_id: string | null
           id: string
           is_active: boolean
+          is_demo: boolean
           last_run_at: string | null
           name: string
           org_id: string
@@ -504,6 +505,7 @@ export type Database = {
           from_template_id?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean
           last_run_at?: string | null
           name: string
           org_id: string
@@ -521,6 +523,7 @@ export type Database = {
           from_template_id?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean
           last_run_at?: string | null
           name?: string
           org_id?: string
@@ -2054,6 +2057,7 @@ export type Database = {
           from_template_id: string | null
           id: string
           is_active: boolean
+          is_demo: boolean
           max_attempts: number
           on_limit_reached: string
           org_id: string
@@ -2064,6 +2068,7 @@ export type Database = {
           from_template_id?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean
           max_attempts?: number
           on_limit_reached?: string
           org_id: string
@@ -2074,6 +2079,7 @@ export type Database = {
           from_template_id?: string | null
           id?: string
           is_active?: boolean
+          is_demo?: boolean
           max_attempts?: number
           on_limit_reached?: string
           org_id?: string
@@ -2155,6 +2161,7 @@ export type Database = {
           created_at: string
           delay_hours: number
           id: string
+          is_demo: boolean
           media_filename: string | null
           media_path: string | null
           media_type: string | null
@@ -2167,6 +2174,7 @@ export type Database = {
           created_at?: string
           delay_hours?: number
           id?: string
+          is_demo?: boolean
           media_filename?: string | null
           media_path?: string | null
           media_type?: string | null
@@ -2179,6 +2187,7 @@ export type Database = {
           created_at?: string
           delay_hours?: number
           id?: string
+          is_demo?: boolean
           media_filename?: string | null
           media_path?: string | null
           media_type?: string | null
@@ -2614,6 +2623,7 @@ export type Database = {
           delay_minutes: number
           id: string
           is_active: boolean | null
+          is_demo: boolean
           message: string
           org_id: string
           thank_you_message: string
@@ -2625,6 +2635,7 @@ export type Database = {
           delay_minutes?: number
           id?: string
           is_active?: boolean | null
+          is_demo?: boolean
           message?: string
           org_id: string
           thank_you_message?: string
@@ -2636,6 +2647,7 @@ export type Database = {
           delay_minutes?: number
           id?: string
           is_active?: boolean | null
+          is_demo?: boolean
           message?: string
           org_id?: string
           thank_you_message?: string
@@ -2659,6 +2671,7 @@ export type Database = {
           contact_id: string | null
           conversation_id: string
           id: string
+          is_demo: boolean
           org_id: string
           responded_at: string | null
           score: number | null
@@ -2672,6 +2685,7 @@ export type Database = {
           contact_id?: string | null
           conversation_id: string
           id?: string
+          is_demo?: boolean
           org_id: string
           responded_at?: string | null
           score?: number | null
@@ -2685,6 +2699,7 @@ export type Database = {
           contact_id?: string | null
           conversation_id?: string
           id?: string
+          is_demo?: boolean
           org_id?: string
           responded_at?: string | null
           score?: number | null
@@ -3060,6 +3075,7 @@ export type Database = {
           created_by: string | null
           id: string
           is_active: boolean | null
+          is_demo: boolean
           message: string
           org_id: string
           shortcut: string
@@ -3072,6 +3088,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_active?: boolean | null
+          is_demo?: boolean
           message: string
           org_id: string
           shortcut: string
@@ -3084,6 +3101,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_active?: boolean | null
+          is_demo?: boolean
           message?: string
           org_id?: string
           shortcut?: string
