@@ -4,12 +4,47 @@
 // POST → mensagens recebidas: resolve a instância pelo phone_number_id, cria/atualiza
 //        contato e conversa, grava a mensagem e dispara a IA se ela estiver ativa.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  baixarBinario, extensaoDeAudio, salvarAudioNoBucket, transcreverAudio,
+} from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 function ok(body: unknown = { received: true }) {
   return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+}
+
+/**
+ * Resolve e baixa uma mídia da Graph API: primeiro o GET do id devolve a URL
+ * temporária, depois o download exige o mesmo access token da config.
+ */
+async function baixarMidiaMeta(
+  mediaId: string,
+  accessToken: string,
+): Promise<{ bytes: Uint8Array; mimetype: string } | null> {
+  try {
+    const metaResp = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!metaResp.ok) {
+      console.error(`[meta] mídia ${mediaId} não resolvida [${metaResp.status}]: ${(await metaResp.text()).slice(0, 300)}`);
+      return null;
+    }
+    const meta = await metaResp.json().catch(() => ({}));
+    if (!meta?.url) {
+      console.error(`[meta] mídia ${mediaId} sem url no retorno.`);
+      return null;
+    }
+    const baixado = await baixarBinario(meta.url as string, {
+      Authorization: `Bearer ${accessToken}`,
+    });
+    if (!baixado) return null;
+    return { bytes: baixado.bytes, mimetype: (meta.mime_type as string) ?? baixado.mimetype };
+  } catch (err) {
+    console.error("[meta] falha ao baixar mídia:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 function triggerAI(conversationId: string) {
