@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { SetupWizardProvider, useSetupWizard } from "@/contexts/SetupWizardContext";
+import { SetupWizardDialog } from "@/components/setup/SetupWizardDialog";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +16,6 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PendingApprovalPage from "./pages/PendingApprovalPage";
 import NotFound from "./pages/NotFound";
 
-const SetupPage = lazy(() => import("./pages/SetupPage"));
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const ContactsPage = lazy(() => import("./pages/ContactsPage"));
@@ -76,6 +77,13 @@ function Page({ name, children }: { name: string; children: ReactNode }) {
   );
 }
 
+/** Rota /setup: abre o assistente em modal e devolve o usuário ao app real. */
+function AbrirSetup() {
+  const { abrir } = useSetupWizard();
+  useEffect(() => { abrir(); }, [abrir]);
+  return <Navigate to="/dashboard" replace />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -84,6 +92,8 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <TriggerHealthCheck />
+          <SetupWizardProvider>
+          <SetupWizardDialog />
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/auth" element={<AuthPage />} />
@@ -99,17 +109,13 @@ const App = () => (
               <ProtectedRoute allowUnapproved><PendingApprovalPage /></ProtectedRoute>
             } />
 
-            {/* Fullscreen, fora do AppLayout. */}
-            {/* O onboarding antigo coletava 4 campos de perfil e virou a etapa
-                "Empresa" do wizard. Mantido como redirect para não quebrar link
-                salvo nem o botão "Refazer onboarding" das Configurações. */}
+            {/* O onboarding virou modal sobre o app. /onboarding e /setup seguem
+                existindo como atalhos que abrem o assistente por cima do
+                dashboard — links salvos e o botão "Refazer onboarding" das
+                Configurações continuam funcionando. */}
             <Route path="/onboarding" element={<Navigate to="/setup" replace />} />
-            {/* skipSetupGuard: é a própria rota de destino do guard. Sem isso o
-                redirect apontaria para si mesmo e entraria em laço. */}
             <Route path="/setup" element={
-              <ProtectedRoute allowedRoles={["admin"]} skipSetupGuard>
-                <Page name="Configuração inicial"><SetupPage /></Page>
-              </ProtectedRoute>
+              <ProtectedRoute><AbrirSetup /></ProtectedRoute>
             } />
 
             {/* CRM */}
@@ -195,6 +201,7 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </SetupWizardProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

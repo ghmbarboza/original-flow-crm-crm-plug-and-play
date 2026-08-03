@@ -1,22 +1,18 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useOrganization } from "@/hooks/useSetup";
 import type { AppRole } from "@/types/auth";
 import { useEffect } from "react";
 
 export function ProtectedRoute({
   children, allowedRoles, allowUnapproved = false,
-  /** Rotas que nunca redirecionam para o setup (a própria /setup, por exemplo). */
-  skipSetupGuard = false,
 }: {
   children: React.ReactNode;
   allowedRoles?: AppRole[];
   allowUnapproved?: boolean;
+  /** Aceito por compatibilidade: o setup agora é modal e não desvia de rota. */
   skipSetupGuard?: boolean;
 }) {
-  const { user, isLoading, isApproved, isActive, role, profile, signOut, isAdmin } = useAuth();
-  const { data: org, isLoading: loadingOrg } = useOrganization();
-  const location = useLocation();
+  const { user, isLoading, isApproved, isActive, role, profile, signOut } = useAuth();
 
   useEffect(() => {
     if (!isLoading && user && profile && !isActive) signOut();
@@ -47,23 +43,9 @@ export function ProtectedRoute({
     );
   }
 
-  // Setup pendente: admin é levado ao wizard antes de qualquer outra tela.
-  //
-  // Só admin — membro comum não tem permissão para configurar a organização e
-  // ficaria preso num wizard que não consegue concluir.
-  //
-  // Espera a org carregar antes de decidir: redirecionar com `org` ainda
-  // undefined mandaria todo mundo para /setup a cada refresh.
-  if (
-    !skipSetupGuard &&
-    isAdmin &&
-    !loadingOrg &&
-    org &&
-    org.setup_completed !== true &&
-    location.pathname !== "/setup"
-  ) {
-    return <Navigate to="/setup" replace />;
-  }
-
+  // Setup pendente NÃO desvia mais de rota: o assistente abre como modal sobre
+  // o app (SetupWizardProvider), então o admin vê a plataforma real ao fundo e
+  // pode fechar e voltar quando quiser. `skipSetupGuard` fica na assinatura por
+  // compatibilidade com as rotas que já o passam.
   return <>{children}</>;
 }

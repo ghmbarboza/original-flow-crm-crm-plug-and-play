@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { ArrowRight, CheckCircle2, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCompleteSetup, useOrganization, useSaveSetupStep, useSetupProgress } from "@/hooks/useSetup";
-import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
+import { useSetupChecklist } from "@/hooks/useSetupChecklist";
 
 const PROXIMOS_PASSOS = [
   { label: "Cadastre seus produtos", to: "/products" },
@@ -11,56 +11,64 @@ const PROXIMOS_PASSOS = [
   { label: "Revise a base de conhecimento da IA", to: "/settings" },
 ];
 
-export function StepConcluido() {
+export function StepConcluido({ onClose }: { onClose?: () => void }) {
   const navigate = useNavigate();
   const { data: org } = useOrganization();
   const { data: progresso } = useSetupProgress();
-  const { data: whatsapp } = useWhatsAppSetup();
+  const checklist = useSetupChecklist();
   const concluir = useCompleteSetup();
   const salvarEtapa = useSaveSetupStep();
 
   const feitos = new Set(progresso?.completed_steps ?? []);
-  // O resumo reflete o que foi realmente feito, não o que o wizard esperava.
-  // Marcar canal como pronto quando o usuário pulou seria mentir na cara dele.
-  // Cada item pendente leva ao lugar exato onde se resolve — "pendente" sem
-  // destino obrigava o usuário a caçar a tela certa.
+  // O checklist reflete o ESTADO REAL verificado no banco, não a passagem pela
+  // etapa: instância de canal presa em "connecting" ou IA em rascunho apareciam
+  // com check verde e o usuário só descobria a falha quando ninguém era atendido.
+  // Cada item pendente leva ao lugar exato onde se resolve.
   const conquistas = [
     {
       label: "Empresa configurada",
-      ok: feitos.has("empresa") && feitos.has("publico"),
+      detalhe: undefined as string | undefined,
+      ok: !!org?.name?.trim() && !!org?.business_sector && feitos.has("empresa") && feitos.has("publico"),
       to: "/settings",
       onde: "Configurações > Geral",
     },
     {
       label: "IA criada com o perfil da sua marca",
-      ok: feitos.has("ia"),
+      ...checklist.ia,
       to: "/settings/ia",
       onde: "Configurações > IA",
     },
     {
       label: "Voz da agente configurada",
-      ok: feitos.has("voz"),
+      ...checklist.voz,
       to: "/settings/ia",
       onde: "Configurações > IA (Voz da agente)",
     },
     {
       label: "Pipeline de vendas definido",
-      ok: feitos.has("pipeline"),
+      ...checklist.pipeline,
       to: "/settings/pipeline",
       onde: "Configurações > Pipeline",
     },
     {
       label: "Canal de atendimento conectado",
-      ok: !!whatsapp?.configured,
+      ...checklist.canal,
       to: "/settings/channels",
       onde: "Configurações > Canais",
     },
   ];
 
+  // Navegar para uma tela do app fecha o modal — o link é o destino, não o wizard.
+  const irPara = (to: string) => {
+    onClose?.();
+    navigate(to);
+  };
+
   const irParaDashboard = async () => {
     try {
       await salvarEtapa.mutateAsync({ step: "concluido" });
       await concluir.mutateAsync();
+      onClose?.();
       navigate("/dashboard", { replace: true });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível concluir o setup.");
@@ -93,11 +101,11 @@ export function StepConcluido() {
             ) : (
               <button
                 type="button"
-                onClick={() => navigate(c.to)}
+                onClick={() => irPara(c.to)}
                 className="text-left hover:underline"
                 style={{ color: "var(--via-text-muted)" }}
               >
-                {c.label} — pendente, configurar em {c.onde}
+                {c.detalhe ?? `${c.label} — pendente, configurar em ${c.onde}`}
               </button>
             )}
           </li>
@@ -112,7 +120,7 @@ export function StepConcluido() {
           <button
             key={p.to}
             type="button"
-            onClick={() => navigate(p.to)}
+            onClick={() => irPara(p.to)}
             className="flex w-full items-center gap-2 text-sm hover:underline"
             style={{ color: "var(--via-text-body)" }}
           >
@@ -127,7 +135,7 @@ export function StepConcluido() {
         disabled={concluir.isPending || salvarEtapa.isPending}
         data-testid="setup-finish"
       >
-        {concluir.isPending ? "Finalizando…" : "Ir para o Dashboard"}
+        {concluir.isPending ? "Finalizando…" : "Concluir e usar a plataforma"}
       </Button>
 
       <p className="mx-auto max-w-sm text-xs" style={{ color: "var(--via-text-muted)" }}>
