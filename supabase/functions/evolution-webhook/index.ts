@@ -131,12 +131,19 @@ Deno.serve(async (req) => {
   if (!phone) return ok();
 
   const message = data.message ?? {};
-  const content: string =
+  const textoRecebido: string =
     message.conversation ??
     message.extendedTextMessage?.text ??
     message.imageMessage?.caption ??
     "";
-  if (!content) return ok({ ignored: "mensagem sem texto" });
+
+  // Áudio (inclui PTT — a Evolution entrega os dois em audioMessage).
+  const audioMessage = message.audioMessage ?? null;
+  if (!textoRecebido && !audioMessage) return ok({ ignored: "mensagem sem texto" });
+
+  // Preview da conversa antes de saber a transcrição: um áudio precisa aparecer
+  // na lista mesmo que a transcrição falhe depois.
+  const preview = textoRecebido ? textoRecebido.slice(0, 120) : "🎤 Áudio";
 
   const orgId = instance.org_id;
 
