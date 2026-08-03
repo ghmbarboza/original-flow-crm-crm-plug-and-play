@@ -21,7 +21,7 @@ export function StepCanal({ onNext, onBack }: { onNext: () => void; onBack: () =
       // continuar mostrando esta etapa como pendente.
       if (pulou) await pularEtapa.mutateAsync({ step: "canal" });
       else await salvarEtapa.mutateAsync({ step: "canal" });
-      if (pulou) toast.info("Você pode conectar um canal depois em Configurações > Canais.");
+      if (pulou) toast.info("Você pode conectar um canal depois em Configurações > Integrações > Canais.");
       onNext();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");

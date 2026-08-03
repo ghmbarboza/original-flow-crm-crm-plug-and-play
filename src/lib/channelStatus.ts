@@ -19,7 +19,7 @@ export interface StatusDoCanal {
 }
 
 const AGUARDANDO =
-  "Canal configurado, aguardando pareamento — finalize em Configurações > Canais";
+  "Canal configurado, aguardando pareamento — finalize em Configurações > Integrações > Canais";
 
 type EntradaDeCanal = Partial<Pick<WhatsAppSetup, "evolution" | "meta" | "zernio">> | null | undefined;
 

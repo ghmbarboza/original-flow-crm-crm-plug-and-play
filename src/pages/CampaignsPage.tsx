@@ -96,7 +96,7 @@ export default function CampaignsPage() {
             }
             action={
               <Button asChild variant="outline" className="gap-1.5">
-                <Link to="/settings/channels" data-testid="campaigns-blocked-link">
+                <Link to="/settings/integrations?integration=channels" data-testid="campaigns-blocked-link">
                   Configurar canais
                   <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
                 </Link>
