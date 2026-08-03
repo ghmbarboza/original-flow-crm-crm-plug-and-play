@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useAIConfig } from "@/hooks/useAIConfig";
 import { useOrgApiKey } from "@/hooks/useOrgApiKey";
+import { statusDoCanal } from "@/lib/channelStatus";
 import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
 
 /**
@@ -42,21 +43,11 @@ export function useSetupChecklist() {
   const { data: temChaveVoz } = useOrgApiKey("elevenlabs");
   const { data: totalEtapas } = usePipelineStageCount();
 
-  // Canal: só conta conexão de fato estabelecida.
-  const evolutionConectada = whatsapp?.evolution?.status === "connected";
-  const metaVerificada = !!whatsapp?.meta?.webhook_verified && whatsapp?.meta?.is_active !== false;
-  const zernioConectado =
-    !!whatsapp?.zernio && ["connected", "active"].includes(whatsapp.zernio.status ?? "");
-  const canalOk = evolutionConectada || metaVerificada || zernioConectado;
-  const canalIniciado = !!whatsapp?.evolution || !!whatsapp?.meta || !!whatsapp?.zernio;
-
+  // Canal: mesma regra usada no card de Integrações (helper único).
+  const canalStatus = statusDoCanal(whatsapp);
   const canal: ItemChecklist = {
-    ok: canalOk,
-    detalhe: canalOk
-      ? undefined
-      : canalIniciado
-        ? "Canal configurado, aguardando pareamento — finalize em Configurações > Canais"
-        : undefined,
+    ok: canalStatus.estado === "conectado",
+    detalhe: canalStatus.detalhe,
   };
 
   const temPrompt = !!aiConfig?.system_prompt?.trim();
