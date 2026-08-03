@@ -139,16 +139,39 @@ function dentroDoHorario(workingHours: unknown, timezone: string): boolean {
   return dentroDaJanela(agora, dia.start ?? "00:00", dia.end ?? "23:59");
 }
 
+/** Dados da conversa necessários para entregar a resposta em qualquer provedor. */
+interface ConversaEntrega {
+  org_id: string;
+  provider: string;
+  phone_number: string;
+  channel?: string | null;
+  provider_conversation_id?: string | null;
+}
+
+interface Entrega {
+  providerMessageId: string | null;
+  /** true quando o provedor aceitou o áudio; false = seguiu (ou caiu para) texto. */
+  comoAudio: boolean;
+}
+
+/**
+ * Entrega a resposta ao cliente pelo provedor da conversa.
+ *
+ * Com `audio`, tenta enviar como nota de voz; qualquer falha no envio de áudio
+ * cai para texto no mesmo provedor — o lead nunca fica sem resposta por causa
+ * de um recurso opcional.
+ */
 async function deliver(
   // `ReturnType<typeof createClient>` resolve os genéricos como `never` e não
   // aceita o cliente real (`SupabaseClient<any, "public", any>`), o que fazia
   // `deno check` acusar erro nas duas chamadas. Tipar pela instância evita isso.
   admin: SupabaseClient,
-  provider: string,
-  orgId: string,
-  phone: string,
+  conversation: ConversaEntrega,
   content: string,
-): Promise<string | null> {
+  audio: Uint8Array | null = null,
+): Promise<Entrega> {
+  const { provider, org_id: orgId, phone_number: phone } = conversation;
+
   if (provider === "evolution") {
     const { data: instance } = await admin
       .from("evolution_configs")
@@ -158,15 +181,86 @@ async function deliver(
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!instance) return null;
+    if (!instance) return { providerMessageId: null, comoAudio: false };
+
+    if (audio) {
+      // A Evolution converte o mp3 em ogg/opus (PTT) quando `encoding` está ligado.
+      const resp = await fetch(
+        `${instance.server_url}/message/sendWhatsAppAudio/${instance.instance_name}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: instance.api_key as string },
+          body: JSON.stringify({ number: phone, audio: bytesParaBase64(audio), encoding: true }),
+        },
+      );
+      if (resp.ok) {
+        const result = await resp.json().catch(() => ({}));
+        return { providerMessageId: result?.key?.id ?? null, comoAudio: true };
+      }
+      console.error(`[ai-reply] Evolution recusou o áudio [${resp.status}]: ${(await resp.text()).slice(0, 300)} — enviando em texto.`);
+    }
+
     const resp = await fetch(`${instance.server_url}/message/sendText/${instance.instance_name}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: instance.api_key as string },
       body: JSON.stringify({ number: phone, text: content }),
     });
-    if (!resp.ok) return null;
+    if (!resp.ok) return { providerMessageId: null, comoAudio: false };
     const result = await resp.json().catch(() => ({}));
-    return result?.key?.id ?? null;
+    return { providerMessageId: result?.key?.id ?? null, comoAudio: false };
+  }
+
+  // Zernio (multicanal). Sem este ramo, conversas do Zernio caíam no ramo da
+  // Meta e falhavam silenciosamente. A API de inbox aceita texto — voz, por ora,
+  // é entregue como texto neste provedor.
+  if (provider === "zernio") {
+    const zernioConversationId = conversation.provider_conversation_id;
+    if (!zernioConversationId) {
+      console.error("[ai-reply] conversa do Zernio sem provider_conversation_id — não é possível responder.");
+      return { providerMessageId: null, comoAudio: false };
+    }
+
+    const { data: config } = await admin
+      .from("zernio_configs")
+      .select("api_key, profile_id")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    if (!config) return { providerMessageId: null, comoAudio: false };
+
+    // accountId é obrigatório no envio: resolve a conta conectada do canal.
+    const accountsUrl = new URL(`${ZERNIO_API}/accounts`);
+    accountsUrl.searchParams.set("profileId", config.profile_id as string);
+    accountsUrl.searchParams.set("platform", (conversation.channel as string) ?? "whatsapp");
+    accountsUrl.searchParams.set("status", "connected");
+    const accResp = await fetch(accountsUrl.toString(), {
+      headers: { Authorization: `Bearer ${config.api_key}` },
+    });
+    if (!accResp.ok) {
+      console.error(`[ai-reply] Zernio recusou a listagem de contas [${accResp.status}]: ${(await accResp.text()).slice(0, 200)}`);
+      return { providerMessageId: null, comoAudio: false };
+    }
+    const accData = await accResp.json().catch(() => ({}));
+    const account = (accData.accounts ?? []).find((a: { isActive?: boolean }) => a.isActive) ?? (accData.accounts ?? [])[0];
+    const accountId = account?._id as string | undefined;
+    if (!accountId) {
+      console.error(`[ai-reply] nenhuma conta conectada no Zernio para o canal ${conversation.channel}.`);
+      return { providerMessageId: null, comoAudio: false };
+    }
+
+    const sendResp = await fetch(
+      `${ZERNIO_API}/inbox/conversations/${zernioConversationId}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.api_key}` },
+        body: JSON.stringify({ accountId, message: content }),
+      },
+    );
+    if (!sendResp.ok) {
+      console.error(`[ai-reply] Zernio recusou o envio [${sendResp.status}]: ${(await sendResp.text()).slice(0, 200)}`);
+      return { providerMessageId: null, comoAudio: false };
+    }
+    const result = await sendResp.json().catch(() => ({}));
+    return { providerMessageId: result?.data?.messageId ?? null, comoAudio: false };
   }
 
   // Meta
@@ -178,7 +272,47 @@ async function deliver(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!instance) return null;
+  if (!instance) return { providerMessageId: null, comoAudio: false };
+
+  if (audio) {
+    // A Cloud API não aceita binário inline: sobe a mídia e envia pelo id.
+    const form = new FormData();
+    form.append("messaging_product", "whatsapp");
+    form.append("type", "audio/mpeg");
+    form.append("file", new Blob([audio], { type: "audio/mpeg" }), "resposta.mp3");
+    const upResp = await fetch(
+      `https://graph.facebook.com/v21.0/${instance.phone_number_id}/media`,
+      { method: "POST", headers: { Authorization: `Bearer ${instance.access_token}` }, body: form },
+    );
+    const upData = upResp.ok ? await upResp.json().catch(() => ({})) : null;
+    const mediaId = upData?.id as string | undefined;
+    if (!mediaId) {
+      console.error(`[ai-reply] upload de áudio na Meta falhou [${upResp.status}] — enviando em texto.`);
+    } else {
+      const audioResp = await fetch(
+        `https://graph.facebook.com/v21.0/${instance.phone_number_id}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${instance.access_token}`,
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            to: phone,
+            type: "audio",
+            audio: { id: mediaId },
+          }),
+        },
+      );
+      if (audioResp.ok) {
+        const result = await audioResp.json().catch(() => ({}));
+        return { providerMessageId: result?.messages?.[0]?.id ?? null, comoAudio: true };
+      }
+      console.error(`[ai-reply] Meta recusou o áudio [${audioResp.status}]: ${(await audioResp.text()).slice(0, 300)} — enviando em texto.`);
+    }
+  }
+
   const resp = await fetch(
     `https://graph.facebook.com/v21.0/${instance.phone_number_id}/messages`,
     {
@@ -195,9 +329,9 @@ async function deliver(
       }),
     },
   );
-  if (!resp.ok) return null;
+  if (!resp.ok) return { providerMessageId: null, comoAudio: false };
   const result = await resp.json().catch(() => ({}));
-  return result?.messages?.[0]?.id ?? null;
+  return { providerMessageId: result?.messages?.[0]?.id ?? null, comoAudio: false };
 }
 
 Deno.serve(async (req) => {
