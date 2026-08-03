@@ -279,7 +279,7 @@ async function deliver(
     const form = new FormData();
     form.append("messaging_product", "whatsapp");
     form.append("type", "audio/mpeg");
-    form.append("file", new Blob([audio], { type: "audio/mpeg" }), "resposta.mp3");
+    form.append("file", new Blob([audio as unknown as BlobPart], { type: "audio/mpeg" }), "resposta.mp3");
     const upResp = await fetch(
       `https://graph.facebook.com/v21.0/${instance.phone_number_id}/media`,
       { method: "POST", headers: { Authorization: `Bearer ${instance.access_token}` }, body: form },
