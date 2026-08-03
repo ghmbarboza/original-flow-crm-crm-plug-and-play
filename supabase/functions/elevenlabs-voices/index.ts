@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "unauthorized", message: "Sessão inválida." }, 401);
+      return json({ error: "Sessão inválida." }, 401);
     }
 
     const admin = createClient(
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     const { data: u } = await admin.auth.getUser(authHeader.replace("Bearer ", ""));
     const user = u?.user;
-    if (!user) return json({ error: "unauthorized", message: "Sessão inválida." }, 401);
+    if (!user) return json({ error: "Sessão inválida." }, 401);
 
     const { data: perfil } = await admin
       .from("profiles")
@@ -51,13 +51,12 @@ Deno.serve(async (req) => {
 
     const chave = await resolverChaveElevenLabs(admin, perfil?.org_id);
     if (!chave) {
-      return json(
-        {
-          error: "missing_key",
-          message: "Configure a chave ElevenLabs primeiro para listar as vozes.",
-        },
-        400,
-      );
+      // Status 200 de propósito: `functions.invoke` descarta o corpo em non-2xx,
+      // e a UI precisa do código para mostrar o estado "sem chave configurada".
+      return json({
+        error_code: "missing_key",
+        message: "Configure a chave ElevenLabs primeiro para listar as vozes.",
+      });
     }
 
     const resp = await fetch("https://api.elevenlabs.io/v1/voices", {
@@ -66,15 +65,12 @@ Deno.serve(async (req) => {
     if (!resp.ok) {
       const detalhe = await resp.text();
       console.error(`[elevenlabs-voices] falha [${resp.status}]: ${detalhe}`);
-      return json(
-        {
-          error: "provider_error",
-          message: resp.status === 401
-            ? "A chave do ElevenLabs foi recusada. Salve uma chave válida e tente de novo."
-            : "O ElevenLabs não respondeu como esperado. Tente de novo em instantes.",
-        },
-        resp.status === 401 ? 400 : 502,
-      );
+      return json({
+        error_code: resp.status === 401 ? "invalid_key" : "provider_error",
+        message: resp.status === 401
+          ? "A chave do ElevenLabs foi recusada. Salve uma chave válida e tente de novo."
+          : "O ElevenLabs não respondeu como esperado. Tente de novo em instantes.",
+      });
     }
 
     const payload = await resp.json() as {
@@ -103,6 +99,6 @@ Deno.serve(async (req) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[elevenlabs-voices] erro:", message);
-    return json({ error: "internal_error", message: "Não foi possível listar as vozes." }, 500);
+    return json({ error: "Não foi possível listar as vozes." }, 500);
   }
 });

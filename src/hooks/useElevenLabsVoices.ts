@@ -36,9 +36,11 @@ export function useElevenLabsVoices(enabled = true) {
       const { data, error } = await supabase.functions.invoke("elevenlabs-voices", { body: {} });
       if (error) {
         const detalhe = await erroDeFunction(error, "Não foi possível listar as vozes.");
-        throw new ErroVozes(detalhe.message, (detalhe as { error?: string }).error ?? "error");
+        throw new ErroVozes(detalhe.message, "error");
       }
-      if (data?.error) throw new ErroVozes(data.message ?? "Falha ao listar as vozes.", data.error);
+      if (data?.error_code) {
+        throw new ErroVozes(data.message ?? "Falha ao listar as vozes.", data.error_code);
+      }
       const vozes: VozElevenLabs[] = data?.voices ?? [];
       return [...vozes].sort((a, b) => {
         const diff = Number(ehPortugues(b)) - Number(ehPortugues(a));
