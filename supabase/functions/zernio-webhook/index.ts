@@ -8,6 +8,9 @@
 // profileId da conta; e (2) verificar a assinatura HMAC-SHA256 (X-Zernio-Signature)
 // quando a org tem webhook_secret configurado.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  baixarBinario, extensaoDeAudio, salvarAudioNoBucket, transcreverAudio,
+} from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -59,6 +62,46 @@ interface Sender {
   name?: string;
   username?: string;
   phoneNumber?: string | null;
+}
+
+/** Áudio recebido, já resolvido para uma URL baixável. */
+interface AudioRecebido {
+  url: string;
+  mimetype?: string;
+  headers?: Record<string, string>;
+}
+
+/**
+ * Procura um anexo de áudio no payload do Zernio.
+ *
+ * O spec não fixa o formato dos anexos, então tentamos os arranjos plausíveis
+ * (`attachments[]`, `media`, `audio`) e, quando o evento parece ter mídia mas
+ * nada casa, logamos o payload para ajustar o parser com um caso real em mão.
+ */
+function extrairAudioZernio(message: Record<string, unknown>): AudioRecebido | null {
+  const candidatos: unknown[] = [
+    ...(Array.isArray(message.attachments) ? message.attachments : []),
+    message.media,
+    message.audio,
+  ];
+
+  for (const bruto of candidatos) {
+    if (!bruto || typeof bruto !== "object") continue;
+    const item = bruto as Record<string, unknown>;
+    const tipo = String(item.type ?? item.mediaType ?? "").toLowerCase();
+    const mimetype = String(item.mimetype ?? item.mimeType ?? item.contentType ?? "");
+    const url = item.url ?? item.mediaUrl ?? item.downloadUrl ?? item.link;
+    if (typeof url !== "string" || !url) continue;
+    if (tipo.includes("audio") || tipo === "voice" || tipo === "ptt" || mimetype.startsWith("audio/")) {
+      return { url, mimetype: mimetype || undefined };
+    }
+  }
+
+  const temMidia = !!message.attachments || !!message.media || !!message.audio;
+  if (temMidia) {
+    console.error("[zernio] anexo em formato não reconhecido:", JSON.stringify(message).slice(0, 800));
+  }
+  return null;
 }
 
 /**
