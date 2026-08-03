@@ -140,6 +140,7 @@ export default function SettingsPage() {
           {isAdmin && <TabsContent value="channels"><ChannelsSettings /></TabsContent>}
           {isAdmin && (
             <TabsContent value="integrations" className="space-y-6">
+              <IntegrationShortcuts />
               <ApiKeysSettings />
               <CalcomSettings />
               <ErpSettings />
