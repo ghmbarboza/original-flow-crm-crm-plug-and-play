@@ -343,6 +343,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           label: string | null
+          org_id: string | null
           service_name: string
           updated_at: string | null
           user_id: string
@@ -353,6 +354,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           label?: string | null
+          org_id?: string | null
           service_name: string
           updated_at?: string | null
           user_id: string
@@ -363,12 +365,21 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           label?: string | null
+          org_id?: string | null
           service_name?: string
           updated_at?: string | null
           user_id?: string
           vault_secret_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_registry_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       audit_logs: {
         Row: {
