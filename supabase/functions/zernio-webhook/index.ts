@@ -338,15 +338,17 @@ Deno.serve(async (req) => {
     const conversation = (body.conversation ?? {}) as { id?: string };
     const channel = message.platform ?? account.platform ?? "whatsapp";
     const text = message.text ?? "";
-    if (!text) return ok({ ignored: "mensagem sem texto" });
+    const audio = extrairAudioZernio(message as Record<string, unknown>);
+    if (!text && !audio) return ok({ ignored: "mensagem sem texto" });
 
     const result = await ingestInbound(
       admin, orgId, channel, message.sender ?? {}, text,
-      conversation.id ?? message.conversationId ?? null, message.id ?? null,
+      conversation.id ?? message.conversationId ?? null, message.id ?? null, audio,
     );
     if (!result) return ok();
 
-    if (result.status === "ai_active") {
+    // Áudio sem transcrição não dispara a IA: não há texto para ela ler.
+    if (result.status === "ai_active" && (!audio || result.transcricao)) {
       const call = triggerAI(result.conversationId);
       const runtime = (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;
       if (!runtime) await call;
