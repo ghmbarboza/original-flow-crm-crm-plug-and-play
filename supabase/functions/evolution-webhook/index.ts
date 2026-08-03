@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
 
   const { data: instance } = await admin
     .from("evolution_configs")
-    .select("id, org_id")
+    .select("id, org_id, server_url, api_key, instance_name")
     .eq("instance_name", instanceName)
     .maybeSingle();
   if (!instance) return ok({ ignored: "instância desconhecida" });
