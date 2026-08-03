@@ -7,7 +7,10 @@
 // Endpoint público (verify_jwt=false). A segurança vem de: (1) resolver a org pelo
 // profileId da conta; e (2) verificar a assinatura HMAC-SHA256 (X-Zernio-Signature)
 // quando a org tem webhook_secret configurado.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  baixarBinario, extensaoDeAudio, salvarAudioNoBucket, transcreverAudio,
+} from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -61,6 +64,46 @@ interface Sender {
   phoneNumber?: string | null;
 }
 
+/** Áudio recebido, já resolvido para uma URL baixável. */
+interface AudioRecebido {
+  url: string;
+  mimetype?: string;
+  headers?: Record<string, string>;
+}
+
+/**
+ * Procura um anexo de áudio no payload do Zernio.
+ *
+ * O spec não fixa o formato dos anexos, então tentamos os arranjos plausíveis
+ * (`attachments[]`, `media`, `audio`) e, quando o evento parece ter mídia mas
+ * nada casa, logamos o payload para ajustar o parser com um caso real em mão.
+ */
+function extrairAudioZernio(message: Record<string, unknown>): AudioRecebido | null {
+  const candidatos: unknown[] = [
+    ...(Array.isArray(message.attachments) ? message.attachments : []),
+    message.media,
+    message.audio,
+  ];
+
+  for (const bruto of candidatos) {
+    if (!bruto || typeof bruto !== "object") continue;
+    const item = bruto as Record<string, unknown>;
+    const tipo = String(item.type ?? item.mediaType ?? "").toLowerCase();
+    const mimetype = String(item.mimetype ?? item.mimeType ?? item.contentType ?? "");
+    const url = item.url ?? item.mediaUrl ?? item.downloadUrl ?? item.link;
+    if (typeof url !== "string" || !url) continue;
+    if (tipo.includes("audio") || tipo === "voice" || tipo === "ptt" || mimetype.startsWith("audio/")) {
+      return { url, mimetype: mimetype || undefined };
+    }
+  }
+
+  const temMidia = !!message.attachments || !!message.media || !!message.audio;
+  if (temMidia) {
+    console.error("[zernio] anexo em formato não reconhecido:", JSON.stringify(message).slice(0, 800));
+  }
+  return null;
+}
+
 /**
  * Resolve o contato do remetente em qualquer canal, criando um lead se não existir.
  *
@@ -73,7 +116,7 @@ interface Sender {
  * `custom_fields`, até que um agente vincule manualmente um telefone.
  */
 async function resolveContact(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   orgId: string,
   channel: string,
   identifier: string,
@@ -112,18 +155,20 @@ async function resolveContact(
 
 /** Cria/atualiza contato+conversa e grava a mensagem inbound. Devolve o status da conversa. */
 async function ingestInbound(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   orgId: string,
   channel: string,
   sender: Sender,
   text: string,
   providerConversationId: string | null,
   providerMessageId: string | null,
-): Promise<{ conversationId: string; status: string } | null> {
+  audio: AudioRecebido | null = null,
+): Promise<{ conversationId: string; status: string; transcricao: string | null } | null> {
   // Identificador do remetente no canal. WhatsApp = telefone; demais = id da plataforma.
   const identifier = (sender.phoneNumber ?? sender.id ?? "").replace(/^\+/, "");
   if (!identifier) return null;
-  const preview = text.slice(0, 120);
+  // Áudio ainda não transcrito precisa aparecer na lista de conversas.
+  const preview = text ? text.slice(0, 120) : "🎤 Áudio";
   const now = new Date().toISOString();
 
   // Conversa: única por (org, canal, identificador).
@@ -178,7 +223,7 @@ async function ingestInbound(
       .update({
         last_message_at: now,
         last_message_preview: preview,
-        unread_count: (existing?.unread_count ?? 0) + 1,
+        unread_count: Number(existing?.unread_count ?? 0) + 1,
         // Preenche o id do Zernio se ainda não tínhamos (ex.: conversa criada por outro evento).
         provider_conversation_id: providerConversationId ?? undefined,
         updated_at: now,
@@ -188,15 +233,48 @@ async function ingestInbound(
 
   if (!conversationId) return null;
 
-  await admin.from("conversation_messages").insert({
-    conversation_id: conversationId,
-    org_id: orgId,
-    direction: "inbound",
-    content: text,
-    provider_message_id: providerMessageId,
-    type: "text",
-    status: "received",
-  });
+  // Áudio: guarda o binário no bucket e transcreve. A transcrição vai em
+  // `content`, então o histórico lido pela IA continua textual. Falha de
+  // download ou de transcrição nunca descarta a mensagem.
+  let transcricao: string | null = null;
+  if (audio) {
+    const midia = await baixarBinario(audio.url, audio.headers ?? {});
+    let mediaPath: string | null = null;
+    if (midia) {
+      const mimetype = audio.mimetype ?? midia.mimetype;
+      mediaPath = await salvarAudioNoBucket(
+        admin, orgId, conversationId, midia.bytes,
+        `${Date.now()}.${extensaoDeAudio(mimetype)}`, mimetype,
+      );
+      transcricao = await transcreverAudio(midia.bytes, mimetype);
+    }
+    await admin.from("conversation_messages").insert({
+      conversation_id: conversationId,
+      org_id: orgId,
+      direction: "inbound",
+      content: transcricao,
+      media_url: mediaPath,
+      provider_message_id: providerMessageId,
+      type: "audio",
+      status: "received",
+    });
+    if (transcricao) {
+      await admin
+        .from("conversations")
+        .update({ last_message_preview: transcricao.slice(0, 120) })
+        .eq("id", conversationId);
+    }
+  } else {
+    await admin.from("conversation_messages").insert({
+      conversation_id: conversationId,
+      org_id: orgId,
+      direction: "inbound",
+      content: text,
+      provider_message_id: providerMessageId,
+      type: "text",
+      status: "received",
+    });
+  }
 
   // Lead scoring por canal. A função resolve a regra (canal vence geral),
   // grava o histórico e incrementa o score; sem regra ativa, não faz nada.
@@ -217,7 +295,7 @@ async function ingestInbound(
     });
   }
 
-  return { conversationId, status };
+  return { conversationId, status, transcricao };
 }
 
 Deno.serve(async (req) => {
@@ -259,15 +337,17 @@ Deno.serve(async (req) => {
     const conversation = (body.conversation ?? {}) as { id?: string };
     const channel = message.platform ?? account.platform ?? "whatsapp";
     const text = message.text ?? "";
-    if (!text) return ok({ ignored: "mensagem sem texto" });
+    const audio = extrairAudioZernio(message as Record<string, unknown>);
+    if (!text && !audio) return ok({ ignored: "mensagem sem texto" });
 
     const result = await ingestInbound(
       admin, orgId, channel, message.sender ?? {}, text,
-      conversation.id ?? message.conversationId ?? null, message.id ?? null,
+      conversation.id ?? message.conversationId ?? null, message.id ?? null, audio,
     );
     if (!result) return ok();
 
-    if (result.status === "ai_active") {
+    // Áudio sem transcrição não dispara a IA: não há texto para ela ler.
+    if (result.status === "ai_active" && (!audio || result.transcricao)) {
       const call = triggerAI(result.conversationId);
       const runtime = (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;
       if (!runtime) await call;

@@ -198,6 +198,9 @@ export type Database = {
           response_delay_ms: number
           system_prompt: string
           updated_at: string
+          voice_enabled: boolean
+          voice_id: string | null
+          voice_response_mode: string
           working_hours: Json
         }
         Insert: {
@@ -216,6 +219,9 @@ export type Database = {
           response_delay_ms?: number
           system_prompt?: string
           updated_at?: string
+          voice_enabled?: boolean
+          voice_id?: string | null
+          voice_response_mode?: string
           working_hours?: Json
         }
         Update: {
@@ -234,6 +240,9 @@ export type Database = {
           response_delay_ms?: number
           system_prompt?: string
           updated_at?: string
+          voice_enabled?: boolean
+          voice_id?: string | null
+          voice_response_mode?: string
           working_hours?: Json
         }
         Relationships: [

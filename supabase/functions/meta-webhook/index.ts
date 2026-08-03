@@ -4,12 +4,47 @@
 // POST → mensagens recebidas: resolve a instância pelo phone_number_id, cria/atualiza
 //        contato e conversa, grava a mensagem e dispara a IA se ela estiver ativa.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  baixarBinario, extensaoDeAudio, salvarAudioNoBucket, transcreverAudio,
+} from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 function ok(body: unknown = { received: true }) {
   return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+}
+
+/**
+ * Resolve e baixa uma mídia da Graph API: primeiro o GET do id devolve a URL
+ * temporária, depois o download exige o mesmo access token da config.
+ */
+async function baixarMidiaMeta(
+  mediaId: string,
+  accessToken: string,
+): Promise<{ bytes: Uint8Array; mimetype: string } | null> {
+  try {
+    const metaResp = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!metaResp.ok) {
+      console.error(`[meta] mídia ${mediaId} não resolvida [${metaResp.status}]: ${(await metaResp.text()).slice(0, 300)}`);
+      return null;
+    }
+    const meta = await metaResp.json().catch(() => ({}));
+    if (!meta?.url) {
+      console.error(`[meta] mídia ${mediaId} sem url no retorno.`);
+      return null;
+    }
+    const baixado = await baixarBinario(meta.url as string, {
+      Authorization: `Bearer ${accessToken}`,
+    });
+    if (!baixado) return null;
+    return { bytes: baixado.bytes, mimetype: (meta.mime_type as string) ?? baixado.mimetype };
+  } catch (err) {
+    console.error("[meta] falha ao baixar mídia:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 function triggerAI(conversationId: string) {
@@ -57,7 +92,7 @@ Deno.serve(async (req) => {
 
       const { data: instance } = await admin
         .from("meta_configs")
-        .select("id, org_id")
+        .select("id, org_id, access_token")
         .eq("phone_number_id", phoneNumberId)
         .maybeSingle();
       if (!instance) continue;
@@ -67,8 +102,14 @@ Deno.serve(async (req) => {
 
       for (const msg of messages) {
         const phone: string = msg.from ?? "";
-        const content: string = msg.text?.body ?? msg.button?.text ?? msg.interactive?.list_reply?.title ?? "";
-        if (!phone || !content) continue;
+        const textoRecebido: string = msg.text?.body ?? msg.button?.text ?? msg.interactive?.list_reply?.title ?? "";
+        // Áudio (nota de voz ou arquivo de áudio): a Meta manda só o id da mídia.
+        const audioId: string | null = msg.type === "audio" ? (msg.audio?.id ?? null) : null;
+        if (!phone || (!textoRecebido && !audioId)) continue;
+
+        // Preview antes da transcrição: o áudio precisa aparecer na lista mesmo
+        // se a transcrição falhar depois.
+        const preview = textoRecebido ? textoRecebido.slice(0, 120) : "🎤 Áudio";
 
         // Contato.
         const { data: existingContact } = await admin
@@ -121,7 +162,7 @@ Deno.serve(async (req) => {
               status: "ai_active",
               assigned_to: assignedTo ?? null,
               last_message_at: new Date().toISOString(),
-              last_message_preview: content.slice(0, 120),
+              last_message_preview: preview,
               unread_count: 1,
             })
             .select("id, status")
@@ -134,7 +175,7 @@ Deno.serve(async (req) => {
             .update({
               contact_id: contactId,
               last_message_at: new Date().toISOString(),
-              last_message_preview: content.slice(0, 120),
+              last_message_preview: preview,
               unread_count: (existingConversation?.unread_count ?? 0) + 1,
               updated_at: new Date().toISOString(),
             })
@@ -143,15 +184,49 @@ Deno.serve(async (req) => {
 
         if (!conversationId) continue;
 
-        await admin.from("conversation_messages").insert({
-          conversation_id: conversationId,
-          org_id: orgId,
-          direction: "inbound",
-          content,
-          provider_message_id: msg.id ?? null,
-          type: "text",
-          status: "received",
-        });
+        // Áudio: baixa, guarda no bucket e transcreve. A transcrição vai em
+        // `content`, de modo que o histórico lido pela IA segue textual. Falha de
+        // download ou transcrição nunca descarta a mensagem.
+        let transcricao: string | null = null;
+        if (audioId) {
+          const midia = await baixarMidiaMeta(audioId, instance.access_token as string);
+          let mediaPath: string | null = null;
+          if (midia) {
+            mediaPath = await salvarAudioNoBucket(
+              admin, orgId, conversationId, midia.bytes,
+              `${Date.now()}.${extensaoDeAudio(midia.mimetype)}`, midia.mimetype,
+            );
+            transcricao = await transcreverAudio(midia.bytes, midia.mimetype);
+          }
+
+          await admin.from("conversation_messages").insert({
+            conversation_id: conversationId,
+            org_id: orgId,
+            direction: "inbound",
+            content: transcricao,
+            media_url: mediaPath,
+            provider_message_id: msg.id ?? null,
+            type: "audio",
+            status: "received",
+          });
+
+          if (transcricao) {
+            await admin
+              .from("conversations")
+              .update({ last_message_preview: transcricao.slice(0, 120) })
+              .eq("id", conversationId);
+          }
+        } else {
+          await admin.from("conversation_messages").insert({
+            conversation_id: conversationId,
+            org_id: orgId,
+            direction: "inbound",
+            content: textoRecebido,
+            provider_message_id: msg.id ?? null,
+            type: "text",
+            status: "received",
+          });
+        }
 
         // Lead scoring por canal. Sem regra ativa a função não faz nada.
         if (contactId) {
@@ -167,7 +242,8 @@ Deno.serve(async (req) => {
           });
         }
 
-        if (status === "ai_active") {
+        // Áudio sem transcrição não dispara a IA: não há texto para ela ler.
+        if (status === "ai_active" && (!audioId || transcricao)) {
           const call = triggerAI(conversationId);
           const runtime = (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;
           if (!runtime) await call;

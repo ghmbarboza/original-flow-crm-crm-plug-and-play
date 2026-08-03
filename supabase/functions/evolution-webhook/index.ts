@@ -8,12 +8,54 @@
 // Endpoint público (a Evolution não envia auth). A segurança vem de resolver a
 // instância pelo instance_name: eventos de instâncias desconhecidas são ignorados.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  base64ParaBytes, extensaoDeAudio, salvarAudioNoBucket, transcreverAudio,
+} from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 function ok(body: unknown = { received: true }) {
   return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+}
+
+/**
+ * Baixa o binário de uma mídia pela própria Evolution.
+ *
+ * A URL do payload vem criptografada (mediaKey); descriptografar na mão é
+ * frágil e desnecessário — a Evolution expõe o endpoint que devolve o base64
+ * já decifrado.
+ */
+async function baixarMidiaEvolution(
+  serverUrl: string,
+  apiKey: string,
+  instanceName: string,
+  mensagemOriginal: unknown,
+): Promise<{ bytes: Uint8Array; mimetype: string } | null> {
+  try {
+    const resp = await fetch(`${serverUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: apiKey },
+      body: JSON.stringify({ message: mensagemOriginal, convertToMp4: false }),
+    });
+    if (!resp.ok) {
+      console.error(`[evolution] getBase64FromMediaMessage recusou [${resp.status}]: ${(await resp.text()).slice(0, 300)}`);
+      return null;
+    }
+    const data = await resp.json().catch(() => ({}));
+    const base64 = data?.base64 ?? data?.data?.base64;
+    if (typeof base64 !== "string" || !base64) {
+      console.error("[evolution] resposta de mídia sem base64:", JSON.stringify(data).slice(0, 300));
+      return null;
+    }
+    return {
+      bytes: base64ParaBytes(base64),
+      mimetype: data?.mimetype ?? data?.data?.mimetype ?? "audio/ogg",
+    };
+  } catch (err) {
+    console.error("[evolution] falha ao baixar mídia:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 /** Dispara a resposta da IA sem bloquear a resposta ao provedor. */
@@ -47,7 +89,7 @@ Deno.serve(async (req) => {
 
   const { data: instance } = await admin
     .from("evolution_configs")
-    .select("id, org_id")
+    .select("id, org_id, server_url, api_key, instance_name")
     .eq("instance_name", instanceName)
     .maybeSingle();
   if (!instance) return ok({ ignored: "instância desconhecida" });
@@ -89,12 +131,19 @@ Deno.serve(async (req) => {
   if (!phone) return ok();
 
   const message = data.message ?? {};
-  const content: string =
+  const textoRecebido: string =
     message.conversation ??
     message.extendedTextMessage?.text ??
     message.imageMessage?.caption ??
     "";
-  if (!content) return ok({ ignored: "mensagem sem texto" });
+
+  // Áudio (inclui PTT — a Evolution entrega os dois em audioMessage).
+  const audioMessage = message.audioMessage ?? null;
+  if (!textoRecebido && !audioMessage) return ok({ ignored: "mensagem sem texto" });
+
+  // Preview da conversa antes de saber a transcrição: um áudio precisa aparecer
+  // na lista mesmo que a transcrição falhe depois.
+  const preview = textoRecebido ? textoRecebido.slice(0, 120) : "🎤 Áudio";
 
   const orgId = instance.org_id;
 
@@ -149,7 +198,7 @@ Deno.serve(async (req) => {
         status: "ai_active",
         assigned_to: assignedTo ?? null,
         last_message_at: new Date().toISOString(),
-        last_message_preview: content.slice(0, 120),
+        last_message_preview: preview,
         unread_count: 1,
       })
       .select("id, status")
@@ -162,7 +211,7 @@ Deno.serve(async (req) => {
       .update({
         contact_id: contactId,
         last_message_at: new Date().toISOString(),
-        last_message_preview: content.slice(0, 120),
+        last_message_preview: preview,
         unread_count: (existingConversation?.unread_count ?? 0) + 1,
         updated_at: new Date().toISOString(),
       })
@@ -171,15 +220,57 @@ Deno.serve(async (req) => {
 
   if (!conversationId) return ok();
 
-  await admin.from("conversation_messages").insert({
-    conversation_id: conversationId,
-    org_id: orgId,
-    direction: "inbound",
-    content,
-    provider_message_id: key.id ?? null,
-    type: "text",
-    status: "received",
-  });
+  // Áudio: baixa o binário, guarda no bucket e transcreve. A transcrição vai em
+  // `content`, então o histórico que a IA lê continua sendo texto.
+  //
+  // Falha de download ou de transcrição NÃO descarta a mensagem: o áudio (ou ao
+  // menos o registro dele) fica na conversa para a equipe ouvir/responder.
+  let transcricao: string | null = null;
+  if (audioMessage) {
+    const midia = await baixarMidiaEvolution(
+      instance.server_url as string,
+      instance.api_key as string,
+      instance.instance_name as string,
+      data,
+    );
+    let mediaPath: string | null = null;
+    if (midia) {
+      const mimetype = (audioMessage.mimetype as string | undefined) ?? midia.mimetype;
+      mediaPath = await salvarAudioNoBucket(
+        admin, orgId, conversationId, midia.bytes,
+        `${Date.now()}.${extensaoDeAudio(mimetype)}`, mimetype,
+      );
+      transcricao = await transcreverAudio(midia.bytes, mimetype);
+    }
+
+    await admin.from("conversation_messages").insert({
+      conversation_id: conversationId,
+      org_id: orgId,
+      direction: "inbound",
+      content: transcricao,
+      media_url: mediaPath,
+      provider_message_id: key.id ?? null,
+      type: "audio",
+      status: "received",
+    });
+
+    if (transcricao) {
+      await admin
+        .from("conversations")
+        .update({ last_message_preview: transcricao.slice(0, 120) })
+        .eq("id", conversationId);
+    }
+  } else {
+    await admin.from("conversation_messages").insert({
+      conversation_id: conversationId,
+      org_id: orgId,
+      direction: "inbound",
+      content: textoRecebido,
+      provider_message_id: key.id ?? null,
+      type: "text",
+      status: "received",
+    });
+  }
 
   // Lead scoring por canal. Sem regra ativa a função não faz nada.
   if (contactId) {
@@ -196,7 +287,8 @@ Deno.serve(async (req) => {
   }
 
   // IA responde só quando está no comando da conversa.
-  if (status === "ai_active") {
+  // Áudio sem transcrição não vira resposta automática: a IA não tem o que ler.
+  if (status === "ai_active" && (!audioMessage || transcricao)) {
     const call = triggerAI(conversationId);
     const runtime = (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;
     if (!runtime) await call; // sem waitUntil, aguarda para não perder a resposta
