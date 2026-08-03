@@ -7,6 +7,7 @@ import { StepVoce } from "@/components/setup/StepVoce";
 import { StepEmpresa } from "@/components/setup/StepEmpresa";
 import { StepPublico } from "@/components/setup/StepPublico";
 import { StepIA } from "@/components/setup/StepIA";
+import { StepVoz } from "@/components/setup/StepVoz";
 import { StepPipeline } from "@/components/setup/StepPipeline";
 import { StepCanal } from "@/components/setup/StepCanal";
 import { StepConcluido } from "@/components/setup/StepConcluido";
@@ -124,6 +125,7 @@ export default function SetupPage() {
           {step === "empresa" && <StepEmpresa onNext={proximo} onBack={anterior} />}
           {step === "publico" && <StepPublico onNext={proximo} onBack={anterior} />}
           {step === "ia" && <StepIA onNext={proximo} onBack={anterior} />}
+          {step === "voz" && <StepVoz onNext={proximo} onBack={anterior} />}
           {step === "pipeline" && <StepPipeline onNext={proximo} onBack={anterior} />}
           {step === "canal" && <StepCanal onNext={proximo} onBack={anterior} />}
           {step === "concluido" && <StepConcluido />}
