@@ -162,11 +162,13 @@ async function ingestInbound(
   text: string,
   providerConversationId: string | null,
   providerMessageId: string | null,
-): Promise<{ conversationId: string; status: string } | null> {
+  audio: AudioRecebido | null = null,
+): Promise<{ conversationId: string; status: string; transcricao: string | null } | null> {
   // Identificador do remetente no canal. WhatsApp = telefone; demais = id da plataforma.
   const identifier = (sender.phoneNumber ?? sender.id ?? "").replace(/^\+/, "");
   if (!identifier) return null;
-  const preview = text.slice(0, 120);
+  // Áudio ainda não transcrito precisa aparecer na lista de conversas.
+  const preview = text ? text.slice(0, 120) : "🎤 Áudio";
   const now = new Date().toISOString();
 
   // Conversa: única por (org, canal, identificador).
@@ -231,15 +233,49 @@ async function ingestInbound(
 
   if (!conversationId) return null;
 
-  await admin.from("conversation_messages").insert({
-    conversation_id: conversationId,
-    org_id: orgId,
-    direction: "inbound",
-    content: text,
-    provider_message_id: providerMessageId,
-    type: "text",
-    status: "received",
-  });
+  // Áudio: guarda o binário no bucket e transcreve. A transcrição vai em
+  // `content`, então o histórico lido pela IA continua textual. Falha de
+  // download ou de transcrição nunca descarta a mensagem.
+  let transcricao: string | null = null;
+  if (audio) {
+    const midia = await baixarBinario(audio.url, audio.headers ?? {});
+    let mediaPath: string | null = null;
+    if (midia) {
+      const mimetype = audio.mimetype ?? midia.mimetype;
+      mediaPath = await salvarAudioNoBucket(
+        admin as unknown as Parameters<typeof salvarAudioNoBucket>[0],
+        orgId, conversationId, midia.bytes,
+        `${Date.now()}.${extensaoDeAudio(mimetype)}`, mimetype,
+      );
+      transcricao = await transcreverAudio(midia.bytes, mimetype);
+    }
+    await admin.from("conversation_messages").insert({
+      conversation_id: conversationId,
+      org_id: orgId,
+      direction: "inbound",
+      content: transcricao,
+      media_url: mediaPath,
+      provider_message_id: providerMessageId,
+      type: "audio",
+      status: "received",
+    });
+    if (transcricao) {
+      await admin
+        .from("conversations")
+        .update({ last_message_preview: transcricao.slice(0, 120) })
+        .eq("id", conversationId);
+    }
+  } else {
+    await admin.from("conversation_messages").insert({
+      conversation_id: conversationId,
+      org_id: orgId,
+      direction: "inbound",
+      content: text,
+      provider_message_id: providerMessageId,
+      type: "text",
+      status: "received",
+    });
+  }
 
   // Lead scoring por canal. A função resolve a regra (canal vence geral),
   // grava o histórico e incrementa o score; sem regra ativa, não faz nada.
@@ -260,7 +296,7 @@ async function ingestInbound(
     });
   }
 
-  return { conversationId, status };
+  return { conversationId, status, transcricao };
 }
 
 Deno.serve(async (req) => {
