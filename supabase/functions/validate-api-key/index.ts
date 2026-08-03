@@ -44,25 +44,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Read decrypted value from vault.decrypted_secrets
+    // O schema `vault` não é exposto pelo nome qualificado no client: precisa
+    // de `.schema("vault")` para o PostgREST resolver a tabela.
     const { data: secret } = await admin
-      .from("vault.decrypted_secrets")
+      .schema("vault")
+      .from("decrypted_secrets")
       .select("decrypted_secret")
       .eq("id", row.vault_secret_id)
       .maybeSingle();
 
-    if (!secret?.decrypted_secret) {
+    const chave = (secret?.decrypted_secret as string | undefined)?.trim();
+    if (!chave) {
       return new Response(JSON.stringify({ status: "invalid" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Per-service validation (extend in your project)
+    // Validação real por serviço quando existe um endpoint barato de checagem.
+    if (service_name === "elevenlabs") {
+      try {
+        const resp = await fetch("https://api.elevenlabs.io/v1/user", {
+          headers: { "xi-api-key": chave },
+        });
+        return new Response(JSON.stringify({ status: resp.ok ? "valid" : "invalid" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (_) {
+        // Falha de rede não prova que a chave é ruim.
+        return new Response(JSON.stringify({ status: "error" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Demais serviços (estender conforme necessário):
     // For the base template: presence of a non-empty key counts as 'valid'.
     return new Response(JSON.stringify({ status: "valid" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (_e) {
     return new Response(JSON.stringify({ status: "error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

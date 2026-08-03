@@ -38,6 +38,12 @@ export function StepConcluido() {
       onde: "Configurações > IA",
     },
     {
+      label: "Voz da agente configurada",
+      ok: feitos.has("voz"),
+      to: "/settings/ia",
+      onde: "Configurações > IA (Voz da agente)",
+    },
+    {
       label: "Pipeline de vendas definido",
       ok: feitos.has("pipeline"),
       to: "/settings/pipeline",

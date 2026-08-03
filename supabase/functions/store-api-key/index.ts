@@ -35,6 +35,14 @@ Deno.serve(async (req) => {
 
     const secretName = `${service_name}_${user.id}`;
 
+    // A chave vale para a organização inteira (ex.: ElevenLabs usado pelos
+    // webhooks e pela ai-reply), não só para quem a cadastrou.
+    const { data: perfil } = await admin
+      .from("profiles")
+      .select("org_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
     // Try to update existing vault secret if registry has one
     const { data: existing } = await admin
       .from("api_keys_registry")
@@ -74,6 +82,7 @@ Deno.serve(async (req) => {
 
     await admin.from("api_keys_registry").upsert({
       user_id: user.id,
+      org_id: perfil?.org_id ?? null,
       service_name,
       vault_secret_id: vaultSecretId,
       label: label ?? null,

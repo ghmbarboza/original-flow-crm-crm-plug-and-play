@@ -5,7 +5,7 @@
 //        contato e conversa, grava a mensagem e dispara a IA se ela estiver ativa.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
-  baixarBinario, extensaoDeAudio, salvarAudioNoBucket, transcreverAudio,
+  baixarBinario, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -196,7 +196,9 @@ Deno.serve(async (req) => {
               admin, orgId, conversationId, midia.bytes,
               `${Date.now()}.${extensaoDeAudio(midia.mimetype)}`, midia.mimetype,
             );
-            transcricao = await transcreverAudio(midia.bytes, midia.mimetype);
+            transcricao = await transcreverAudio(
+              midia.bytes, midia.mimetype, await resolverChaveElevenLabs(admin, orgId),
+            );
           }
 
           await admin.from("conversation_messages").insert({
