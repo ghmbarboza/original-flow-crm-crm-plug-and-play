@@ -467,10 +467,6 @@ export default function AtendimentoSettings() {
 
       <Separator />
 
-      <ImportHistorySection />
-
-      <Separator />
-
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
