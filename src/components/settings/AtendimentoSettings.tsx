@@ -306,10 +306,6 @@ function NpsSection() {
 }
 
 /**
- * Importar histórico de conversas (Parte 6 do Sprint 10B): botão que abre o
- * wizard e a lista das últimas importações com status e totais.
- */
-/**
  * Configurações > Atendimento — SLA (Parte 8 do Sprint 10A), NPS (Parte 5 do
  * Sprint 10B) e Respostas rápidas (Parte 2 do 10A).
  *
