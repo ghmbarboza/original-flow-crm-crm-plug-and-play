@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { History, MessageSquareText, Pencil, Plus, Smile, Timer, Trash2, Upload } from "lucide-react";
+import { MessageSquareText, Pencil, Plus, Smile, Timer, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,9 +23,6 @@ import {
 } from "@/hooks/useQuickReplies";
 import { SLA_CHANNELS, useSaveSlaConfig, useSlaConfig } from "@/hooks/useSla";
 import { NPS_CHANNELS, useNpsConfig, useSaveNpsConfig } from "@/hooks/useNps";
-import { ImportHistoryDialog } from "@/components/settings/ImportHistoryDialog";
-import { useConversationImports } from "@/hooks/useConversationImport";
-import { formatDateTime } from "@/lib/format";
 import { channelMeta } from "@/components/whatsapp/ChannelBadge";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
