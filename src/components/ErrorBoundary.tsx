@@ -1,6 +1,11 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  isStaleChunkError,
+  limparFlagDeChunkObsoleto,
+  recarregarUmaVezPorChunkObsoleto,
+} from "@/lib/staleChunk";
 
 interface Props {
   children: ReactNode;
@@ -10,6 +15,8 @@ interface Props {
 
 interface State {
   error: Error | null;
+  /** Reload em andamento por chunk obsoleto: não mostrar o erro nesse instante. */
+  recarregando: boolean;
 }
 
 /**
@@ -17,21 +24,38 @@ interface State {
  * que fazer — nunca uma tela branca, nunca uma falha silenciosa.
  */
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { error: null };
+  state: State = { error: null, recarregando: false };
 
   static getDerivedStateFromError(error: Error): State {
-    return { error };
+    return { error, recarregando: false };
+  }
+
+  componentDidMount() {
+    // Render bem-sucedido: libera uma futura tentativa de reload automático.
+    limparFlagDeChunkObsoleto(typeof window === "undefined" ? undefined : window.sessionStorage);
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[ErrorBoundary]", error, info.componentStack);
+
+    // Após um publish, a aba antiga pede chunks que não existem mais. Um reload
+    // pega a versão nova; se já tentamos nesta sessão, cai no erro normal.
+    if (isStaleChunkError(error)) {
+      const recarregando = recarregarUmaVezPorChunkObsoleto(
+        typeof window === "undefined" ? undefined : window.sessionStorage,
+        () => window.location.reload(),
+      );
+      if (recarregando) this.setState({ recarregando: true });
+    }
   }
 
-  private reset = () => this.setState({ error: null });
+  private reset = () => this.setState({ error: null, recarregando: false });
 
   render() {
-    const { error } = this.state;
+    const { error, recarregando } = this.state;
     if (!error) return this.props.children;
+    // Reload disparado: tela neutra até a nova versão carregar.
+    if (recarregando) return <div className="min-h-[50vh]" aria-hidden />;
 
     const where = this.props.moduleName ? ` em ${this.props.moduleName}` : "";
 
