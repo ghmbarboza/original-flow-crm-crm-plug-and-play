@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   CheckCircle2, ExternalLink, Loader2, RefreshCw, RotateCw,
@@ -443,37 +444,13 @@ function PerChannelDistribution() {
   );
 }
 
-/** Sub-aba: comportamento por provedor. */
-function BehaviorTab() {
-  const { data: setup } = useWhatsAppSetup();
-  return (
-    <div className="space-y-3">
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription className="text-sm">
-          A personalidade, a base de conhecimento e as regras de handoff da IA ficam em{" "}
-          <strong>Configurações › IA</strong>. Elas valem para todos os canais.
-        </AlertDescription>
-      </Alert>
-      {setup?.provider === "zernio" ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Comportamento por canal (Zernio)</CardTitle>
-            <CardDescription className="text-sm">
-              Ajustes por canal (responder em grupos, leitura automática) chegam junto com a expansão do Zernio.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : (
-        <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
-          Configurações específicas do provedor {setup?.provider ? PROVIDER_LABEL[setup.provider] : ""} são
-          gerenciadas na conexão (aba “Provedor ativo”).
-        </p>
-      )}
-    </div>
-  );
-}
-
+/**
+ * Configuração de canais — mora dentro do card "Canais de atendimento" de
+ * Configurações > Integrações (Integrações é o lugar único para ver e mexer no
+ * que está integrado). A sub-aba "Comportamento" foi removida: era placeholder,
+ * e a personalidade da IA sempre morou em Configurações > IA — agora isso é dito
+ * em uma linha, sem ocupar uma aba.
+ */
 export default function ChannelsSettings() {
   const [tab, setTab] = useState("provider");
   return (
@@ -482,12 +459,17 @@ export default function ChannelsSettings() {
         <TabsTrigger value="provider">Provedor ativo</TabsTrigger>
         <TabsTrigger value="channels">Canais ativos</TabsTrigger>
         <TabsTrigger value="distribution">Distribuição</TabsTrigger>
-        <TabsTrigger value="behavior">Comportamento</TabsTrigger>
       </TabsList>
       <TabsContent value="provider"><ProviderTab /></TabsContent>
       <TabsContent value="channels"><ChannelsTab /></TabsContent>
       <TabsContent value="distribution"><DistributionTab /></TabsContent>
-      <TabsContent value="behavior"><BehaviorTab /></TabsContent>
+      <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+        Personalidade e regras da IA valem para todos os canais e ficam em{" "}
+        <Link to="/settings/ia" className="text-primary hover:underline">
+          Configurações &gt; IA
+        </Link>
+        .
+      </p>
     </Tabs>
   );
 }
