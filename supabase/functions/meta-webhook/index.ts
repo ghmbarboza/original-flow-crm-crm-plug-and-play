@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
 
       const { data: instance } = await admin
         .from("meta_configs")
-        .select("id, org_id")
+        .select("id, org_id, access_token")
         .eq("phone_number_id", phoneNumberId)
         .maybeSingle();
       if (!instance) continue;
@@ -102,8 +102,14 @@ Deno.serve(async (req) => {
 
       for (const msg of messages) {
         const phone: string = msg.from ?? "";
-        const content: string = msg.text?.body ?? msg.button?.text ?? msg.interactive?.list_reply?.title ?? "";
-        if (!phone || !content) continue;
+        const textoRecebido: string = msg.text?.body ?? msg.button?.text ?? msg.interactive?.list_reply?.title ?? "";
+        // Áudio (nota de voz ou arquivo de áudio): a Meta manda só o id da mídia.
+        const audioId: string | null = msg.type === "audio" ? (msg.audio?.id ?? null) : null;
+        if (!phone || (!textoRecebido && !audioId)) continue;
+
+        // Preview antes da transcrição: o áudio precisa aparecer na lista mesmo
+        // se a transcrição falhar depois.
+        const preview = textoRecebido ? textoRecebido.slice(0, 120) : "🎤 Áudio";
 
         // Contato.
         const { data: existingContact } = await admin
