@@ -6,18 +6,46 @@ import type { Database } from "@/integrations/supabase/types";
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 export type SetupProgress = Database["public"]["Tables"]["setup_progress"]["Row"];
 
-/** Etapas do wizard, na ordem em que aparecem. */
+/**
+ * Etapas do wizard, na ordem em que aparecem.
+ *
+ * `peso` existe porque as etapas não valem o mesmo: sem canal conectado a IA
+ * não atende ninguém, enquanto as demais só deixam o atendimento mais genérico.
+ * Esconder essa diferença fazia o usuário pular a única que realmente bloqueia.
+ */
 export const SETUP_STEPS = [
-  { key: "voce", label: "Você" },
-  { key: "empresa", label: "Empresa" },
-  { key: "publico", label: "Público" },
-  { key: "ia", label: "IA" },
-  { key: "pipeline", label: "Pipeline" },
-  { key: "canal", label: "Canal" },
-  { key: "concluido", label: "Pronto" },
+  { key: "voce", label: "Você", peso: "personalizacao" },
+  { key: "empresa", label: "Empresa", peso: "melhora_ia" },
+  { key: "publico", label: "Público", peso: "melhora_ia" },
+  { key: "ia", label: "IA", peso: "melhora_ia" },
+  { key: "pipeline", label: "Pipeline", peso: "personalizacao" },
+  { key: "canal", label: "Canal", peso: "essencial" },
+  { key: "concluido", label: "Pronto", peso: "personalizacao" },
 ] as const;
 
+/** Rótulo curto do peso, usado como badge no cabeçalho da etapa. */
+export const PESO_LABEL: Record<string, string> = {
+  essencial: "Essencial para atender",
+  melhora_ia: "Melhora a IA",
+  personalizacao: "Personalização",
+};
+
 export type SetupStepKey = (typeof SETUP_STEPS)[number]["key"];
+
+/**
+ * Uma etapa pulada é registrada como `pulado:<etapa>` no mesmo array de
+ * `completed_steps`. Assim o wizard sabe que o usuário passou por ali sem que o
+ * checklist final minta dizendo que a etapa está pronta.
+ */
+export const SKIPPED_PREFIX = "pulado:";
+
+export function etapaConcluida(steps: string[] | null | undefined, key: SetupStepKey): boolean {
+  return (steps ?? []).includes(key);
+}
+
+export function etapaPulada(steps: string[] | null | undefined, key: SetupStepKey): boolean {
+  return (steps ?? []).includes(`${SKIPPED_PREFIX}${key}`);
+}
 
 /** Faixas de tamanho da empresa (organizations.company_size). */
 export const COMPANY_SIZES = [
@@ -200,6 +228,84 @@ export function useSaveSetupStep() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["setup-progress", orgId] });
       queryClient.invalidateQueries({ queryKey: ["organization", orgId] });
+    },
+  });
+}
+
+/**
+ * Registra a etapa como PULADA e avança.
+ *
+ * Nada é gravado na organização: pular tem que ser inócuo, não meio-salvo com
+ * campos vazios sobrescrevendo o que já existia.
+ */
+export function useSkipSetupStep() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ step }: { step: SetupStepKey }) => {
+      if (!orgId) throw new Error("Organização não carregada.");
+
+      const { data: atual } = await supabase
+        .from("setup_progress").select("completed_steps").eq("org_id", orgId).maybeSingle();
+
+      // Pular remove a marca de concluída: refazer o onboarding e pular uma
+      // etapa antes concluída não pode deixar o checklist dizendo "pronto".
+      const marcas = new Set((atual?.completed_steps ?? []).filter((s) => s !== step));
+      marcas.add(`${SKIPPED_PREFIX}${step}`);
+
+      const i = SETUP_STEPS.findIndex((s) => s.key === step);
+      const proxima = SETUP_STEPS[Math.min(i + 1, SETUP_STEPS.length - 1)].key;
+
+      const { error } = await supabase.from("setup_progress").upsert(
+        {
+          org_id: orgId,
+          completed_steps: [...marcas],
+          current_step: proxima,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "org_id" },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["setup-progress", orgId] }),
+  });
+}
+
+/**
+ * Reabre o assistente do começo (Configurações > Onboarding > Refazer).
+ *
+ * Zera SÓ o progresso do wizard (`setup_progress`). `organizations.setup_completed`
+ * fica intacto de propósito: o guard do ProtectedRoute usa esse campo, e limpá-lo
+ * prenderia todos os admins da organização dentro do wizard de novo.
+ */
+export function useResetSetup() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!orgId) throw new Error("Organização não carregada. Recarregue a página.");
+      const { error } = await supabase.from("setup_progress").upsert(
+        {
+          org_id: orgId,
+          completed_steps: [],
+          current_step: SETUP_STEPS[0].key,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "org_id" },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      // O SetupPage lê o passo atual do cache ao montar; escrever antes de
+      // invalidar evita ele abrir na última etapa enquanto o refetch está em voo.
+      queryClient.setQueryData(
+        ["setup-progress", orgId],
+        (anterior: Record<string, unknown> | undefined) =>
+          anterior ? { ...anterior, completed_steps: [], current_step: SETUP_STEPS[0].key } : anterior,
+      );
+      queryClient.invalidateQueries({ queryKey: ["setup-progress", orgId] });
     },
   });
 }

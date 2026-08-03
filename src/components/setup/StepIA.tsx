@@ -15,6 +15,7 @@ import { useAIConfig, useImportFAQs, useImportObjections, useUpsertAIConfig } fr
 import {
   contarPendencias, montarPromptRascunho, MARCA_PENDENTE, RASCUNHO_NOTA,
 } from "@/lib/promptRascunho";
+import { PularEtapa } from "@/components/setup/PularEtapa";
 
 export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const { data: org } = useOrganization();
@@ -252,15 +253,23 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
         </>
       )}
 
-      <div className="flex justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <Button variant="outline" onClick={onBack} disabled={salvando}>Voltar</Button>
-        <Button
-          onClick={salvarEAvancar}
-          disabled={!blocos || salvando || gerar.isPending}
-          data-testid="setup-next"
-        >
-          {salvando ? "Salvando…" : rascunho ? "Avançar com o rascunho" : "Parece bom, avançar"}
-        </Button>
+        <div className="flex flex-wrap items-end gap-3">
+          <PularEtapa
+            step="ia"
+            impacto="A IA fica desativada até você revisar em Configurações > IA. O resto da plataforma continua funcionando."
+            onPulado={onNext}
+            disabled={salvando}
+          />
+          <Button
+            onClick={salvarEAvancar}
+            disabled={!blocos || salvando || gerar.isPending}
+            data-testid="setup-next"
+          >
+            {salvando ? "Salvando…" : rascunho ? "Avançar com o rascunho" : "Parece bom, avançar"}
+          </Button>
+        </div>
       </div>
     </div>
   );

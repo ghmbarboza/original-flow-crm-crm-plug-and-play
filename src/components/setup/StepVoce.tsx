@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useSaveSetupStep } from "@/hooks/useSetup";
+import { PularEtapa } from "@/components/setup/PularEtapa";
 
 /**
  * Etapa "Você": nome e telefone de quem está configurando.
@@ -94,7 +95,13 @@ export function StepVoce({ onNext }: { onNext: () => void }) {
         />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-end justify-end gap-3">
+        <PularEtapa
+          step="voce"
+          impacto="Sem seu nome, as mensagens internas e notificações ficam impessoais. Você completa depois em Configurações > Geral."
+          onPulado={onNext}
+          disabled={salvando}
+        />
         <Button onClick={avancar} disabled={!podeAvancar || salvando} data-testid="setup-next">
           {salvando ? "Salvando…" : "Avançar"}
         </Button>

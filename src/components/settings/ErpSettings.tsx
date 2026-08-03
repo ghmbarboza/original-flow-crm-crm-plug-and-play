@@ -21,6 +21,7 @@ import {
   useErpConfig, useErpLogs, useRegenerateErpToken, useSaveErpConfig, useTestErpConnection,
 } from "@/hooks/useErpIntegration";
 import { formatDateTime } from "@/lib/format";
+import { IntegrationHeader } from "@/components/settings/IntegrationHeader";
 
 const AUTH_TYPES = [
   { value: "none", label: "Nenhuma" },
@@ -126,24 +127,23 @@ export default function ErpSettings() {
 
   return (
     <div className="via-card space-y-5 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="flex items-center gap-2 text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
-            <Plug className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-            Conectividade ERP
-          </h3>
-          <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
-            Integre o FlowCRM com seu sistema de gestão (Omie, Bling, Totvs, SAP…) via webhooks,
-            nos dois sentidos.
-          </p>
-        </div>
-        <Switch
-          aria-label="Ativar a integração ERP"
-          checked={isActive}
-          onCheckedChange={setIsActive}
-          data-testid="erp-ativo"
-        />
-      </div>
+      <IntegrationHeader
+        icon={Plug}
+        title="Conectividade ERP"
+        purpose="Mantém contatos, negócios e pedidos em sincronia com seu sistema de gestão (Omie, Bling, Totvs, SAP…) via webhooks, nos dois sentidos."
+        recomendacao="opcional"
+        connected={isActive}
+        connectedLabel="Ativo"
+        disconnectedLabel="Desativado"
+        action={
+          <Switch
+            aria-label="Ativar a integração ERP"
+            checked={isActive}
+            onCheckedChange={setIsActive}
+            data-testid="erp-ativo"
+          />
+        }
+      />
 
       <Separator />
 

@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Eye, EyeOff, Plus, ExternalLink } from "lucide-react";
+import { Eye, EyeOff, Plus, ExternalLink, KeyRound } from "lucide-react";
 import { toast } from "sonner";
+import { IntegrationHeader } from "@/components/settings/IntegrationHeader";
 
 interface RegistryRow { service_name: string; label: string | null; is_active: boolean | null; }
 interface Status { [service: string]: "valid" | "invalid" | "unconfigured" | "checking"; }
@@ -101,13 +102,28 @@ export default function ApiKeysSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end items-center">
-        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova chave</Button>
+      <div className="via-card space-y-4 p-5">
+        <IntegrationHeader
+          icon={KeyRound}
+          title="Chaves de API de serviços externos"
+          purpose="Guardamos as chaves dos serviços que você usa (IA, e-mail, pagamentos, CRMs) no Vault — as automações da plataforma leem de lá e a chave nunca volta para a tela."
+          recomendacao="opcional"
+          connected={services.length > 0}
+          connectedLabel={`${services.length} chave(s) guardada(s)`}
+          disconnectedLabel="Nenhuma chave"
+          action={
+            <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Nova chave</Button>
+          }
+        />
       </div>
 
-
       {services.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">Nenhuma chave configurada.</CardContent></Card>
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Nenhuma chave configurada. Só é necessária se você quiser usar um serviço externo
+            próprio — a IA da plataforma já funciona sem nada aqui.
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {services.map((s) => {
@@ -146,6 +162,25 @@ export default function ApiKeysSettings() {
             <div className="space-y-2">
               <Label htmlFor="api-key-service">Serviço</Label>
               <Input id="api-key-service" value={serviceName} onChange={(e) => setServiceName(e.target.value)} disabled={!!editing} placeholder="ex: openai" />
+              {/* Antes o campo era "adivinhe o nome exato do serviço". O catálogo
+                  de tutoriais já existia no arquivo — agora ele também sugere. */}
+              {!editing && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {Object.entries(TUTORIAL_LINKS).map(([key, tip]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setServiceName(key)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                        serviceName === key ? "border-primary bg-muted" : "border-border hover:bg-muted"
+                      }`}
+                      data-testid="api-key-suggestion"
+                    >
+                      {tip.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="api-key-value">Chave de API</Label>

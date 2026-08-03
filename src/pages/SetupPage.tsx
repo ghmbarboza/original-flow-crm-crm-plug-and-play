@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { StepVoce } from "@/components/setup/StepVoce";
 import { StepEmpresa } from "@/components/setup/StepEmpresa";
 import { StepPublico } from "@/components/setup/StepPublico";
@@ -10,7 +11,7 @@ import { StepPipeline } from "@/components/setup/StepPipeline";
 import { StepCanal } from "@/components/setup/StepCanal";
 import { StepConcluido } from "@/components/setup/StepConcluido";
 import {
-  SETUP_STEPS, useOrganization, useSetupProgress, type SetupStepKey,
+  PESO_LABEL, SETUP_STEPS, useOrganization, useSetupProgress, type SetupStepKey,
 } from "@/hooks/useSetup";
 
 /**
@@ -35,10 +36,6 @@ export default function SetupPage() {
     setStep(SETUP_STEPS.some((s) => s.key === salvo) ? salvo! : SETUP_STEPS[0].key);
   }, [progresso, step]);
 
-  // Setup já concluído: não prende o usuário aqui. Ele pode ter chegado por
-  // link salvo ou pelo botão de refazer.
-  const jaConcluido = org?.setup_completed === true;
-
   if (loadingOrg || loadingProgresso || !step) {
     return (
       <div className="flex min-h-screen items-center justify-center gap-2" style={{ color: "var(--via-text-muted)" }}>
@@ -57,6 +54,11 @@ export default function SetupPage() {
   };
   const proximo = () => ir(SETUP_STEPS[Math.min(indice + 1, SETUP_STEPS.length - 1)].key);
   const anterior = () => ir(SETUP_STEPS[Math.max(indice - 1, 0)].key);
+  // Atalho para o checklist final. Ninguém fica preso no wizard: quem quer sair
+  // agora vê antes o que ficou pendente e como retomar depois.
+  const concluirDepois = () => ir("concluido");
+
+  const pesoAtual = PESO_LABEL[SETUP_STEPS[indice].peso];
 
   return (
     <div className="min-h-screen px-4 py-8" style={{ background: "var(--via-bg)" }}>
@@ -66,16 +68,28 @@ export default function SetupPage() {
             <span className="via-wordmark text-sm" style={{ color: "var(--via-text-muted)" }}>
               Configuração inicial
             </span>
-            {jaConcluido && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/dashboard")}
-                data-testid="setup-exit"
-              >
-                Sair do setup
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {step !== "concluido" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={concluirDepois}
+                  data-testid="setup-finish-later"
+                >
+                  Concluir depois
+                </Button>
+              )}
+              {org?.setup_completed === true && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate("/dashboard")}
+                  data-testid="setup-exit"
+                >
+                  Sair do setup
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Trilha de etapas */}
@@ -89,9 +103,17 @@ export default function SetupPage() {
               />
             ))}
           </div>
-          <div className="flex justify-between text-xs" style={{ color: "var(--via-text-muted)" }}>
-            <span>
+          <div className="flex items-center justify-between gap-2 text-xs" style={{ color: "var(--via-text-muted)" }}>
+            <span className="flex items-center gap-2">
               Etapa {indice + 1} de {SETUP_STEPS.length} — {SETUP_STEPS[indice].label}
+              {step !== "concluido" && (
+                <Badge
+                  variant={SETUP_STEPS[indice].peso === "essencial" ? "default" : "secondary"}
+                  className="text-[10px] font-normal"
+                >
+                  {pesoAtual}
+                </Badge>
+              )}
             </span>
             <span className="tabular-nums">{progressoPct}%</span>
           </div>

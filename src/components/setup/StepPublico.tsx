@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BRAND_TONES, useOrganization, useSaveSetupStep } from "@/hooks/useSetup";
+import { PularEtapa } from "@/components/setup/PularEtapa";
 
 export function StepPublico({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const { data: org } = useOrganization();
@@ -151,11 +152,19 @@ export function StepPublico({ onNext, onBack }: { onNext: () => void; onBack: ()
         </p>
       </div>
 
-      <div className="flex justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <Button variant="outline" onClick={onBack}>Voltar</Button>
-        <Button onClick={avancar} disabled={!podeAvancar || salvar.isPending} data-testid="setup-next">
-          {salvar.isPending ? "Salvando…" : "Avançar"}
-        </Button>
+        <div className="flex flex-wrap items-end gap-3">
+          <PularEtapa
+            step="publico"
+            impacto="Sem esse contexto, a IA responde de forma genérica. Você completa depois em Configurações > IA."
+            onPulado={onNext}
+            disabled={salvar.isPending}
+          />
+          <Button onClick={avancar} disabled={!podeAvancar || salvar.isPending} data-testid="setup-next">
+            {salvar.isPending ? "Salvando…" : "Avançar"}
+          </Button>
+        </div>
       </div>
     </div>
   );

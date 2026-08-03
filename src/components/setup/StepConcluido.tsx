@@ -22,11 +22,33 @@ export function StepConcluido() {
   const feitos = new Set(progresso?.completed_steps ?? []);
   // O resumo reflete o que foi realmente feito, não o que o wizard esperava.
   // Marcar canal como pronto quando o usuário pulou seria mentir na cara dele.
+  // Cada item pendente leva ao lugar exato onde se resolve — "pendente" sem
+  // destino obrigava o usuário a caçar a tela certa.
   const conquistas = [
-    { label: "Empresa configurada", ok: feitos.has("empresa") && feitos.has("publico") },
-    { label: "IA criada com o perfil da sua marca", ok: feitos.has("ia") },
-    { label: "Pipeline de vendas definido", ok: feitos.has("pipeline") },
-    { label: "Canal de atendimento conectado", ok: !!whatsapp?.configured },
+    {
+      label: "Empresa configurada",
+      ok: feitos.has("empresa") && feitos.has("publico"),
+      to: "/settings",
+      onde: "Configurações > Geral",
+    },
+    {
+      label: "IA criada com o perfil da sua marca",
+      ok: feitos.has("ia"),
+      to: "/settings/ia",
+      onde: "Configurações > IA",
+    },
+    {
+      label: "Pipeline de vendas definido",
+      ok: feitos.has("pipeline"),
+      to: "/settings/pipeline",
+      onde: "Configurações > Pipeline",
+    },
+    {
+      label: "Canal de atendimento conectado",
+      ok: !!whatsapp?.configured,
+      to: "/settings/channels",
+      onde: "Configurações > Canais",
+    },
   ];
 
   const irParaDashboard = async () => {
@@ -60,10 +82,18 @@ export function StepConcluido() {
               strokeWidth={1.5}
               style={{ color: c.ok ? "var(--via-success)" : "var(--via-text-muted)" }}
             />
-            <span style={{ color: c.ok ? "var(--via-text-primary)" : "var(--via-text-muted)" }}>
-              {c.label}
-              {!c.ok && " — pendente"}
-            </span>
+            {c.ok ? (
+              <span style={{ color: "var(--via-text-primary)" }}>{c.label}</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate(c.to)}
+                className="text-left hover:underline"
+                style={{ color: "var(--via-text-muted)" }}
+              >
+                {c.label} — pendente, configurar em {c.onde}
+              </button>
+            )}
           </li>
         ))}
       </ul>
@@ -93,6 +123,11 @@ export function StepConcluido() {
       >
         {concluir.isPending ? "Finalizando…" : "Ir para o Dashboard"}
       </Button>
+
+      <p className="mx-auto max-w-sm text-xs" style={{ color: "var(--via-text-muted)" }}>
+        Quer retomar o assistente depois? Configurações &gt; Onboarding &gt; “Refazer onboarding”
+        reabre estas etapas com os dados atuais já preenchidos.
+      </p>
     </div>
   );
 }

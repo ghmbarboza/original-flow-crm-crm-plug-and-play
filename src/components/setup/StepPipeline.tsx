@@ -8,6 +8,10 @@ import {
   lossReasonsForSector, pipelineForSector, useApplyPipeline, useDealCount,
   useOrganization, useSaveSetupStep,
 } from "@/hooks/useSetup";
+import { PularEtapa } from "@/components/setup/PularEtapa";
+
+/** Funil mínimo aplicado quando o usuário pula: sem etapas, o kanban quebra. */
+const FUNIL_DEFAULT = ["Prospecção", "Qualificação", "Proposta", "Fechamento"];
 
 export function StepPipeline({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const { data: org } = useOrganization();
@@ -192,11 +196,25 @@ export function StepPipeline({ onNext, onBack }: { onNext: () => void; onBack: (
         </div>
       </div>
 
-      <div className="flex justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <Button variant="outline" onClick={onBack} disabled={aplicar.isPending}>Voltar</Button>
-        <Button onClick={avancar} disabled={aplicar.isPending || etapas.length === 0} data-testid="setup-next">
-          {aplicar.isPending ? "Salvando…" : "Avançar"}
-        </Button>
+        <div className="flex flex-wrap items-end gap-3">
+          <PularEtapa
+            step="pipeline"
+            impacto="Criamos um funil padrão simples; ajuste depois em Configurações > Pipeline."
+            onPulado={onNext}
+            disabled={aplicar.isPending}
+            antesDePular={async () => {
+              await aplicar.mutateAsync({
+                stages: FUNIL_DEFAULT,
+                lossReasons: lossReasonsForSector(org?.business_sector),
+              });
+            }}
+          />
+          <Button onClick={avancar} disabled={aplicar.isPending || etapas.length === 0} data-testid="setup-next">
+            {aplicar.isPending ? "Salvando…" : "Avançar"}
+          </Button>
+        </div>
       </div>
     </div>
   );
