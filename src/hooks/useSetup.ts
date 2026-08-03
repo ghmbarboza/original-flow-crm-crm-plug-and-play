@@ -6,18 +6,46 @@ import type { Database } from "@/integrations/supabase/types";
 export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 export type SetupProgress = Database["public"]["Tables"]["setup_progress"]["Row"];
 
-/** Etapas do wizard, na ordem em que aparecem. */
+/**
+ * Etapas do wizard, na ordem em que aparecem.
+ *
+ * `peso` existe porque as etapas não valem o mesmo: sem canal conectado a IA
+ * não atende ninguém, enquanto as demais só deixam o atendimento mais genérico.
+ * Esconder essa diferença fazia o usuário pular a única que realmente bloqueia.
+ */
 export const SETUP_STEPS = [
-  { key: "voce", label: "Você" },
-  { key: "empresa", label: "Empresa" },
-  { key: "publico", label: "Público" },
-  { key: "ia", label: "IA" },
-  { key: "pipeline", label: "Pipeline" },
-  { key: "canal", label: "Canal" },
-  { key: "concluido", label: "Pronto" },
+  { key: "voce", label: "Você", peso: "personalizacao" },
+  { key: "empresa", label: "Empresa", peso: "melhora_ia" },
+  { key: "publico", label: "Público", peso: "melhora_ia" },
+  { key: "ia", label: "IA", peso: "melhora_ia" },
+  { key: "pipeline", label: "Pipeline", peso: "personalizacao" },
+  { key: "canal", label: "Canal", peso: "essencial" },
+  { key: "concluido", label: "Pronto", peso: "personalizacao" },
 ] as const;
 
+/** Rótulo curto do peso, usado como badge no cabeçalho da etapa. */
+export const PESO_LABEL: Record<string, string> = {
+  essencial: "Essencial para atender",
+  melhora_ia: "Melhora a IA",
+  personalizacao: "Personalização",
+};
+
 export type SetupStepKey = (typeof SETUP_STEPS)[number]["key"];
+
+/**
+ * Uma etapa pulada é registrada como `pulado:<etapa>` no mesmo array de
+ * `completed_steps`. Assim o wizard sabe que o usuário passou por ali sem que o
+ * checklist final minta dizendo que a etapa está pronta.
+ */
+export const SKIPPED_PREFIX = "pulado:";
+
+export function etapaConcluida(steps: string[] | null | undefined, key: SetupStepKey): boolean {
+  return (steps ?? []).includes(key);
+}
+
+export function etapaPulada(steps: string[] | null | undefined, key: SetupStepKey): boolean {
+  return (steps ?? []).includes(`${SKIPPED_PREFIX}${key}`);
+}
 
 /** Faixas de tamanho da empresa (organizations.company_size). */
 export const COMPANY_SIZES = [
