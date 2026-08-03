@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { statusDoCanal } from "./channelStatus";
+import { canaisAtivos, statusDoCanal } from "./channelStatus";
 
 /** Só os campos que o helper lê — o resto da Row não interessa ao status. */
 const evolution = (status: string) => ({ status }) as never;
@@ -38,5 +38,28 @@ describe("statusDoCanal", () => {
   it("é 'nao_conectado' quando nada foi configurado", () => {
     expect(statusDoCanal(null).estado).toBe("nao_conectado");
     expect(statusDoCanal({}).label).toBe("Não conectado");
+  });
+});
+
+describe("canaisAtivos", () => {
+  it("retorna só whatsapp com Evolution pareada", () => {
+    expect(canaisAtivos({ evolution: evolution("connected") })).toEqual(["whatsapp"]);
+  });
+
+  it("não retorna nada com Evolution em connecting", () => {
+    expect(canaisAtivos({ evolution: evolution("connecting") })).toEqual([]);
+  });
+
+  it("retorna os canais Zernio efetivamente conectados", () => {
+    const canais = canaisAtivos({ zernio: zernio("active") }, [
+      { platform: "instagram", isActive: true },
+      { platform: "reddit", isActive: false },
+      { platform: "whatsapp", isActive: true },
+    ]);
+    expect(canais.sort()).toEqual(["instagram", "whatsapp"]);
+  });
+
+  it("ignora contas quando o Zernio não está ligado", () => {
+    expect(canaisAtivos({ zernio: zernio("pending") }, [{ platform: "instagram", isActive: true }])).toEqual([]);
   });
 });
