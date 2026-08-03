@@ -131,13 +131,45 @@ export function useConnectEvolution() {
       api_key: string;
       instance_name: string;
       display_name?: string;
+      mode?: "create" | "existing";
     }) => {
       const { data, error } = await supabase.functions.invoke("evolution-connect", { body: input });
       if (error) throw await erroDeFunction(error, "Falha ao conectar à Evolution.");
       if (data?.error) throw new Error(data.error);
-      return data as { instance_id: string; qr_code: string | null; status: string };
+      return data as {
+        instance_id: string;
+        qr_code: string | null;
+        status: string;
+        warning: string | null;
+      };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] }),
+  });
+}
+
+export interface EvolutionInstance {
+  instance_name: string;
+  state: string;
+  profile_name: string | null;
+  phone_number: string | null;
+}
+
+/**
+ * Lista as instâncias existentes de um servidor Evolution.
+ *
+ * É uma mutation (e não query) porque depende das credenciais digitadas no
+ * wizard e só deve rodar quando o usuário pede a listagem.
+ */
+export function useEvolutionInstances() {
+  return useMutation({
+    mutationFn: async (input: { server_url: string; api_key: string }) => {
+      const { data, error } = await supabase.functions.invoke("evolution-list-instances", {
+        body: input,
+      });
+      if (error) throw await erroDeFunction(error, "Falha ao listar instâncias.");
+      if (data?.error) throw new Error(data.error);
+      return (data?.instances ?? []) as EvolutionInstance[];
+    },
   });
 }
 
