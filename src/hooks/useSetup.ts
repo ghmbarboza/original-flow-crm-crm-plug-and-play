@@ -18,6 +18,7 @@ export const SETUP_STEPS = [
   { key: "empresa", label: "Empresa", peso: "melhora_ia" },
   { key: "publico", label: "Público", peso: "melhora_ia" },
   { key: "ia", label: "IA", peso: "melhora_ia" },
+  { key: "voz", label: "Voz", peso: "personalizacao" },
   { key: "pipeline", label: "Pipeline", peso: "personalizacao" },
   { key: "canal", label: "Canal", peso: "essencial" },
   { key: "concluido", label: "Pronto", peso: "personalizacao" },
