@@ -40,3 +40,34 @@ export function statusDoCanal(setup: EntradaDeCanal): StatusDoCanal {
 
   return { estado: "nao_conectado", label: "Não conectado" };
 }
+
+/** Conta Zernio como a listagem de canais ativos a enxerga. */
+export interface ContaDeCanal {
+  platform: string;
+  isActive: boolean;
+}
+
+/**
+ * Canais que a organização realmente atende hoje.
+ *
+ * Evolution/Meta só falam WhatsApp. Zernio fala o que estiver conectado nas
+ * contas OAuth (a mesma fonte da seção "Canais ativos").
+ */
+export function canaisAtivos(
+  setup: EntradaDeCanal,
+  contasZernio?: ContaDeCanal[] | null,
+): string[] {
+  const canais = new Set<string>();
+
+  if (setup?.evolution?.status === "connected") canais.add("whatsapp");
+  if (!!setup?.meta?.webhook_verified && setup?.meta?.is_active !== false) canais.add("whatsapp");
+
+  const zernioLigado = !!setup?.zernio && ["connected", "active"].includes(setup.zernio.status ?? "");
+  if (zernioLigado) {
+    for (const conta of contasZernio ?? []) {
+      if (conta.isActive) canais.add(conta.platform);
+    }
+  }
+
+  return [...canais];
+}
