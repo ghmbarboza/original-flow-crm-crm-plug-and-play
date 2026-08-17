@@ -11,6 +11,11 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const ERRO_CHAVE_RECUSADA =
+  "O servidor Evolution recusou a API Key (401). Use a chave GLOBAL do servidor — a mesma que " +
+  "abre o /manager, definida em AUTHENTICATION_API_KEY — e não a chave de uma instância. " +
+  "Se você trocou de servidor, a chave também muda.";
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -77,6 +82,13 @@ Deno.serve(async (req) => {
     });
     if (!resp.ok) {
       const text = await resp.text();
+      // 401 aqui é sempre a mesma história e tem uma única correção: a Evolution
+      // tem a chave GLOBAL do servidor e uma chave por instância, e só a global
+      // autoriza listar. Devolver o JSON cru do servidor ("Unauthorized") não
+      // dizia qual das duas estava no campo.
+      if (resp.status === 401) {
+        return json({ error: ERRO_CHAVE_RECUSADA }, 400);
+      }
       return json(
         { error: `O servidor Evolution recusou a listagem (${resp.status}): ${text.slice(0, 200)}` },
         400,

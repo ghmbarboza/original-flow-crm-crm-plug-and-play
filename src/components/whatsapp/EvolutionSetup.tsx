@@ -44,6 +44,7 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
   });
   const [modo, setModo] = useState<Modo | null>(null);
   const [servidorOk, setServidorOk] = useState(false);
+  const [erroServidor, setErroServidor] = useState<string | null>(null);
   const [instancias, setInstancias] = useState<EvolutionServerInstance[] | null>(null);
   const [selecionada, setSelecionada] = useState<EvolutionServerInstance | null>(null);
   const [instanceId, setInstanceId] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
   };
 
   const carregarInstancias = async () => {
+    setErroServidor(null);
     try {
       const lista = await listar.mutateAsync({
         server_url: normalizarServerUrl(form.server_url),
@@ -75,8 +77,14 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
       if (lista.length === 0) toast.info("Nenhuma instância encontrada nesse servidor.");
       return lista;
     } catch (error) {
-      setInstancias([]);
-      toast.error(error instanceof Error ? error.message : "Falha ao listar instâncias.");
+      // NÃO marcar como lista vazia: a consulta falhou, e "0 instâncias" seria
+      // uma afirmação sobre o servidor que ninguém verificou. O usuário lia
+      // "0 instância(s) neste servidor" achando que o servidor estava vazio,
+      // quando na verdade a chave tinha sido recusada.
+      setInstancias(null);
+      const msg = error instanceof Error ? error.message : "Falha ao listar instâncias.";
+      setErroServidor(msg);
+      toast.error(msg);
       return null;
     }
   };
@@ -199,10 +207,19 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
               )}
             </Button>
           </div>
-          {servidorOk && !instanceId && (
+          {servidorOk && !instanceId && instancias && (
             <p className="flex items-center gap-1.5 text-xs" style={{ color: "var(--via-success)" }}>
               <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Servidor conectado · {instancias?.length ?? 0} instância(s) neste servidor
+              Servidor conectado · {instancias.length} instância(s) neste servidor
+            </p>
+          )}
+          {erroServidor && !instanceId && (
+            <p
+              className="flex items-start gap-1.5 text-xs text-destructive"
+              data-testid="evolution-erro-servidor"
+            >
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+              {erroServidor}
             </p>
           )}
         </div>

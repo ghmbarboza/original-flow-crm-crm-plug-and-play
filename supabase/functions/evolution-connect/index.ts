@@ -22,6 +22,11 @@ const WEBHOOK_EVENTS = ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"
 const QR_TENTATIVAS = 3;
 const QR_INTERVALO_MS = 3000;
 
+const ERRO_CHAVE_RECUSADA =
+  "O servidor Evolution recusou a API Key (401). Use a chave GLOBAL do servidor — a mesma que " +
+  "abre o /manager, definida em AUTHENTICATION_API_KEY — e não a chave de uma instância. " +
+  "Se você trocou de servidor, a chave também muda.";
+
 const AVISO_SEM_QR =
   "O servidor Evolution não está gerando QR Code — isso costuma indicar servidor " +
   "desatualizado ou travado. Peça ao administrador para reiniciar/atualizar o Evolution.";
@@ -199,6 +204,10 @@ Deno.serve(async (req) => {
       if (createResp.ok) {
         const created = await createResp.json().catch(() => null);
         qrCode = created?.qrcode?.base64 ?? created?.qrcode?.code ?? null;
+      } else if (createResp.status === 401) {
+        // Ver ERRO_CHAVE_RECUSADA: a chave de instância não cria instância nova,
+        // e o JSON cru do servidor não diz isso.
+        return json({ error: ERRO_CHAVE_RECUSADA }, 400);
       } else if (createResp.status !== 403 && createResp.status !== 409) {
         const text = await createResp.text();
         return json({ error: `Falha ao criar instância: ${text.slice(0, 200)}` }, 400);
