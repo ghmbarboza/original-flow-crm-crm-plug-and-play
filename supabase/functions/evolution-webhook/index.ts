@@ -113,9 +113,20 @@ Deno.serve(async (req) => {
   }
 
   if (normalizedEvent === "QRCODE_UPDATED") {
+    // A v2.3 manda o QR ora aninhado (`data.qrcode.base64`), ora plano
+    // (`data.base64`) — o `/instance/connect` do mesmo servidor responde plano.
+    // Ler só a forma aninhada gravava null e apagava o código que estava na
+    // tela do usuário no meio do pareamento.
+    const novoQr =
+      data.qrcode?.base64 ?? data.qrcode?.code ?? data.base64 ?? data.code ?? null;
+
+    // Evento sem QR nenhum não é motivo para apagar o que já está salvo: o
+    // usuário pode estar com um código válido aberto neste exato momento.
+    if (!novoQr) return ok({ ignored: "qrcode.updated sem código" });
+
     await admin
       .from("evolution_configs")
-      .update({ qr_code: data.qrcode?.base64 ?? data.qrcode?.code ?? null, status: "connecting", updated_at: new Date().toISOString() })
+      .update({ qr_code: novoQr, status: "connecting", updated_at: new Date().toISOString() })
       .eq("id", instance.id);
     return ok();
   }

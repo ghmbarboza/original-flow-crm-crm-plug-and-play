@@ -54,6 +54,22 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
   const { data: status } = useEvolutionStatus(instanceId, !!instanceId);
   const connected = status?.status === "connected";
 
+  /**
+   * O QR Code do WhatsApp vale poucos segundos. A Evolution gera um novo em
+   * seguida e avisa por `QRCODE_UPDATED`, que o webhook grava em
+   * `evolution_configs.qr_code` — e o poll de 4s já traz esse campo.
+   *
+   * A tela mostrava só o QR capturado na criação da instância. Quem ia pegar o
+   * celular voltava para um código morto, escaneava, nada acontecia, e depois de
+   * algumas tentativas a Evolution fechava o socket. Preferir sempre o do banco
+   * faz o código na tela se renovar sozinho.
+   */
+  const qrAtual = status?.qr_code ?? qrCode;
+
+  // `disconnected` aqui significa que a Evolution desistiu de parear e fechou o
+  // socket. Continuar exibindo o QR seria mentir: ele não vale mais.
+  const sessaoExpirada = !connected && status?.status === "disconnected";
+
   const credenciaisOk = !!form.server_url.trim() && !!form.api_key.trim();
 
   const escolherModo = async (valor: Modo) => {
@@ -157,7 +173,7 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
     void conectar(nome, modo === "existing" ? "existing" : "create");
   };
 
-  const showQr = qrCode && !connected;
+  const showQr = qrAtual && !connected && !sessaoExpirada;
   const travado = connect.isPending;
 
   return (
@@ -366,21 +382,46 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
       )}
 
       {showQr && (
-        <div className="via-card flex flex-col items-center gap-3 p-6 text-center">
+        <div className="via-card flex flex-col items-center gap-3 p-6 text-center" data-testid="evolution-qr">
           <div className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
             <QrCode className="h-4 w-4" strokeWidth={1.5} />
             Escaneie no WhatsApp
           </div>
-          {/* A Evolution devolve o QR como data URL ou base64. */}
+          <p className="max-w-sm text-xs" style={{ color: "var(--via-text-body)" }}>
+            Deixe o celular pronto antes: <strong>WhatsApp › Aparelhos conectados › Conectar
+            aparelho</strong>. O código vale poucos segundos e se renova sozinho aqui — escaneie o
+            que estiver na tela.
+          </p>
+          {/* A Evolution devolve o QR como data URL ou base64 puro. */}
           <img
-            src={qrCode.startsWith("data:") ? qrCode : `data:image/png;base64,${qrCode}`}
+            src={qrAtual.startsWith("data:") ? qrAtual : `data:image/png;base64,${qrAtual}`}
             alt="QR Code para parear o WhatsApp"
             className="h-56 w-56 rounded-lg bg-white p-2"
           />
           <p className="flex items-center gap-1.5 text-xs" style={{ color: "var(--via-text-muted)" }}>
             <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.5} />
-            Aguardando pareamento… Abra o WhatsApp › Aparelhos conectados › Conectar aparelho.
+            Aguardando pareamento…
           </p>
+        </div>
+      )}
+
+      {sessaoExpirada && (
+        <div className="via-card flex items-start gap-3 p-4" data-testid="evolution-qr-expirado">
+          <AlertTriangle className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: "var(--via-warning, #b45309)" }} />
+          <div className="space-y-2">
+            <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+              A sessão de pareamento expirou
+            </p>
+            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+              O WhatsApp encerra a leitura depois de algumas tentativas sem escanear. Abra o
+              WhatsApp no celular em Aparelhos conectados, deixe a câmera pronta e gere um código
+              novo.
+            </p>
+            <Button variant="outline" size="sm" onClick={tentarDeNovo} disabled={travado}>
+              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${travado ? "animate-spin" : ""}`} strokeWidth={1.5} />
+              Gerar QR novamente
+            </Button>
+          </div>
         </div>
       )}
 
