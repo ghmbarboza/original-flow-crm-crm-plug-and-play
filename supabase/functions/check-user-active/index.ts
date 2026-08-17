@@ -11,9 +11,12 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
+    // Sem sessão válida não há nada a checar: responder 200 com estado
+    // indeterminado evita erro de runtime no cliente (tela branca) durante
+    // boot com token expirado.
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing auth" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ active: true, unauthenticated: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     const token = authHeader.replace("Bearer ", "");
@@ -25,8 +28,8 @@ Deno.serve(async (req) => {
 
     const { data: userData, error: userErr } = await admin.auth.getUser(token);
     if (userErr || !userData.user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ active: true, unauthenticated: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
