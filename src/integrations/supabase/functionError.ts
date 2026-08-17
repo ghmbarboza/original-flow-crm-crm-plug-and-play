@@ -1,5 +1,8 @@
 import { FunctionsHttpError, FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
 
+export const MSG_SESSAO_EXPIRADA =
+  "Sua sessão expirou. Recarregue a página e entre de novo para continuar — nada do que você preencheu foi perdido.";
+
 /**
  * Extrai a mensagem real de uma falha de edge function.
  *
@@ -26,11 +29,20 @@ export async function erroDeFunction(error: unknown, padrao: string): Promise<Er
       ? await resp.json().catch(() => null)
       : null;
 
+    const status = resp?.status;
+
+    // 401 das functions significa uma coisa só: o token da aba não vale mais.
+    // A mensagem crua ("Não autorizado") descreve a resposta HTTP, não o que
+    // aconteceu com o usuário — quem estava com a tela aberta há horas lia isso
+    // como "você não tem permissão" e não como "entre de novo". Aconteceu no
+    // wizard de canal: a criação da instância Evolution falhou com "Não
+    // autorizado" só porque a sessão daquela aba tinha expirado.
+    if (status === 401) return new Error(MSG_SESSAO_EXPIRADA);
+
     const real = corpo?.error ?? corpo?.message;
     if (typeof real === "string" && real.trim()) return new Error(real.trim());
 
     // Sem corpo legível o status ainda diz mais que a mensagem genérica.
-    const status = resp?.status;
     return new Error(status ? `${padrao} (HTTP ${status})` : padrao);
   }
 

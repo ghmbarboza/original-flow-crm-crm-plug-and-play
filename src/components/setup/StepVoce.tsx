@@ -101,10 +101,11 @@ export function StepVoce({ onNext }: { onNext: () => void }) {
           impacto="Sem seu nome, as mensagens internas e notificações ficam impessoais. Você completa depois em Configurações > Geral."
           onPulado={onNext}
           disabled={salvando}
-        />
-        <Button onClick={avancar} disabled={!podeAvancar || salvando} data-testid="setup-next">
-          {salvando ? "Salvando…" : "Avançar"}
-        </Button>
+        >
+          <Button onClick={avancar} disabled={!podeAvancar || salvando} data-testid="setup-next">
+            {salvando ? "Salvando…" : "Avançar"}
+          </Button>
+        </PularEtapa>
       </div>
     </div>
   );

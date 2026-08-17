@@ -362,10 +362,15 @@ test("passo 4 sugere e aplica o pipeline do setor", async ({ page }) => {
   }).toPass({ timeout: 10_000 });
 });
 
-test("passo 5 permite pular o canal e passo 6 conclui o setup", async ({ page }) => {
+test("passo 6 permite pular o canal e a voz, e o passo final conclui o setup", async ({ page }) => {
   await retomarEm(page, "canal");
 
   await page.getByTestId("setup-skip-channel").click();
+  // A voz passou a vir DEPOIS do canal: é refinamento do atendimento, e antes
+  // ficava no meio do caminho entre a IA e a única etapa que de fato bloqueia.
+  await expect(page.getByTestId("setup-step-voz")).toBeVisible();
+
+  await page.getByTestId("setup-skip-voz").click();
   await expect(page.getByTestId("setup-step-concluido")).toBeVisible();
 
   const erros: string[] = [];

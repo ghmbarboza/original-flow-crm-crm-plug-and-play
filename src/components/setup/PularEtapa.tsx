@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useSkipSetupStep, type SetupStepKey } from "@/hooks/useSetup";
@@ -7,7 +8,11 @@ import { useSkipSetupStep, type SetupStepKey } from "@/hooks/useSetup";
  *
  * O princípio do produto é que TODA etapa possa ser pulada — o que não pode é
  * pular sem entender o impacto e onde retomar. Por isso o botão nunca aparece
- * sozinho: `impacto` fica visível ao lado dele, não escondido num tooltip.
+ * sozinho: `impacto` fica visível junto dele, não escondido num tooltip.
+ *
+ * `children` é o botão de avançar da etapa. Os dois moram no mesmo bloco, com o
+ * "Pular" ACIMA do "Avançar": lado a lado eles competiam pelo mesmo espaço e a
+ * frase de impacto caía no meio do rodapé, longe do botão que ela explica.
  *
  * `antesDePular` existe para as etapas que precisam deixar um mínimo funcionando
  * (Pipeline cria um funil default) — se falhar, a etapa NÃO é marcada como
@@ -19,12 +24,14 @@ export function PularEtapa({
   onPulado,
   disabled,
   antesDePular,
+  children,
 }: {
   step: SetupStepKey;
   impacto: string;
   onPulado: () => void;
   disabled?: boolean;
   antesDePular?: () => Promise<void>;
+  children?: ReactNode;
 }) {
   const pular = useSkipSetupStep();
 
@@ -39,7 +46,7 @@ export function PularEtapa({
   };
 
   return (
-    <div className="flex flex-col items-start gap-1 sm:items-end">
+    <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
       <Button
         variant="ghost"
         size="sm"
@@ -49,6 +56,7 @@ export function PularEtapa({
       >
         {pular.isPending ? "Pulando…" : "Pular esta etapa"}
       </Button>
+      {children}
       <p className="max-w-xs text-xs sm:text-right" style={{ color: "var(--via-text-muted)" }}>
         {impacto}
       </p>

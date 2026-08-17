@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CheckCircle2, Eye, EyeOff, Mic } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Loader2, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog
  * Configurações > IA > Voz da agente — fonte única, não cópia.
  */
 export function StepVoz({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+  const queryClient = useQueryClient();
   const { data: config } = useAIConfig();
   const { data: chaveConfigurada } = useOrgApiKey("elevenlabs");
   const upsertConfig = useUpsertAIConfig();
@@ -42,6 +44,29 @@ export function StepVoz({ onNext, onBack }: { onNext: () => void; onBack: () => 
     setVoiceEnabled(config.voice_enabled ?? false);
     setModo(config.voice_response_mode ?? "reply_to_audio");
   }, [config]);
+
+  /**
+   * Salva a chave sem sair da etapa e já testa: as vozes só carregam depois que
+   * existe chave no Vault, e antes disso a tela dizia "salve sua chave acima"
+   * sem oferecer onde salvar — o único caminho era "Continuar", que fecha a
+   * etapa justamente antes de mostrar as vozes.
+   */
+  const salvarChaveAgora = async () => {
+    if (!apiKey.trim()) {
+      toast.error("Cole a chave do ElevenLabs antes de salvar.");
+      return;
+    }
+    try {
+      await salvarChave.mutateAsync(apiKey);
+      setApiKey("");
+      // A listagem é o teste real da chave: se ela não valer, o VoicePicker
+      // mostra o erro devolvido pela API do ElevenLabs.
+      await queryClient.invalidateQueries({ queryKey: ["elevenlabs-voices"] });
+      toast.success("Chave salva. Carregando as vozes disponíveis…");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar a chave.");
+    }
+  };
 
   const salvarEAvancar = async () => {
     setSalvando(true);
@@ -87,24 +112,42 @@ export function StepVoz({ onNext, onBack }: { onNext: () => void; onBack: () => 
             </Badge>
           )}
         </div>
-        <div className="relative">
-          <Input
-            id="voz-api-key"
-            data-testid="setup-voz-api-key"
-            type={mostrarChave ? "text" : "password"}
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={chaveConfigurada ? "••••••••  (deixe vazio para manter)" : "sk_..."}
-            className="pr-10"
-          />
-          <button
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Input
+              id="voz-api-key"
+              data-testid="setup-voz-api-key"
+              type={mostrarChave ? "text" : "password"}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={chaveConfigurada ? "••••••••  (deixe vazio para manter)" : "sk_..."}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setMostrarChave((v) => !v)}
+              aria-label={mostrarChave ? "Ocultar a chave" : "Mostrar a chave"}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+            >
+              {mostrarChave ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          <Button
             type="button"
-            onClick={() => setMostrarChave((v) => !v)}
-            aria-label={mostrarChave ? "Ocultar a chave" : "Mostrar a chave"}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+            variant="outline"
+            onClick={salvarChaveAgora}
+            disabled={!apiKey.trim() || salvarChave.isPending}
+            data-testid="setup-voz-save-key"
           >
-            {mostrarChave ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
+            {salvarChave.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={1.5} />
+                Salvando…
+              </>
+            ) : (
+              "Salvar e testar"
+            )}
+          </Button>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <ApiKeyTutorialDialog service="elevenlabs" />
@@ -151,19 +194,18 @@ export function StepVoz({ onNext, onBack }: { onNext: () => void; onBack: () => 
         </div>
       )}
 
-      <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onBack}>Voltar</Button>
-          <Button onClick={salvarEAvancar} disabled={salvando} data-testid="setup-voz-next">
-            {salvando ? "Salvando…" : "Continuar"}
-          </Button>
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-3 pt-2">
+        <Button variant="outline" onClick={onBack}>Voltar</Button>
         <PularEtapa
           step="voz"
           impacto="Sem voz, a agente atende normalmente por texto. Configure depois em Configurações > IA, seção Voz da agente."
           onPulado={onNext}
           disabled={salvando}
-        />
+        >
+          <Button onClick={salvarEAvancar} disabled={salvando} data-testid="setup-voz-next">
+            {salvando ? "Salvando…" : "Continuar"}
+          </Button>
+        </PularEtapa>
       </div>
     </div>
   );

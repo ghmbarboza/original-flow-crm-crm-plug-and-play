@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { FunctionsHttpError, FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
-import { erroDeFunction } from "./functionError";
+import { erroDeFunction, MSG_SESSAO_EXPIRADA } from "./functionError";
 
 /**
  * O caso que motiva o helper: em non-2xx o client entrega `data: null` e um
@@ -29,6 +29,18 @@ describe("erroDeFunction", () => {
   it("aceita `message` quando a function não usa a chave `error`", async () => {
     const erro = await erroDeFunction(httpError(429, { message: "Muitas requisições." }), "padrão");
     expect(erro.message).toBe("Muitas requisições.");
+  });
+
+  it("traduz 401 em sessão expirada, mesmo com corpo legível", async () => {
+    // Todas as functions respondem 401 com {"error":"Não autorizado"} quando o
+    // token não vale mais. Repassar isso ao usuário faz parecer falta de
+    // permissão; o que aconteceu foi a sessão da aba expirar.
+    const erro = await erroDeFunction(
+      httpError(401, { error: "Não autorizado" }),
+      "Falha ao conectar à Evolution.",
+    );
+    expect(erro.message).toBe(MSG_SESSAO_EXPIRADA);
+    expect(erro.message).not.toContain("Não autorizado");
   });
 
   it("cai no padrão com o status quando o corpo não é JSON legível", async () => {

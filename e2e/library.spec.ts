@@ -130,12 +130,16 @@ test("usar um modelo cria a cópia com from_template_id e leva ao editor", async
 test("empty state de sequências aponta para a Biblioteca", async ({ page }) => {
   // Não força o empty state: se a org tiver sequências, o link não existe e o
   // teste não tem o que afirmar. Documenta a integração quando ela é visível.
-  // Reorganização de 2026-07-31: /email-sequences redireciona para a aba de
-  // Configurações; o título da aba é h2.
+  // Reorganização de 2026-08-03: /email-sequences não vai mais para uma aba
+  // própria — as quatro abas viraram seções de Automações, e sequências mora em
+  // ?secao=cadencias sob o h3 "Sequências de e-mail".
   await page.goto("/email-sequences");
-  await expect(page).toHaveURL(/\/settings\/sequences/);
-  await expect(page.getByRole("heading", { name: "Sequências", level: 2 })).toBeVisible();
-  const link = page.getByTestId("link-biblioteca");
+  await expect(page).toHaveURL(/\/settings\/automations\?secao=cadencias/);
+  await expect(page.getByRole("heading", { name: "Sequências de e-mail", level: 3 })).toBeVisible();
+  // A seção Cadências tem dois links para a Biblioteca (sequências e follow-up).
+  // Filtra pelo destino: `.first()` pegaria o do follow-up quando só ele estiver
+  // vazio, e o teste falharia afirmando a categoria errada.
+  const link = page.locator('[data-testid="link-biblioteca"][href*="email_sequence"]');
   if (await link.count()) {
     await link.first().click();
     await expect(page).toHaveURL(/\/library\?categoria=email_sequence/);

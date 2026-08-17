@@ -240,17 +240,16 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         {onBack ? <Button variant="outline" onClick={onBack}>Voltar</Button> : <span />}
-        <div className="flex flex-wrap items-end gap-3">
-          <PularEtapa
-            step="empresa"
-            impacto="Sem esse contexto, a IA responde de forma genérica. Você completa depois em Configurações > Geral e > IA."
-            onPulado={onNext}
-            disabled={salvar.isPending}
-          />
+        <PularEtapa
+          step="empresa"
+          impacto="Sem esse contexto, a IA responde de forma genérica. Você completa depois em Configurações > Geral e > IA."
+          onPulado={onNext}
+          disabled={salvar.isPending}
+        >
           <Button onClick={avancar} disabled={!podeAvancar || salvar.isPending} data-testid="setup-next">
             {salvar.isPending ? "Salvando…" : "Avançar"}
           </Button>
-        </div>
+        </PularEtapa>
       </div>
     </div>
   );

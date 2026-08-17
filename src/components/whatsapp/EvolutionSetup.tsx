@@ -6,6 +6,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { normalizarServerUrl } from "@/lib/evolutionUrl";
 import {
   useConnectEvolution, useEvolutionInstances, useEvolutionStatus,
   type EvolutionServerInstance,
@@ -24,6 +25,7 @@ const ESTADO_LABEL: Record<string, string> = {
   close: "Desconectada",
 };
 
+
 /**
  * Passo 2a do wizard: credenciais Evolution, escolha da instância (nova ou
  * existente) e QR Code.
@@ -41,6 +43,7 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
     display_name: "",
   });
   const [modo, setModo] = useState<Modo | null>(null);
+  const [servidorOk, setServidorOk] = useState(false);
   const [instancias, setInstancias] = useState<EvolutionServerInstance[] | null>(null);
   const [selecionada, setSelecionada] = useState<EvolutionServerInstance | null>(null);
   const [instanceId, setInstanceId] = useState<string | null>(null);
@@ -58,28 +61,57 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
       return;
     }
     setModo(valor);
-    if (valor === "existing") await carregarInstancias();
+    // Se o teste de conexão já trouxe a lista, não busca de novo.
+    if (valor === "existing" && instancias === null) await carregarInstancias();
   };
 
   const carregarInstancias = async () => {
     try {
       const lista = await listar.mutateAsync({
-        server_url: form.server_url.trim().replace(/\/$/, ""),
+        server_url: normalizarServerUrl(form.server_url),
         api_key: form.api_key.trim(),
       });
       setInstancias(lista);
       if (lista.length === 0) toast.info("Nenhuma instância encontrada nesse servidor.");
+      return lista;
     } catch (error) {
       setInstancias([]);
       toast.error(error instanceof Error ? error.message : "Falha ao listar instâncias.");
+      return null;
     }
+  };
+
+  /**
+   * Testa as credenciais antes de qualquer criação de instância.
+   *
+   * A listagem é o teste: se ela responde, a URL e a API key estão certas — e o
+   * usuário já vê o que existe no servidor, em vez de descobrir só depois de
+   * escolher "usar instância existente".
+   */
+  const testarConexao = async () => {
+    if (!credenciaisOk) {
+      toast.error("Informe a URL do servidor e a API key primeiro.");
+      return;
+    }
+    setForm((f) => ({ ...f, server_url: normalizarServerUrl(f.server_url) }));
+    const lista = await carregarInstancias();
+    if (!lista) {
+      setServidorOk(false);
+      return;
+    }
+    setServidorOk(true);
+    toast.success(
+      lista.length === 0
+        ? "Servidor respondeu. Nenhuma instância criada ainda."
+        : `Servidor respondeu: ${lista.length} instância(s) encontrada(s).`,
+    );
   };
 
   const conectar = async (nome: string, modoEnvio: Modo) => {
     setAviso(null);
     try {
       const result = await connect.mutateAsync({
-        server_url: form.server_url.trim().replace(/\/$/, ""),
+        server_url: normalizarServerUrl(form.server_url),
         api_key: form.api_key.trim(),
         instance_name: nome,
         display_name: form.display_name.trim() || nome,
@@ -130,18 +162,49 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
             placeholder="https://evolution.suaempresa.com"
             value={form.server_url}
             onChange={(e) => setForm({ ...form, server_url: e.target.value })}
+            onBlur={() => setForm((f) => ({ ...f, server_url: normalizarServerUrl(f.server_url) }))}
             disabled={!!instanceId}
+            aria-describedby="server_url_ajuda"
           />
+          <p id="server_url_ajuda" className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+            * Se o seu link termina em <code>/manager</code>, remova essa parte — aqui vai só o
+            endereço do servidor (ex.: <code>https://evolution.suaempresa.com</code>).
+          </p>
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="api_key">API Key</Label>
-          <Input
-            id="api_key"
-            type="password"
-            value={form.api_key}
-            onChange={(e) => setForm({ ...form, api_key: e.target.value })}
-            disabled={!!instanceId}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              id="api_key"
+              type="password"
+              className="min-w-0 flex-1"
+              value={form.api_key}
+              onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+              disabled={!!instanceId}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={testarConexao}
+              disabled={!credenciaisOk || listar.isPending || !!instanceId}
+              data-testid="evolution-test"
+            >
+              {listar.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" strokeWidth={1.5} />
+                  Testando…
+                </>
+              ) : (
+                "Testar conexão"
+              )}
+            </Button>
+          </div>
+          {servidorOk && !instanceId && (
+            <p className="flex items-center gap-1.5 text-xs" style={{ color: "var(--via-success)" }}>
+              <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Servidor conectado · {instancias?.length ?? 0} instância(s) neste servidor
+            </p>
+          )}
         </div>
       </div>
 
@@ -158,7 +221,11 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
             {
               valor: "existing" as Modo,
               titulo: "Usar instância existente",
-              descricao: "Escolha uma instância já criada no servidor e conecte ao CRM.",
+              // Depois do teste de conexão a contagem já é conhecida: dizer
+              // quantas existem evita clicar para descobrir que não há nenhuma.
+              descricao: instancias
+                ? `${instancias.length} instância(s) neste servidor — escolha uma para conectar ao CRM.`
+                : "Escolha uma instância já criada no servidor e conecte ao CRM.",
               icone: ServerCog,
             },
           ]).map((opcao) => {

@@ -48,9 +48,6 @@ export function SetupWizardDialog() {
   const ir = (destino: SetupStepKey) => setStep(destino);
   const proximo = () => ir(SETUP_STEPS[Math.min(indice + 1, SETUP_STEPS.length - 1)].key);
   const anterior = () => ir(SETUP_STEPS[Math.max(indice - 1, 0)].key);
-  // Atalho para o checklist final: quem quer sair agora vê antes o que ficou
-  // pendente e onde retomar.
-  const verPendencias = () => ir("concluido");
 
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && fechar()}>
@@ -59,20 +56,14 @@ export function SetupWizardDialog() {
         data-testid="setup-dialog"
       >
         <div className="space-y-3 border-b px-5 py-4">
-          <div className="flex items-center justify-between gap-3 pr-6">
+          {/* Sem botões de sair aqui: "Sair do setup" repetia o X do diálogo e
+              "Concluir depois" parecia uma terceira saída sendo só um atalho para
+              o checklist final — que se alcança avançando ou fechando e
+              reabrindo por Configurações > Onboarding. */}
+          <div className="pr-6">
             <DialogTitle className="via-wordmark text-sm font-normal" style={{ color: "var(--via-text-muted)" }}>
               Configuração inicial
             </DialogTitle>
-            <div className="flex items-center gap-1">
-              {step !== "concluido" && (
-                <Button variant="ghost" size="sm" onClick={verPendencias} data-testid="setup-finish-later">
-                  Concluir depois
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" onClick={fechar} data-testid="setup-exit">
-                Sair do setup
-              </Button>
-            </div>
           </div>
           <DialogDescription className="sr-only">
             Assistente de configuração inicial da plataforma. Todas as etapas podem ser puladas.
@@ -103,6 +94,11 @@ export function SetupWizardDialog() {
             </span>
             <span className="tabular-nums">{progressoPct}%</span>
           </div>
+
+          {/* O fio da história: por que esta etapa vem agora. */}
+          <p className="text-xs" style={{ color: "var(--via-text-body)" }} data-testid="setup-historia">
+            {SETUP_STEPS[indice].historia}
+          </p>
         </div>
 
         {/* Scroll interno: QR Code, seletor de vozes e geração do prompt são altos. */}

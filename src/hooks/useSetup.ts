@@ -12,16 +12,50 @@ export type SetupProgress = Database["public"]["Tables"]["setup_progress"]["Row"
  * `peso` existe porque as etapas não valem o mesmo: sem canal conectado a IA
  * não atende ninguém, enquanto as demais só deixam o atendimento mais genérico.
  * Esconder essa diferença fazia o usuário pular a única que realmente bloqueia.
+ *
+ * `historia` é o fio que liga uma etapa à seguinte. A sequência conta uma
+ * história — quem você é, o que vende, para quem, como a IA fala, como o funil
+ * anda, por onde o cliente chega e, por último, se ela responde falando. Sem
+ * isso cada etapa parecia um formulário solto e o usuário não sabia por que
+ * estava respondendo aquilo.
+ *
+ * A ORDEM importa: a voz vinha no meio, entre a IA e o pipeline, e travava o
+ * caminho até o canal — que é a única etapa que bloqueia o atendimento. Ela é
+ * refinamento do que já funciona, então vem depois do canal conectado.
  */
 export const SETUP_STEPS = [
-  { key: "voce", label: "Você", peso: "personalizacao" },
-  { key: "empresa", label: "Empresa", peso: "melhora_ia" },
-  { key: "publico", label: "Público", peso: "melhora_ia" },
-  { key: "ia", label: "IA", peso: "melhora_ia" },
-  { key: "voz", label: "Voz", peso: "personalizacao" },
-  { key: "pipeline", label: "Pipeline", peso: "personalizacao" },
-  { key: "canal", label: "Canal", peso: "essencial" },
-  { key: "concluido", label: "Pronto", peso: "personalizacao" },
+  {
+    key: "voce", label: "Você", peso: "personalizacao",
+    historia: "Primeiro, quem está no comando. É o seu nome que aparece nas notificações e no histórico dos atendimentos.",
+  },
+  {
+    key: "empresa", label: "Empresa", peso: "melhora_ia",
+    historia: "Agora o negócio: o que você vende e qual problema resolve. É daqui que a IA tira o assunto das conversas.",
+  },
+  {
+    key: "publico", label: "Público", peso: "melhora_ia",
+    historia: "Para quem você vende e em que tom falar. É a diferença entre uma resposta que soa como a sua equipe e uma genérica.",
+  },
+  {
+    key: "ia", label: "IA", peso: "melhora_ia",
+    historia: "Com o que você contou, montamos as instruções da sua agente. Leia antes de aprovar — ela vai atender no seu nome.",
+  },
+  {
+    key: "pipeline", label: "Pipeline", peso: "personalizacao",
+    historia: "Toda conversa vira negócio, e todo negócio anda por etapas. Estas são as suas.",
+  },
+  {
+    key: "canal", label: "Canal", peso: "essencial",
+    historia: "Falta o caminho até o cliente. Sem um canal conectado, a IA não recebe nem responde mensagem nenhuma.",
+  },
+  {
+    key: "voz", label: "Voz", peso: "personalizacao",
+    historia: "Com o atendimento de pé, o último toque: sua agente também pode responder falando, não só escrevendo.",
+  },
+  {
+    key: "concluido", label: "Pronto", peso: "personalizacao",
+    historia: "É isso. Veja o que ficou pronto e o que dá para ajustar depois.",
+  },
 ] as const;
 
 /** Rótulo curto do peso, usado como badge no cabeçalho da etapa. */

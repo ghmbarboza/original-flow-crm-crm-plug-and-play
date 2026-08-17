@@ -164,17 +164,16 @@ export function StepPublico({ onNext, onBack }: { onNext: () => void; onBack: ()
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <Button variant="outline" onClick={onBack}>Voltar</Button>
-        <div className="flex flex-wrap items-end gap-3">
-          <PularEtapa
-            step="publico"
-            impacto="Sem esse contexto, a IA responde de forma genérica. Você completa depois em Configurações > IA."
-            onPulado={onNext}
-            disabled={salvar.isPending}
-          />
+        <PularEtapa
+          step="publico"
+          impacto="Sem esse contexto, a IA responde de forma genérica. Você completa depois em Configurações > IA."
+          onPulado={onNext}
+          disabled={salvar.isPending}
+        >
           <Button onClick={avancar} disabled={!podeAvancar || salvar.isPending} data-testid="setup-next">
             {salvar.isPending ? "Salvando…" : "Avançar"}
           </Button>
-        </div>
+        </PularEtapa>
       </div>
     </div>
   );

@@ -34,8 +34,12 @@ test.describe("Configurações", () => {
   });
 
   test("altera o modo de distribuição em Canais", async ({ page }) => {
-    await gotoPage(page, "/settings", "Configurações");
-    await page.getByTestId("settings-tab").filter({ hasText: "Canais" }).click();
+    // Reorganização de 2026-08-03: a aba "Canais" virou um card dentro de
+    // Integrações. O deep-link ?integration=channels abre o card já expandido —
+    // é o mesmo caminho que os avisos da plataforma usam para trazer o usuário
+    // até aqui.
+    await gotoPage(page, "/settings/integrations?integration=channels", "Configurações");
+    await expect(page.getByTestId("integration-channels")).toBeVisible();
     await page.getByRole("tab", { name: "Distribuição" }).click();
 
     // Round-robin é o modo que a distribuição por canal do Sprint 8 usa.
@@ -63,11 +67,11 @@ test.describe("Marketing", () => {
   });
 
   test("sequências de email abrem sem erro", async ({ page }) => {
-    // Reorganização de 2026-07-31: /email-sequences redireciona para a aba de
-    // Configurações; o título da aba é h2.
+    // Reorganização de 2026-08-03: /email-sequences redireciona para a seção
+    // Cadências de Configurações > Automações; o título da seção é h3.
     await page.goto("/email-sequences");
-    await expect(page).toHaveURL(/\/settings\/sequences/);
-    await expect(page.getByRole("heading", { name: "Sequências", level: 2 })).toBeVisible();
+    await expect(page).toHaveURL(/\/settings\/automations\?secao=cadencias/);
+    await expect(page.getByRole("heading", { name: "Sequências de e-mail", level: 3 })).toBeVisible();
     await expectNoErrorState(page);
   });
 });

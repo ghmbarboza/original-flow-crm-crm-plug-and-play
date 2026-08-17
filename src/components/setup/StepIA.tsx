@@ -255,13 +255,12 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <Button variant="outline" onClick={onBack} disabled={salvando}>Voltar</Button>
-        <div className="flex flex-wrap items-end gap-3">
-          <PularEtapa
-            step="ia"
-            impacto="A IA fica desativada até você revisar em Configurações > IA. O resto da plataforma continua funcionando."
-            onPulado={onNext}
-            disabled={salvando}
-          />
+        <PularEtapa
+          step="ia"
+          impacto="A IA fica desativada até você revisar em Configurações > IA. O resto da plataforma continua funcionando."
+          onPulado={onNext}
+          disabled={salvando}
+        >
           <Button
             onClick={salvarEAvancar}
             disabled={!blocos || salvando || gerar.isPending}
@@ -269,7 +268,7 @@ export function StepIA({ onNext, onBack }: { onNext: () => void; onBack: () => v
           >
             {salvando ? "Salvando…" : rascunho ? "Avançar com o rascunho" : "Parece bom, avançar"}
           </Button>
-        </div>
+        </PularEtapa>
       </div>
     </div>
   );
