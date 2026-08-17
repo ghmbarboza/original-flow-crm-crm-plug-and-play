@@ -13,7 +13,8 @@ const PROVIDER_LABEL: Record<WhatsAppProvider, string> = {
   zernio: "Zernio (multicanal)",
 };
 
-type Step = "choose" | "setup" | "done";
+export type ProviderWizardStep = "choose" | "setup" | "done";
+type Step = ProviderWizardStep;
 
 const STEPS: { key: Step; label: string }[] = [
   { key: "choose", label: "Provedor" },
@@ -53,12 +54,32 @@ const OPTIONS: ProviderOption[] = [
   },
 ];
 
-export function ProviderWizard({ onDone }: { onDone: () => void }) {
+/**
+ * `onStepChange` avisa quem hospeda o wizard em que passo ele está.
+ *
+ * Existe porque cada tela de conexão (Evolution, Meta, Zernio) já tem o próprio
+ * "Voltar" — que volta à escolha do provedor. No onboarding isso aparecia junto
+ * com o "Voltar" da etapa, e a tela ficava com dois botões idênticos e destinos
+ * diferentes. Quem hospeda usa isso para esconder o seu enquanto o interno está
+ * na tela.
+ */
+export function ProviderWizard({
+  onDone,
+  onStepChange,
+}: {
+  onDone: () => void;
+  onStepChange?: (step: ProviderWizardStep) => void;
+}) {
   const setProvider = useSetProvider();
   const [step, setStep] = useState<Step>("choose");
   const [provider, setProvider_] = useState<WhatsAppProvider | null>(null);
 
   const stepIndex = STEPS.findIndex((s) => s.key === step);
+
+  const irPara = (destino: Step) => {
+    setStep(destino);
+    onStepChange?.(destino);
+  };
 
   const chooseProvider = async (value: WhatsAppProvider) => {
     setProvider_(value);
@@ -66,7 +87,7 @@ export function ProviderWizard({ onDone }: { onDone: () => void }) {
       // Grava a escolha já aqui: o inbox e as campanhas dependem do provider,
       // e se o usuário abandonar no meio a config parcial ainda faz sentido.
       await setProvider.mutateAsync(value);
-      setStep("setup");
+      irPara("setup");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o provedor.");
     }
@@ -156,13 +177,13 @@ export function ProviderWizard({ onDone }: { onDone: () => void }) {
 
       {/* Passo 2: conexão específica do provedor */}
       {step === "setup" && provider === "evolution" && (
-        <EvolutionSetup onConnected={() => setStep("done")} onBack={() => setStep("choose")} />
+        <EvolutionSetup onConnected={() => irPara("done")} onBack={() => irPara("choose")} />
       )}
       {step === "setup" && provider === "meta_official" && (
-        <MetaSetup onConnected={() => setStep("done")} onBack={() => setStep("choose")} />
+        <MetaSetup onConnected={() => irPara("done")} onBack={() => irPara("choose")} />
       )}
       {step === "setup" && provider === "zernio" && (
-        <ZernioSetup onConnected={() => setStep("done")} onBack={() => setStep("choose")} />
+        <ZernioSetup onConnected={() => irPara("done")} onBack={() => irPara("choose")} />
       )}
 
       {/* Passo 3: resumo */}

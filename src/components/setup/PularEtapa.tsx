@@ -46,20 +46,25 @@ export function PularEtapa({
   };
 
   return (
-    <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={executar}
-        disabled={disabled || pular.isPending}
-        data-testid={`setup-skip-${step}`}
-      >
-        {pular.isPending ? "Pulando…" : "Pular esta etapa"}
-      </Button>
-      {children}
-      <p className="max-w-xs text-xs sm:text-right" style={{ color: "var(--via-text-muted)" }}>
+    <>
+      {/* A frase fica no meio do rodapé, na linha do Voltar e do Avançar, onde
+          sempre esteve. Empilhá-la junto dos botões afastava a explicação da
+          largura do rodapé e deixava o bloco da direita alto demais. */}
+      <p className="max-w-xs flex-1 text-xs" style={{ color: "var(--via-text-muted)" }}>
         {impacto}
       </p>
-    </div>
+      <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={executar}
+          disabled={disabled || pular.isPending}
+          data-testid={`setup-skip-${step}`}
+        >
+          {pular.isPending ? "Pulando…" : "Pular esta etapa"}
+        </Button>
+        {children}
+      </div>
+    </>
   );
 }

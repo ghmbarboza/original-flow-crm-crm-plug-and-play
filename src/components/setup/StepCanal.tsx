@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ProviderWizard } from "@/components/whatsapp/ProviderWizard";
+import { ProviderWizard, type ProviderWizardStep } from "@/components/whatsapp/ProviderWizard";
 import { useSaveSetupStep, useSkipSetupStep } from "@/hooks/useSetup";
 
 /**
@@ -14,6 +15,7 @@ import { useSaveSetupStep, useSkipSetupStep } from "@/hooks/useSetup";
 export function StepCanal({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const salvarEtapa = useSaveSetupStep();
   const pularEtapa = useSkipSetupStep();
+  const [passoProvedor, setPassoProvedor] = useState<ProviderWizardStep>("choose");
 
   const concluir = async (pulou: boolean) => {
     try {
@@ -45,10 +47,17 @@ export function StepCanal({ onNext, onBack }: { onNext: () => void; onBack: () =
         </p>
       </div>
 
-      <ProviderWizard onDone={() => concluir(false)} />
+      <ProviderWizard onDone={() => concluir(false)} onStepChange={setPassoProvedor} />
 
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <Button variant="outline" onClick={onBack} disabled={ocupado}>Voltar</Button>
+        {/* A tela de conexão de cada provedor traz o próprio "Voltar" (que volta
+            à escolha do provedor). Mostrar o da etapa junto deixava dois botões
+            iguais com destinos diferentes na mesma tela. */}
+        {passoProvedor === "setup" ? (
+          <span />
+        ) : (
+          <Button variant="outline" onClick={onBack} disabled={ocupado}>Voltar</Button>
+        )}
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <Button
             variant="ghost"

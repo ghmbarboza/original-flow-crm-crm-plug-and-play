@@ -95,7 +95,9 @@ export function StepVoce({ onNext }: { onNext: () => void }) {
         />
       </div>
 
-      <div className="flex flex-wrap items-end justify-end gap-3">
+      {/* justify-between: a frase de impacto ocupa a esquerda (não há Voltar na
+          primeira etapa) e os botões ficam à direita. */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <PularEtapa
           step="voce"
           impacto="Sem seu nome, as mensagens internas e notificações ficam impessoais. Você completa depois em Configurações > Geral."
