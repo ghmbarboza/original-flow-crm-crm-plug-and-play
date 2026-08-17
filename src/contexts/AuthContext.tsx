@@ -25,6 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkActiveStatus = useCallback(async () => {
     try {
+      // Só faz sentido com sessão viva; sem token o endpoint devolveria 401.
+      const { data: { session: current } } = await supabase.auth.getSession();
+      if (!current?.access_token) return;
       const { data } = await supabase.functions.invoke("check-user-active");
       // Only sign out when explicitly inactive. Unapproved users go to /pending-approval.
       if (data && data.active === false) {
