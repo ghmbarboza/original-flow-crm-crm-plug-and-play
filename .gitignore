@@ -51,3 +51,6 @@ FLOWCRM2_SPRINT*.md
 
 # Spec OpenAPI do Zernio (39k linhas, referência de consulta).
 zernio-api-openapi.yaml
+
+# artefato local do supabase cli
+supabase/.temp/
