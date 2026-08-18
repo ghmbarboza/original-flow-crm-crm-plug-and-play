@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { useScheduleMessage } from "@/hooks/useScheduledMessages";
+import { useContact } from "@/hooks/useContacts";
+import { VARIAVEIS_MENSAGEM, renderVariaveis, valoresDoContato } from "@/lib/messageVars";
 
 /** Valor inicial do datetime-local: daqui a 1h, arredondado ao quarto de hora. */
 function daquiUmaHora(): string {
@@ -35,8 +37,39 @@ export function ScheduleMessageDialog({
   conversationId?: string | null;
 }) {
   const agendar = useScheduleMessage();
+  const { data: contato } = useContact(open ? contactId : null);
   const [quando, setQuando] = useState(daquiUmaHora);
   const [mensagem, setMensagem] = useState("");
+  const campoRef = useRef<HTMLTextAreaElement>(null);
+
+  const valores = valoresDoContato(contato);
+  const previa = renderVariaveis(mensagem, valores);
+
+  /**
+   * Insere a variável na posição do cursor, não no fim do texto.
+   *
+   * Quem já escreveu "Olá , tudo bem?" e volta o cursor para depois do "Olá"
+   * espera a variável ali. Jogar no fim obrigaria a recortar e colar.
+   */
+  const inserirVariavel = (chave: string) => {
+    const campo = campoRef.current;
+    const token = `{{${chave}}}`;
+    if (!campo) {
+      setMensagem((m) => m + token);
+      return;
+    }
+    const inicio = campo.selectionStart ?? mensagem.length;
+    const fim = campo.selectionEnd ?? inicio;
+    const novo = mensagem.slice(0, inicio) + token + mensagem.slice(fim);
+    setMensagem(novo);
+    // O cursor precisa ficar DEPOIS do que acabou de ser inserido, senão o
+    // próximo clique empilha variáveis na ordem errada.
+    requestAnimationFrame(() => {
+      campo.focus();
+      const pos = inicio + token.length;
+      campo.setSelectionRange(pos, pos);
+    });
+  };
 
   const submeter = async () => {
     try {
@@ -80,13 +113,52 @@ export function ScheduleMessageDialog({
             <Label htmlFor="agendar-mensagem">Mensagem</Label>
             <Textarea
               id="agendar-mensagem"
+              ref={campoRef}
               rows={4}
               placeholder="Olá {{contact.first_name}}! Passando para lembrar…"
               value={mensagem}
               onChange={(e) => setMensagem(e.target.value)}
               data-testid="agendar-mensagem"
             />
+
+            {/* Só estas três são substituídas no envio; ver messageVars.ts. */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                Inserir:
+              </span>
+              {VARIAVEIS_MENSAGEM.map((v) => (
+                <Button
+                  key={v.chave}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs font-normal"
+                  onClick={() => inserirVariavel(v.chave)}
+                  data-testid={`agendar-var-${v.chave}`}
+                >
+                  {v.rotulo}
+                </Button>
+              ))}
+            </div>
           </div>
+
+          {/* Prévia com os dados reais do contato: é a única forma de ver que
+              "{{contact.lastname}}" (sem underline) sai vazio ANTES de o cliente
+              receber a mensagem torta. */}
+          {mensagem.trim() && (
+            <div className="space-y-1.5">
+              <Label className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                Prévia — como {contato?.first_name || "o contato"} vai receber
+              </Label>
+              <div
+                className="whitespace-pre-wrap rounded-lg p-3 text-sm"
+                style={{ background: "var(--via-surface)", color: "var(--via-text-body)" }}
+                data-testid="agendar-previa"
+              >
+                {previa}
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
