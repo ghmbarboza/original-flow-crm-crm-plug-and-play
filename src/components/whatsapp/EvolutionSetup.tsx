@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle, CheckCircle2, Loader2, PlusCircle, QrCode, RefreshCw, ServerCog, Smartphone,
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { normalizarServerUrl } from "@/lib/evolutionUrl";
 import {
-  useConnectEvolution, useEvolutionInstances, useEvolutionStatus,
+  useConnectEvolution, useEvolutionInstances, useEvolutionStatus, useSyncEvolutionStatus,
   type EvolutionServerInstance,
 } from "@/hooks/useWhatsAppConfig";
 
@@ -36,6 +36,7 @@ const ESTADO_LABEL: Record<string, string> = {
 export function EvolutionSetup({ onConnected, onBack }: Props) {
   const connect = useConnectEvolution();
   const listar = useEvolutionInstances();
+  const sincronizar = useSyncEvolutionStatus();
   const [form, setForm] = useState({
     server_url: "",
     api_key: "",
@@ -69,6 +70,25 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
   // `disconnected` aqui significa que a Evolution desistiu de parear e fechou o
   // socket. Continuar exibindo o QR seria mentir: ele não vale mais.
   const sessaoExpirada = !connected && status?.status === "disconnected";
+
+  /**
+   * Enquanto o pareamento não fecha, o CRM também PERGUNTA ao servidor, a cada
+   * 10s, em vez de só esperar o webhook.
+   *
+   * Um `CONNECTION_UPDATE` perdido deixava a tela presa no QR com o número já
+   * conectado do outro lado — sem nada que o usuário pudesse fazer. O poll do
+   * banco (4s) continua sendo o caminho normal e rápido; isto é a rede de
+   * segurança, e por isso o intervalo é bem maior.
+   */
+  useEffect(() => {
+    if (!instanceId || connected) return;
+    const id = setInterval(() => {
+      sincronizar.mutate(instanceId);
+    }, 10_000);
+    return () => clearInterval(id);
+    // `sincronizar` vem de useMutation e é estável entre renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instanceId, connected]);
 
   const credenciaisOk = !!form.server_url.trim() && !!form.api_key.trim();
 

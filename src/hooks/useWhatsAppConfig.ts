@@ -199,6 +199,31 @@ export function useVerifyMeta() {
   });
 }
 
+/**
+ * Pergunta ao servidor Evolution qual é o estado real da instância e reconcilia
+ * o banco.
+ *
+ * O poll de `useEvolutionStatus` lê `evolution_configs`, que é alimentado pelo
+ * webhook. Quando o `CONNECTION_UPDATE` se perde, o banco fica em "connecting"
+ * indefinidamente e o wizard mostra um QR de um número já pareado, sem saída.
+ * Esta consulta cobre esse buraco perguntando em vez de esperar.
+ */
+export function useSyncEvolutionStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (instanceId: string) => {
+      const { data, error } = await supabase.functions.invoke("evolution-sync-status", {
+        body: { instance_id: instanceId },
+      });
+      if (error) throw await erroDeFunction(error, "Falha ao consultar o estado da instância.");
+      if (data?.error) throw new Error(data.error);
+      return data as { status: string; state: string | null; reconciliado?: boolean };
+    },
+    onSuccess: (_data, instanceId) =>
+      queryClient.invalidateQueries({ queryKey: ["evolution-status", instanceId] }),
+  });
+}
+
 /** Consulta o status atual de pareamento da instância Evolution (poll do QR). */
 export function useEvolutionStatus(instanceId: string | null, enabled: boolean) {
   return useQuery({

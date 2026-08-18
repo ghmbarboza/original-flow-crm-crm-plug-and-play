@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
 
   const { data: instance } = await admin
     .from("evolution_configs")
-    .select("id, org_id, server_url, api_key, instance_name")
+    .select("id, org_id, server_url, api_key, instance_name, status")
     .eq("instance_name", instanceName)
     .maybeSingle();
   if (!instance) return ok({ ignored: "instância desconhecida" });
@@ -99,13 +99,33 @@ Deno.serve(async (req) => {
   // Conexão / QR: atualiza a instância (o wizard faz poll disso).
   if (normalizedEvent === "CONNECTION_UPDATE") {
     const state = data.state ?? data.connection;
-    const status = state === "open" ? "connected" : state === "close" ? "disconnected" : "connecting";
+    const telefone = data.wuid ? String(data.wuid).split("@")[0] : undefined;
+
+    // Só `open` e `close` são desfechos. A Evolution emite `connecting` várias
+    // vezes durante o handshake e também depois, em reconexões de socket — e um
+    // desses, chegando atrasado, rebaixava uma instância que já estava
+    // atendendo. O wizard voltava a exibir o QR de um número já pareado.
+    if (state !== "open" && state !== "close") {
+      // O número costuma vir junto do handshake: aproveita sem mexer no estado.
+      if (telefone) {
+        await admin
+          .from("evolution_configs")
+          .update({ phone_number: telefone, updated_at: new Date().toISOString() })
+          .eq("id", instance.id);
+      }
+      return ok({ ignored: `estado intermediário: ${state ?? "desconhecido"}` });
+    }
+
+    const conectou = state === "open";
     await admin
       .from("evolution_configs")
       .update({
-        status,
-        phone_number: data.wuid ? String(data.wuid).split("@")[0] : undefined,
-        connected_at: status === "connected" ? new Date().toISOString() : null,
+        status: conectou ? "connected" : "disconnected",
+        phone_number: telefone,
+        connected_at: conectou ? new Date().toISOString() : null,
+        // QR de instância pareada não vale nada e ainda por cima reaparece na
+        // tela se alguém reabrir o wizard.
+        qr_code: conectou ? null : undefined,
         updated_at: new Date().toISOString(),
       })
       .eq("id", instance.id);
@@ -123,6 +143,14 @@ Deno.serve(async (req) => {
     // Evento sem QR nenhum não é motivo para apagar o que já está salvo: o
     // usuário pode estar com um código válido aberto neste exato momento.
     if (!novoQr) return ok({ ignored: "qrcode.updated sem código" });
+
+    // Instância já pareada não volta a pedir QR. Este update gravava
+    // `status: "connecting"` incondicionalmente, então um qrcode.updated
+    // atrasado derrubava para "conectando" um número que estava conectado — foi
+    // o que deixou o wizard preso na tela do QR com o WhatsApp já pareado.
+    if (instance.status === "connected") {
+      return ok({ ignored: "instância já conectada" });
+    }
 
     await admin
       .from("evolution_configs")
