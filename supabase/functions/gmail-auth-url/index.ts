@@ -3,6 +3,7 @@
 // O estado (state) carrega user_id/org_id/redirect para o callback saber a quem
 // pertence a conexão. Requer os secrets GOOGLE_CLIENT_ID e APP_URL (base do app).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { resolverCredenciaisGoogle } from "../_shared/google.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,9 +28,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
-    if (!clientId) return json({ error: "GOOGLE_CLIENT_ID não configurado" }, 500);
-
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -44,6 +42,18 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await admin.from("profiles").select("org_id").eq("id", user.id).maybeSingle();
     if (!profile?.org_id) return json({ error: "Organização não encontrada" }, 400);
+
+    // Credencial da organização (Vault) com fallback no env — ver
+    // resolverCredenciaisGoogle. A mensagem diz ONDE resolver: antes o usuário
+    // lia "GOOGLE_CLIENT_ID não configurado" e não tinha para onde ir.
+    const { clientId } = await resolverCredenciaisGoogle(admin, profile.org_id as string);
+    if (!clientId) {
+      return json({
+        error:
+          "Conexão do Gmail ainda não configurada. Cadastre o Client ID e o Client Secret do " +
+          "Google em Configurações > Integrações > E-mail (Gmail).",
+      }, 400);
+    }
 
     const { redirect_path } = await req.json().catch(() => ({}));
 

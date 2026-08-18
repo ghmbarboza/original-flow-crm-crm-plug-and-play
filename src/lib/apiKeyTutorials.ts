@@ -17,6 +17,19 @@ export interface ApiKeyTutorial {
 }
 
 export const API_KEY_TUTORIALS: Record<string, ApiKeyTutorial> = {
+  google_client_id: {
+    label: "Google (Gmail)",
+    url: "https://console.cloud.google.com/apis/credentials",
+    passos: [
+      "Acesse console.cloud.google.com e crie um projeto (ou use um existente).",
+      "Em \"APIs e serviços\" → \"Biblioteca\", procure Gmail API e clique em Ativar.",
+      "Vá em \"Tela de permissão OAuth\": escolha Externo, preencha nome do app e e-mail de suporte, e adicione seu e-mail em \"Usuários de teste\".",
+      "Em \"Credenciais\" → \"Criar credenciais\" → \"ID do cliente OAuth\", tipo Aplicativo da Web.",
+      "Em \"URIs de redirecionamento autorizados\", cole exatamente o endereço mostrado abaixo do campo.",
+      "Copie o Client ID e o Client Secret gerados e cole nos campos abaixo.",
+    ],
+    aviso: "Enquanto a tela de permissão estiver como \"Teste\", só os e-mails cadastrados em Usuários de teste conseguem conectar.",
+  },
   openai: {
     label: "OpenAI",
     url: "https://platform.openai.com/docs/api-reference/authentication",

@@ -8,6 +8,7 @@ import { StepEmpresa } from "@/components/setup/StepEmpresa";
 import { StepPublico } from "@/components/setup/StepPublico";
 import { StepIA } from "@/components/setup/StepIA";
 import { StepVoz } from "@/components/setup/StepVoz";
+import { StepEmail } from "@/components/setup/StepEmail";
 import { StepPipeline } from "@/components/setup/StepPipeline";
 import { StepCanal } from "@/components/setup/StepCanal";
 import { StepConcluido } from "@/components/setup/StepConcluido";
@@ -117,6 +118,7 @@ export function SetupWizardDialog() {
               {step === "voz" && <StepVoz onNext={proximo} onBack={anterior} />}
               {step === "pipeline" && <StepPipeline onNext={proximo} onBack={anterior} />}
               {step === "canal" && <StepCanal onNext={proximo} onBack={anterior} />}
+              {step === "email" && <StepEmail onNext={proximo} onBack={anterior} />}
               {step === "concluido" && <StepConcluido onClose={fechar} />}
             </>
           )}

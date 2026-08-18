@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Mail, Plug, Plus, RefreshCw } from "lucide-react";
+import { ArrowRight, Mail, Plug, Plus, RefreshCw } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
 import { PageSkeleton } from "@/components/PageSkeleton";
@@ -102,10 +103,21 @@ export default function InboxPage() {
             title="Conecte seu Gmail"
             description="Sincronize suas conversas de email e envie mensagens direto do CRM, com histórico por contato."
             action={
-              <Button onClick={handleConnect} disabled={connectGmail.isPending} className="gap-1.5">
-                <Plug className="h-4 w-4" strokeWidth={1.5} />
-                {connectGmail.isPending ? "Redirecionando…" : "Conectar Gmail"}
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={handleConnect} disabled={connectGmail.isPending} className="gap-1.5">
+                  <Plug className="h-4 w-4" strokeWidth={1.5} />
+                  {connectGmail.isPending ? "Redirecionando…" : "Conectar Gmail"}
+                </Button>
+                {/* Saída para quem ainda não cadastrou as credenciais do Google:
+                    sem ela, o botão acima só respondia com erro e não havia
+                    para onde ir. */}
+                <Button variant="outline" asChild className="gap-1.5">
+                  <Link to="/settings/integrations?integration=gmail">
+                    Configurar credenciais
+                    <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+                  </Link>
+                </Button>
+              </div>
             }
           />
         </div>

@@ -53,6 +53,10 @@ export const SETUP_STEPS = [
     historia: "Com o atendimento de pé, o último toque: sua agente também pode responder falando, não só escrevendo.",
   },
   {
+    key: "email", label: "E-mail", peso: "personalizacao",
+    historia: "Nem todo cliente chega pelo WhatsApp. Conectando o Gmail, os e-mails entram no mesmo histórico do contato.",
+  },
+  {
     key: "concluido", label: "Pronto", peso: "personalizacao",
     historia: "É isso. Veja o que ficou pronto e o que dá para ajustar depois.",
   },

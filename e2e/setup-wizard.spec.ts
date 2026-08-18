@@ -362,7 +362,7 @@ test("passo 4 sugere e aplica o pipeline do setor", async ({ page }) => {
   }).toPass({ timeout: 10_000 });
 });
 
-test("passo 6 permite pular o canal e a voz, e o passo final conclui o setup", async ({ page }) => {
+test("as etapas opcionais do fim podem ser puladas e o passo final conclui o setup", async ({ page }) => {
   await retomarEm(page, "canal");
 
   await page.getByTestId("setup-skip-channel").click();
@@ -371,6 +371,11 @@ test("passo 6 permite pular o canal e a voz, e o passo final conclui o setup", a
   await expect(page.getByTestId("setup-step-voz")).toBeVisible();
 
   await page.getByTestId("setup-skip-voz").click();
+  // E-mail é a última etapa opcional: entrou depois da voz porque nem todo
+  // cliente chega por e-mail, e ela depende de credencial do Google.
+  await expect(page.getByTestId("setup-step-email")).toBeVisible();
+
+  await page.getByTestId("setup-skip-email").click();
   await expect(page.getByTestId("setup-step-concluido")).toBeVisible();
 
   const erros: string[] = [];

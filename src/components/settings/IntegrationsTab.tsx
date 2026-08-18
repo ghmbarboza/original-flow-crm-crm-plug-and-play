@@ -16,6 +16,7 @@ import { IntegrationCard, type StatusIntegracao } from "@/components/settings/In
 import { ApiKeysList } from "@/components/settings/ApiKeysList";
 import { NewApiKeyButton } from "@/components/settings/NewApiKeyButton";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
+import { GmailSetup } from "@/components/settings/GmailSetup";
 import CalcomSettings from "@/components/settings/CalcomSettings";
 import ErpSettings from "@/components/settings/ErpSettings";
 import ImportHistorySettings from "@/components/settings/ImportHistorySettings";
@@ -131,21 +132,7 @@ export default function IntegrationsTab() {
         abrirPorPadrao={alvo === "gmail"}
         testId="integration-gmail"
       >
-        <div className="space-y-3">
-          <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-            A conexão do Gmail é feita no Inbox, junto das conversas.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => navigate("/inbox")}
-            data-testid="integrations-goto-inbox"
-          >
-            {email ? "Abrir Inbox" : "Conectar no Inbox"}
-            <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-          </Button>
-        </div>
+        <GmailSetup conectado={!!email} />
       </IntegrationCard>
 
       <IntegrationCard
