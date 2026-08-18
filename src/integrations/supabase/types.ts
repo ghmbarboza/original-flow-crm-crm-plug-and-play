@@ -1007,6 +1007,8 @@ export type Database = {
       }
       contacts: {
         Row: {
+          avatar_synced_at: string | null
+          avatar_url: string | null
           company_id: string | null
           created_at: string
           custom_fields: Json
@@ -1028,6 +1030,8 @@ export type Database = {
           whatsapp_phone: string | null
         }
         Insert: {
+          avatar_synced_at?: string | null
+          avatar_url?: string | null
           company_id?: string | null
           created_at?: string
           custom_fields?: Json
@@ -1049,6 +1053,8 @@ export type Database = {
           whatsapp_phone?: string | null
         }
         Update: {
+          avatar_synced_at?: string | null
+          avatar_url?: string | null
           company_id?: string | null
           created_at?: string
           custom_fields?: Json
