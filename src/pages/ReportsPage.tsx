@@ -19,7 +19,7 @@ import { useOrgMemberNames, useOrgMembers } from "@/hooks/useOrgMembers";
 import { formatWaitingTime } from "@/lib/sla";
 import { formatDateTime } from "@/lib/format";
 import { ChannelBadge, channelMeta } from "@/components/whatsapp/ChannelBadge";
-import { CAMPAIGN_CHANNELS } from "@/lib/campaign-channels";
+import { useActiveChannels } from "@/hooks/useActiveChannels";
 import { VIA_CHART_COLORS, VIA } from "@/lib/via-colors";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { formatCurrency } from "@/lib/format";
@@ -51,6 +51,16 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 }
 
 export default function ReportsPage() {
+  /**
+   * Só os canais realmente conectados aparecem no filtro.
+   *
+   * A lista fixa oferecia Instagram, Telegram e Facebook para uma organização
+   * que só tem WhatsApp: filtro que não pode dar resultado nenhum, e nada
+   * dizendo por quê. `useActiveChannels` é a fonte única disso — quando um canal
+   * novo é conectado, ele passa a aparecer aqui sozinho.
+   */
+  const { channels: canaisConectados } = useActiveChannels();
+
   const { data: members } = useOrgMembers();
   const [period, setPeriod] = useState("30");
   const [owner, setOwner] = useState(ALL);
@@ -122,7 +132,7 @@ export default function ReportsPage() {
               <SelectTrigger className="w-40" data-testid="reports-channel" aria-label="Filtrar por canal"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Todos os canais</SelectItem>
-                {CAMPAIGN_CHANNELS.map((ch) => (
+                {canaisConectados.map((ch) => (
                   <SelectItem key={ch} value={ch}>{channelMeta(ch).label}</SelectItem>
                 ))}
               </SelectContent>

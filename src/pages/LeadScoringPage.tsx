@@ -19,7 +19,7 @@ import {
 } from "@/hooks/useLeadScoring";
 import { useContacts } from "@/hooks/useContacts";
 import { ChannelBadge, channelMeta } from "@/components/whatsapp/ChannelBadge";
-import { CAMPAIGN_CHANNELS } from "@/lib/campaign-channels";
+import { useActiveChannels } from "@/hooks/useActiveChannels";
 import { formatDateTime } from "@/lib/format";
 
 function eventLabel(type: string) {
@@ -27,6 +27,15 @@ function eventLabel(type: string) {
 }
 
 function RulesTab() {
+  /**
+   * Só os canais realmente conectados aparecem no filtro.
+   *
+   * A lista fixa oferecia Instagram, Telegram e Facebook para uma organização
+   * que só tem WhatsApp: filtro que não pode dar resultado nenhum, e nada
+   * dizendo por quê. `useActiveChannels` é a fonte única disso — quando um canal
+   * novo é conectado, ele passa a aparecer aqui sozinho.
+   */
+  const { channels: canaisConectados } = useActiveChannels();
   const { data: rules, isLoading } = useScoringRules();
   const saveRule = useSaveScoringRule();
   const deleteRule = useDeleteScoringRule();
@@ -85,7 +94,7 @@ function RulesTab() {
             <SelectTrigger aria-labelledby="regra-canal-label"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_CHANNELS}>Todos os canais</SelectItem>
-              {CAMPAIGN_CHANNELS.map((ch) => (
+              {canaisConectados.map((ch) => (
                 <SelectItem key={ch} value={ch}>{channelMeta(ch).label}</SelectItem>
               ))}
             </SelectContent>
@@ -227,6 +236,7 @@ function HistoryTab() {
 }
 
 export default function LeadScoringPage() {
+
   return (
     <AppShell>
       <div className="space-y-6">

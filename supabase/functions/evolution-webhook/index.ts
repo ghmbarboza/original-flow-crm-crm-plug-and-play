@@ -332,7 +332,7 @@ Deno.serve(async (req) => {
 
   let contactId = existingContact?.id ?? null;
   if (!contactId) {
-    const { data: created } = await admin
+    const { data: created, error: erroContato } = await admin
       .from("contacts")
       .insert({
         org_id: orgId,
@@ -343,7 +343,26 @@ Deno.serve(async (req) => {
       })
       .select("id")
       .single();
-    contactId = created?.id ?? null;
+
+    if (created) {
+      contactId = created.id;
+    } else if (erroContato?.code === "23505") {
+      // Corrida com outra mensagem da mesma rajada: entre o SELECT lá em cima e
+      // este INSERT, uma invocação paralela já criou o contato. O índice único
+      // barra a cópia e aqui a gente adota quem chegou primeiro, em vez de
+      // perder a mensagem. Sem isso, seis mensagens seguidas viravam sete
+      // contatos e o relatório contava sete leads para uma pessoa só.
+      const { data: existente } = await admin
+        .from("contacts")
+        .select("id")
+        .eq("org_id", orgId)
+        .eq("whatsapp_phone", phone)
+        .is("merged_into_id", null)
+        .maybeSingle();
+      contactId = existente?.id ?? null;
+    } else if (erroContato) {
+      console.error(`[evolution] falha ao criar contato ${phone}: ${erroContato.message}`);
+    }
   }
 
   if (contactId) {
