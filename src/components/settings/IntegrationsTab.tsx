@@ -17,6 +17,7 @@ import { ApiKeysList } from "@/components/settings/ApiKeysList";
 import { NewApiKeyButton } from "@/components/settings/NewApiKeyButton";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import { GmailSetup } from "@/components/settings/GmailSetup";
+import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import CalcomSettings from "@/components/settings/CalcomSettings";
 import ErpSettings from "@/components/settings/ErpSettings";
 import ImportHistorySettings from "@/components/settings/ImportHistorySettings";
@@ -109,16 +110,21 @@ export default function IntegrationsTab() {
             responder falando, salve a chave do ElevenLabs, escolha a voz e ative a resposta em
             áudio.
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => navigate("/settings/ia#voz-da-agente")}
-            data-testid="integrations-goto-voice"
-          >
-            Abrir Voz da agente
-            <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* O passo a passo existia só dentro de Configurações > IA. Quem
+                chegava por Integrações via o card sem nenhuma instrução. */}
+            <ApiKeyTutorialDialog service="elevenlabs" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => navigate("/settings/ia#voz-da-agente")}
+              data-testid="integrations-goto-voice"
+            >
+              Abrir Voz da agente
+              <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+            </Button>
+          </div>
         </div>
       </IntegrationCard>
 

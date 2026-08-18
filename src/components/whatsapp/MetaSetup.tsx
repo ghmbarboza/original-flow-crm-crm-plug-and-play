@@ -4,6 +4,7 @@ import { CheckCircle2, Copy, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { useVerifyMeta } from "@/hooks/useWhatsAppConfig";
 
 interface Props {
@@ -53,6 +54,7 @@ export function MetaSetup({ onConnected, onBack }: Props) {
 
   return (
     <div className="space-y-6">
+      <ApiKeyTutorialDialog service="meta_whatsapp" />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="phone_number_id">Phone Number ID</Label>

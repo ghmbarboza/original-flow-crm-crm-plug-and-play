@@ -17,6 +17,51 @@ export interface ApiKeyTutorial {
 }
 
 export const API_KEY_TUTORIALS: Record<string, ApiKeyTutorial> = {
+  evolution: {
+    label: "Evolution API",
+    url: "https://doc.evolution-api.com/v2/pt/get-started/introduction",
+    passos: [
+      "Abra o painel do seu servidor Evolution (o Manager) e confirme que ele responde.",
+      "Copie o endereço do servidor SEM o /manager no fim — aqui vai só o domínio ou IP com a porta.",
+      "A API Key é a chave GLOBAL do servidor: a variável AUTHENTICATION_API_KEY, a mesma que abre o Manager.",
+      "Não use a chave de uma instância: ela não lista nem cria instâncias, e o servidor responde 401.",
+      "Cole os dois campos e clique em Testar conexão antes de criar a instância.",
+    ],
+    aviso: "Trocou de servidor? A chave também muda — a antiga devolve 401 no servidor novo.",
+  },
+  meta_whatsapp: {
+    label: "WhatsApp Cloud API (Meta)",
+    url: "https://developers.facebook.com/docs/whatsapp/cloud-api/get-started",
+    passos: [
+      "Acesse developers.facebook.com e crie um app do tipo Empresa.",
+      "Adicione o produto \"WhatsApp\" e vincule sua conta do WhatsApp Business.",
+      "Em \"Configuração da API\", copie o Phone Number ID e o WhatsApp Business Account ID.",
+      "Gere um token de acesso permanente por um usuário de sistema no Business Manager.",
+      "Cole os dados aqui e configure o webhook com a URL e o token de verificação mostrados na tela.",
+    ],
+    aviso: "O token temporário da tela de testes expira em 24h — para produção, use o de usuário de sistema.",
+  },
+  zernio: {
+    label: "Zernio",
+    url: "https://zernio.com.br",
+    passos: [
+      "Entre na sua conta Zernio e abra as configurações de API.",
+      "Gere uma chave de API para integração externa.",
+      "Cole a chave aqui e liste as contas para escolher quais canais conectar ao CRM.",
+      "Confirme que cada canal desejado (WhatsApp, Instagram, Telegram…) está conectado no painel da Zernio.",
+    ],
+  },
+  calcom: {
+    label: "Cal.com",
+    url: "https://cal.com/docs",
+    passos: [
+      "Acesse cal.com e copie o link público do seu tipo de evento (ex.: cal.com/seu-usuario/30min).",
+      "Em Settings → Developer → Webhooks, crie um webhook novo.",
+      "Cole a URL de webhook mostrada nesta tela e assine os eventos de reserva criada e cancelada.",
+      "Salve o link do evento aqui: é ele que a IA oferece ao cliente durante a conversa.",
+    ],
+    aviso: "Sem o webhook, o agendamento acontece no Cal.com mas não vira atividade no CRM.",
+  },
   google_client_id: {
     label: "Google (Gmail)",
     url: "https://console.cloud.google.com/apis/credentials",

@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { Badge } from "@/components/ui/badge";
 import {
   useConnectZernioChannel, useSaveZernioConfig, useZernioAccounts, useZernioConfig,
@@ -78,6 +79,7 @@ export function ZernioSetup({ onConnected, onBack }: Props) {
   if (sub === "config") {
     return (
       <div className="space-y-6">
+        <ApiKeyTutorialDialog service="zernio" />
         <div className="grid gap-4">
           <div className="space-y-2">
             <Label htmlFor="zernio_api_key">API Key do Zernio</Label>

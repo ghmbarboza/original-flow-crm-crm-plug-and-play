@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOrgId } from "@/hooks/useOrgId";
 import { CALCOM_DEFAULTS, useCalcomConfig, useSaveCalcomConfig, type CalcomConfig } from "@/hooks/useCalcom";
@@ -64,6 +65,10 @@ export default function CalcomSettings() {
 
   return (
     <div className="space-y-4">
+      {/* Mesma barra de ajuda das outras integrações: o link sozinho não basta,
+          é o webhook que faz o agendamento virar atividade no CRM. */}
+      <ApiKeyTutorialDialog service="calcom" />
+
       <div className="space-y-2">
         <Label htmlFor="calcom-link">Link de agendamento</Label>
         <div className="flex flex-wrap gap-2">

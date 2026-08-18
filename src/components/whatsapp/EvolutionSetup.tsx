@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { normalizarServerUrl } from "@/lib/evolutionUrl";
+import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import {
   useConnectEvolution, useEvolutionInstances, useEvolutionStatus, useSyncEvolutionStatus,
   type EvolutionServerInstance,
@@ -242,6 +243,12 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
                 "Testar conexão"
               )}
             </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <ApiKeyTutorialDialog service="evolution" />
+            <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+              A chave é a global do servidor, a mesma que abre o Manager.
+            </p>
           </div>
           {servidorOk && !instanceId && instancias && (
             <p className="flex items-center gap-1.5 text-xs" style={{ color: "var(--via-success)" }}>
