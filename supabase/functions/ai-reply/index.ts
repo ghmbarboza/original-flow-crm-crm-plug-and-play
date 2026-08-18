@@ -9,6 +9,7 @@
 // ANTHROPIC_API_KEY existir, senão o AI Gateway do Lovable. O system prompt pede
 // resposta direta, sem raciocínio no corpo, em qualquer um dos dois.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { garantirNegocioAberto } from "../_shared/negocio.ts";
 import { chamarIA, ErroIA, type FerramentaIA, type MensagemIA } from "../_shared/ai.ts";
 import {
   bytesParaBase64, gerarAudioDaResposta, resolverChaveElevenLabs, salvarAudioNoBucket,
@@ -533,6 +534,28 @@ Deno.serve(async (req) => {
             .limit(1)
             .maybeSingle();
           dealAlvo = data;
+        }
+
+        // Contato sem negócio nenhum: cria agora, em vez de descartar o sinal
+        // mais forte que a conversa deu. Acontece com quem já falava com a
+        // empresa antes de a criação automática existir — e é justamente quem
+        // não pode escapar do funil. `respeitarConfig: false` porque aqui não é
+        // "toda conversa vira negócio": é intenção de compra declarada.
+        if (!dealAlvo && conversation.contact_id) {
+          const novoId = await garantirNegocioAberto(
+            admin,
+            conversation.org_id as string,
+            conversation.contact_id as string,
+            `Intenção de compra — ${conversation.channel_contact_name ?? conversation.phone_number ?? "contato"}`,
+            { respeitarConfig: false },
+          );
+          if (novoId) {
+            const { data } = await admin
+              .from("deals").select("id, stage_id").eq("id", novoId).maybeSingle();
+            dealAlvo = data;
+            await admin
+              .from("conversations").update({ deal_id: novoId }).eq("id", conversation.id);
+          }
         }
 
         if (dealAlvo && dealAlvo.stage_id !== intentRules.move_to_stage_id) {

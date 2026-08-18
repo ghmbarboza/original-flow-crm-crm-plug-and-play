@@ -2776,6 +2776,7 @@ export type Database = {
       organizations: {
         Row: {
           ai_prohibitions: string | null
+          auto_create_deal_on_conversation: boolean
           brand_tone: string | null
           business_description: string | null
           business_sector: string | null
@@ -2795,6 +2796,7 @@ export type Database = {
         }
         Insert: {
           ai_prohibitions?: string | null
+          auto_create_deal_on_conversation?: boolean
           brand_tone?: string | null
           business_description?: string | null
           business_sector?: string | null
@@ -2814,6 +2816,7 @@ export type Database = {
         }
         Update: {
           ai_prohibitions?: string | null
+          auto_create_deal_on_conversation?: boolean
           brand_tone?: string | null
           business_description?: string | null
           business_sector?: string | null

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Award, Building2, CalendarClock, Pencil, Plus, StickyNote, UserRound,
+  ArrowLeft, Award, Building2, CalendarClock, Pencil, Plus, StickyNote, TrendingUp, UserRound,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ErrorState";
@@ -15,6 +15,7 @@ import { ContactTimeline } from "@/components/contacts/ContactTimeline";
 import { ScheduleMessageDialog } from "@/components/contacts/ScheduleMessageDialog";
 import { ScheduledMessagesCard } from "@/components/contacts/ScheduledMessagesCard";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
+import { DealFormDialog } from "@/components/deals/DealFormDialog";
 import { useContact } from "@/hooks/useContacts";
 import { useCreateActivity } from "@/hooks/useActivities";
 
@@ -34,6 +35,7 @@ export default function ContactDetailPage() {
   const [notaAberta, setNotaAberta] = useState(false);
   const [textoNota, setTextoNota] = useState("");
   const [atividadeOpen, setAtividadeOpen] = useState(false);
+  const [negocioOpen, setNegocioOpen] = useState(false);
   const [agendarOpen, setAgendarOpen] = useState(false);
 
   const salvarNota = async () => {
@@ -155,6 +157,12 @@ export default function ContactDetailPage() {
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Atividade
           </Button>
+          {/* Criar negócio a partir do contato: o caminho antigo era decorar o
+              nome, ir em Negócios e procurá-lo no seletor. */}
+          <Button variant="outline" className="gap-1.5" onClick={() => setNegocioOpen(true)} data-testid="contact-novo-negocio">
+            <TrendingUp className="h-4 w-4" strokeWidth={1.5} />
+            Negócio
+          </Button>
           <Button variant="outline" className="gap-1.5" onClick={() => setAgendarOpen(true)} data-testid="contact-agendar-mensagem">
             <CalendarClock className="h-4 w-4" strokeWidth={1.5} />
             Agendar mensagem
@@ -192,6 +200,12 @@ export default function ContactDetailPage() {
       </div>
 
       <ContactFormDialog open={editOpen} onOpenChange={setEditOpen} contact={contato} />
+      <DealFormDialog
+        open={negocioOpen}
+        onOpenChange={setNegocioOpen}
+        defaultContactId={contato.id}
+        defaultTitle={[contato.first_name, contato.last_name].filter(Boolean).join(" ")}
+      />
       <ActivityFormDialog
         open={atividadeOpen}
         onOpenChange={setAtividadeOpen}

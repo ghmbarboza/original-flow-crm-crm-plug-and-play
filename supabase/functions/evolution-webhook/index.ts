@@ -12,6 +12,7 @@ import {
   base64ParaBytes, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket,
   salvarMidiaNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
+import { garantirNegocioAberto } from "../_shared/negocio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -408,6 +409,17 @@ Deno.serve(async (req) => {
       .single();
     conversationId = created?.id ?? null;
     status = created?.status ?? "ai_active";
+
+    // Conversa nova entra no funil. Sem isto, o lead conversava com a IA e o
+    // funil seguia vazio — e a detecção de intenção de compra, que MOVE um
+    // negócio de etapa, não tinha nada para mover.
+    const nomeParaTitulo = (data.pushName as string | undefined) ?? phone;
+    const dealId = await garantirNegocioAberto(
+      admin, orgId, contactId, `Atendimento WhatsApp — ${nomeParaTitulo}`,
+    );
+    if (dealId && conversationId) {
+      await admin.from("conversations").update({ deal_id: dealId }).eq("id", conversationId);
+    }
   } else {
     await admin
       .from("conversations")

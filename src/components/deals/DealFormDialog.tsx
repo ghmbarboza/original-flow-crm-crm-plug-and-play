@@ -25,9 +25,15 @@ interface Props {
   deal?: Deal | null;
   /** Etapa inicial ao criar (ex.: botão "+" no topo de uma coluna do Kanban). */
   defaultStageId?: string | null;
+  /** Contato já vinculado (criar negócio a partir da ficha ou da conversa). */
+  defaultContactId?: string | null;
+  /** Título sugerido, para quem chega pelo contato não escrever do zero. */
+  defaultTitle?: string;
 }
 
-export function DealFormDialog({ open, onOpenChange, deal, defaultStageId }: Props) {
+export function DealFormDialog({
+  open, onOpenChange, deal, defaultStageId, defaultContactId, defaultTitle,
+}: Props) {
   const isEdit = !!deal;
   const { data: stages } = useStages();
   const { data: companies } = useCompanies();
@@ -49,15 +55,15 @@ export function DealFormDialog({ open, onOpenChange, deal, defaultStageId }: Pro
   useEffect(() => {
     if (!open) return;
     setForm({
-      title: deal?.title ?? "",
+      title: deal?.title ?? defaultTitle ?? "",
       value: deal ? String(deal.value ?? "") : "",
       stage_id: deal?.stage_id ?? defaultStageId ?? NONE,
-      contact_id: deal?.contact_id ?? NONE,
+      contact_id: deal?.contact_id ?? defaultContactId ?? NONE,
       company_id: deal?.company_id ?? NONE,
       owner_id: deal?.owner_id ?? NONE,
       close_date: deal?.close_date ?? "",
     });
-  }, [open, deal, defaultStageId]);
+  }, [open, deal, defaultStageId, defaultContactId, defaultTitle]);
 
   // Ao criar sem etapa escolhida, cai na primeira do pipeline.
   useEffect(() => {
