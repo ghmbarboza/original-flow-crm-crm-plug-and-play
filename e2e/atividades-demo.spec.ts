@@ -1,12 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { gotoPage, uniqueName } from "./helpers";
 
-test("atividade: cria e aparece na lista", async ({ page }) => {
+test("atividade: a rota antiga leva para Tarefas, que agora cobre todos os tipos", async ({ page }) => {
   const title = uniqueName("Atividade");
 
-  await gotoPage(page, "/activities", "Atividades");
-  await page.getByTestId("activity-new").click();
+  // Unificação de 2026-08-18: /activities e /tasks eram duas telas da mesma
+  // tabela. A rota antiga vira redirect, e o filtro de tipo mora na Tarefas.
+  await page.goto("/activities");
+  await expect(page).toHaveURL(/\/tasks/);
 
+  await page.getByTestId("task-new").click();
   const dialog = page.getByTestId("activity-dialog");
   await expect(dialog).toBeVisible();
   await dialog.locator("#title").fill(title);
@@ -22,7 +25,7 @@ test("tarefa: cria e aparece na lista", async ({ page }) => {
   await gotoPage(page, "/tasks", "Tarefas");
   await page.getByTestId("task-new").click();
 
-  // Tarefas reusam o formulário de atividade, com o tipo já fixado em "task".
+  // Tarefas reusam o formulário de atividade; o tipo já vem em "task".
   const dialog = page.getByTestId("activity-dialog");
   await expect(dialog).toBeVisible();
   await dialog.locator("#title").fill(title);

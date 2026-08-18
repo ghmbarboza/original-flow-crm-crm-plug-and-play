@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  Activity,
   Award,
   BarChart2,
   Building2,
@@ -56,7 +55,6 @@ export function AppSidebar() {
         { title: "Contatos", url: "/contacts", icon: Users },
         { title: "Empresas", url: "/companies", icon: Building2 },
         { title: "Negócios", url: "/deals", icon: TrendingUp },
-        { title: "Atividades", url: "/activities", icon: Activity },
         { title: "Tarefas", url: "/tasks", icon: CheckSquare },
         { title: "Produtos", url: "/products", icon: Package },
       ],

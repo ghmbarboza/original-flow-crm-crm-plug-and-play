@@ -22,7 +22,6 @@ const ContactDetailPage = lazy(() => import("./pages/ContactDetailPage"));
 const CompaniesPage = lazy(() => import("./pages/CompaniesPage"));
 const DealsPage = lazy(() => import("./pages/DealsPage"));
 const DealDetailPage = lazy(() => import("./pages/DealDetailPage"));
-const ActivitiesPage = lazy(() => import("./pages/ActivitiesPage"));
 const TasksPage = lazy(() => import("./pages/TasksPage"));
 const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
@@ -157,9 +156,9 @@ const App = () => (
             <Route path="/deals/:id" element={
               <ProtectedRoute><Page name="Negócio"><DealDetailPage /></Page></ProtectedRoute>
             } />
-            <Route path="/activities" element={
-              <ProtectedRoute><Page name="Atividades"><ActivitiesPage /></Page></ProtectedRoute>
-            } />
+            {/* Unificação de 2026-08-18: Atividades e Tarefas eram duas entradas
+                para a mesma tabela. Sobrou /tasks, com filtro de tipo. */}
+            <Route path="/activities" element={<Navigate to="/tasks" replace />} />
             <Route path="/tasks" element={
               <ProtectedRoute><Page name="Tarefas"><TasksPage /></Page></ProtectedRoute>
             } />

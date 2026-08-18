@@ -22,6 +22,9 @@ import {
 import type { WhatsAppProvider } from "@/hooks/useWhatsAppConfig";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDateTime } from "@/lib/format";
+import {
+  useCancelScheduledMessage, useScheduledMessages,
+} from "@/hooks/useScheduledMessages";
 
 function MessageBubble({
   message,
@@ -145,6 +148,23 @@ interface Props {
 
 export function MessagePanel({ conversation, provider }: Props) {
   const { data: messages, isLoading } = useMessages(conversation.id);
+
+  // Só as pendentes: enviada já aparece como mensagem normal no fio, e repetir
+  // aqui mostraria a mesma coisa duas vezes.
+  const { data: agendadas } = useScheduledMessages(conversation.contact?.id ?? null);
+  const agendadasPendentes = (agendadas ?? []).filter((a) => a.status === "pending");
+  const cancelarAgendamento = useCancelScheduledMessage();
+
+  const cancelarAgendada = async (id: string) => {
+    const contactId = conversation.contact?.id;
+    if (!contactId) return;
+    try {
+      await cancelarAgendamento.mutateAsync({ id, contactId });
+      toast.success("Envio cancelado.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível cancelar.");
+    }
+  };
   const sendMessage = useSendMessage();
   const updateConversation = useUpdateConversation();
   const markRead = useMarkRead();
@@ -318,6 +338,37 @@ export function MessagePanel({ conversation, provider }: Props) {
             />
           ))
         )}
+
+        {/* Mensagens programadas ainda por enviar.
+            Depois de agendar, o único sinal era um toast que sumia em segundos:
+            a pessoa não tinha como saber se já havia algo na fila para aquele
+            contato, e reagendava. Ficam no fim do fio, no mesmo formato da nota
+            interna, porque também não são mensagem trocada — são combinado
+            interno, e ainda dá para desfazer. */}
+        {agendadasPendentes.map((agendada) => (
+          <div key={agendada.id} className="flex justify-center" data-testid="mensagem-agendada">
+            <div
+              className="max-w-[80%] rounded-lg border border-dashed px-3 py-2 text-sm"
+              style={{ borderColor: "var(--via-border)", color: "var(--via-text-body)" }}
+            >
+              <p className="mb-0.5 flex flex-wrap items-center gap-1 text-xs font-medium" style={{ color: "var(--via-text-muted)" }}>
+                <CalendarClock className="h-3 w-3" strokeWidth={1.5} />
+                Agendada para {formatDateTime(agendada.scheduled_at)}
+              </p>
+              <p className="whitespace-pre-wrap">{agendada.message}</p>
+              <button
+                type="button"
+                className="mt-1 text-xs underline underline-offset-2"
+                style={{ color: "var(--via-text-muted)" }}
+                onClick={() => cancelarAgendada(agendada.id)}
+                disabled={cancelarAgendamento.isPending}
+              >
+                Cancelar envio
+              </button>
+            </div>
+          </div>
+        ))}
+
         <div ref={bottomRef} />
       </div>
 

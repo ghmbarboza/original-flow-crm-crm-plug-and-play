@@ -8,9 +8,24 @@ import {
 import { ErrorState } from "@/components/ErrorState";
 import { ActivitiesTable } from "@/components/activities/ActivitiesTable";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
-import { useActivities, type Activity } from "@/hooks/useActivities";
+import {
+  ACTIVITY_TYPE_LABEL, useActivities, type Activity, type ActivityType,
+} from "@/hooks/useActivities";
 
 const ALL = "__all__";
+const TYPES = Object.keys(ACTIVITY_TYPE_LABEL) as ActivityType[];
+
+/**
+ * Esta página absorveu a antiga /activities (2026-08-18).
+ *
+ * Eram duas entradas de menu para a MESMA tabela: "Atividades" mostrava tudo e
+ * "Tarefas" era o mesmo com `type = task`. Quem chegava não tinha como saber
+ * onde procurar o que criou, e a ficha do contato ainda oferecia dois botões
+ * que abriam o mesmo formulário.
+ *
+ * O filtro começa em "Tarefa" para o nome da página não mentir; anotações,
+ * ligações, e-mails e reuniões continuam todos aqui, a um clique no seletor.
+ */
 
 type SortKey = "due_asc" | "due_desc" | "created_desc";
 
@@ -23,11 +38,12 @@ function compareByDue(a: Activity, b: Activity, dir: 1 | -1) {
 }
 
 export default function TasksPage() {
+  const [typeFilter, setTypeFilter] = useState<string>("task");
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const [sort, setSort] = useState<SortKey>("due_asc");
 
   const { data: tasks, isLoading, error } = useActivities({
-    type: "task",
+    type: typeFilter === ALL ? undefined : (typeFilter as ActivityType),
     status: statusFilter === ALL ? undefined : (statusFilter as "open" | "done"),
   });
 
@@ -82,6 +98,17 @@ export default function TasksPage() {
 
         <div className="flex flex-wrap gap-2">
           {/* aria-label porque o combobox do Radix não tira nome do valor (axe: button-name). */}
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-44" aria-label="Filtrar por tipo">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos os tipos</SelectItem>
+              {TYPES.map((type) => (
+                <SelectItem key={type} value={type}>{ACTIVITY_TYPE_LABEL[type]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-40" aria-label="Filtrar por status">
               <SelectValue />
@@ -107,9 +134,9 @@ export default function TasksPage() {
         <ActivitiesTable
           activities={sorted}
           isLoading={isLoading}
-          isFiltered={statusFilter !== ALL}
-          hideType
-          emptyLabel="Nenhuma tarefa ainda"
+          isFiltered={statusFilter !== ALL || typeFilter !== "task"}
+          hideType={typeFilter !== ALL}
+          emptyLabel={typeFilter === "task" ? "Nenhuma tarefa ainda" : "Nenhum registro deste tipo"}
           onEdit={openEdit}
           onCreate={openCreate}
         />
@@ -119,7 +146,6 @@ export default function TasksPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         activity={editing}
-        lockedType="task"
       />
     </AppShell>
   );

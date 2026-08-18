@@ -38,7 +38,7 @@ function targetOf(n: Notification): string | null {
     case "company":
       return "/companies";
     case "activity":
-      return "/activities";
+      return "/tasks";
     default:
       return null;
   }

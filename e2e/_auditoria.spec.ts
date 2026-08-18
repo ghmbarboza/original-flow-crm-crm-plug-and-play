@@ -63,7 +63,7 @@ import AxeBuilder from "@axe-core/playwright";
  *  resolvida em tempo de teste para um contato real da org. */
 const ROTAS = [
   "/dashboard", "/contacts", "/contacts/:id", "/companies", "/deals",
-  "/activities", "/tasks", "/products", "/whatsapp", "/inbox",
+  "/tasks", "/products", "/whatsapp", "/inbox",
   "/email-templates", "/campaigns", "/library", "/automations", "/followup",
   "/email-sequences", "/reports", "/sales-goals", "/lead-scoring", "/team",
   "/settings", "/settings/atendimento", "/settings/integrations",
