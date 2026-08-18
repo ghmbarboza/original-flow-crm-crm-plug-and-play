@@ -6,7 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { useOrgApiKey, useSaveOrgApiKey } from "@/hooks/useOrgApiKey";
-import { useConnectGmail } from "@/hooks/useEmailConnection";
+import {
+  useConnectGmail, useDisconnectGmail, useEmailConnection,
+} from "@/hooks/useEmailConnection";
+import { DesconectarIntegracao } from "@/components/settings/DesconectarIntegracao";
 
 /**
  * Configuração do Gmail dentro de Integrações.
@@ -24,6 +27,18 @@ export function GmailSetup({ conectado }: { conectado: boolean }) {
   const salvarClientId = useSaveOrgApiKey("google_client_id");
   const salvarSecret = useSaveOrgApiKey("google_client_secret");
   const conectar = useConnectGmail();
+  const desconectar = useDisconnectGmail();
+  const { data: conexao } = useEmailConnection();
+
+  const desconectarConta = async () => {
+    if (!conexao?.id) return;
+    try {
+      await desconectar.mutateAsync(conexao.id);
+      toast.success("Conta desconectada.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível desconectar.");
+    }
+  };
 
   const [clientId, setClientId] = useState("");
   const [secret, setSecret] = useState("");
@@ -139,6 +154,17 @@ export function GmailSetup({ conectado }: { conectado: boolean }) {
           {conectar.isPending ? "Abrindo o Google…" : conectado ? "Reconectar conta" : "Conectar conta do Gmail"}
         </Button>
       </div>
+
+      {conectado && (
+        <DesconectarIntegracao
+          titulo="Desconectar a conta do Gmail?"
+          consequencia="Os e-mails param de ser sincronizados e você deixa de responder pelo CRM. As mensagens já sincronizadas continuam no histórico do contato, e as credenciais ficam salvas — reconectar é um clique."
+          rotulo="Desconectar conta"
+          onConfirmar={desconectarConta}
+          disabled={desconectar.isPending}
+          testId="desconectar-gmail"
+        />
+      )}
 
       {!pronto && (
         <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>

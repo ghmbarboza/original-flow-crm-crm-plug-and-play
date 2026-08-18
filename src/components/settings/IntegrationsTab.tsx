@@ -18,6 +18,11 @@ import { NewApiKeyButton } from "@/components/settings/NewApiKeyButton";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import { GmailSetup } from "@/components/settings/GmailSetup";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
+import { DesconectarIntegracao } from "@/components/settings/DesconectarIntegracao";
+import { useDisconnectChannel } from "@/hooks/useWhatsAppConfig";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { erroDeFunction } from "@/integrations/supabase/functionError";
 import CalcomSettings from "@/components/settings/CalcomSettings";
 import ErpSettings from "@/components/settings/ErpSettings";
 import ImportHistorySettings from "@/components/settings/ImportHistorySettings";
@@ -48,6 +53,31 @@ export default function IntegrationsTab() {
   const { data: importacoes } = useConversationImports();
 
   const totalImportacoes = (importacoes ?? []).filter((i) => i.status === "completed").length;
+
+  const desconectar = useDisconnectChannel();
+  const queryClient = useQueryClient();
+
+  const desconectarCanal = async () => {
+    try {
+      await desconectar.mutateAsync();
+      toast.success("Canal desconectado. Nenhuma mensagem entra ou sai até reconectar.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível desconectar.");
+    }
+  };
+
+  /** Mesma remoção da lista de chaves — a do Vault, por organização. */
+  const removerChaveVoz = async () => {
+    const { error } = await supabase.functions.invoke("delete-api-key", {
+      body: { service_name: "elevenlabs" },
+    });
+    if (error) {
+      toast.error((await erroDeFunction(error, "Falha ao remover a chave.")).message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["org-api-key"] });
+    toast.success("Chave removida. A agente volta a atender só por texto.");
+  };
 
   // Voz: a chave sozinha não faz a agente falar — o estado intermediário precisa
   // aparecer, senão o usuário acha que terminou.
@@ -91,6 +121,16 @@ export default function IntegrationsTab() {
             </p>
           )}
           <ChannelsSettings />
+
+          {canal.estado !== "nao_conectado" && (
+            <DesconectarIntegracao
+              titulo="Desconectar o canal de atendimento?"
+              consequencia="O CRM para de receber e de responder mensagens neste canal — a IA fica muda e nada entra no inbox. A configuração e o histórico ficam salvos, e a instância continua pareada no seu servidor: para voltar, basta escolher o provedor de novo."
+              onConfirmar={desconectarCanal}
+              disabled={desconectar.isPending}
+              testId="desconectar-canal"
+            />
+          )}
         </div>
       </IntegrationCard>
 
@@ -124,6 +164,15 @@ export default function IntegrationsTab() {
               Abrir Voz da agente
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
             </Button>
+            {voz.status === "ok" && (
+              <DesconectarIntegracao
+                titulo="Remover a chave do ElevenLabs?"
+                consequencia="A agente deixa de transcrever os áudios recebidos e de responder falando. As conversas e as vozes já escolhidas continuam salvas; é só cadastrar a chave de novo para voltar."
+                rotulo="Remover chave"
+                onConfirmar={removerChaveVoz}
+                testId="desconectar-elevenlabs"
+              />
+            )}
           </div>
         </div>
       </IntegrationCard>

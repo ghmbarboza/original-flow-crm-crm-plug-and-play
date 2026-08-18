@@ -73,6 +73,49 @@ export function useWhatsAppSetup() {
   });
 }
 
+/**
+ * Desconecta o canal de atendimento da organização.
+ *
+ * Desativa a configuração do provedor e limpa o provedor ativo, mas NÃO apaga a
+ * linha: `evolution_configs` guarda a instância, o servidor e o histórico de
+ * conexão, e a conversa antiga continua apontando para ela. Apagar deixaria o
+ * histórico órfão para economizar uma linha.
+ *
+ * Do lado do WhatsApp nada é desfeito: a instância segue pareada no servidor
+ * Evolution. O que muda é que o CRM para de receber e responder — que é o que
+ * "desconectar" significa aqui, e por isso a tela avisa antes.
+ */
+export function useDisconnectChannel() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!orgId) throw new Error("Organização não carregada. Recarregue a página.");
+
+      await Promise.all([
+        supabase.from("evolution_configs")
+          .update({ is_active: false, status: "disconnected", updated_at: new Date().toISOString() })
+          .eq("org_id", orgId),
+        supabase.from("meta_configs")
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq("org_id", orgId),
+      ]);
+      // zernio_configs não tem is_active: para ele, desconectar é deixar de ser
+      // o provedor ativo (abaixo). A configuração continua salva para reconectar.
+
+      const { error } = await supabase
+        .from("messaging_config")
+        .upsert({ org_id: orgId, provider: null, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] });
+      queryClient.invalidateQueries({ queryKey: ["evolution-status"] });
+    },
+  });
+}
+
 /** Grava (ou atualiza) o provedor escolhido em messaging_config. */
 export function useSetProvider() {
   const orgId = useOrgId();

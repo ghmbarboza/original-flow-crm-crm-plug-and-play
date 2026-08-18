@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
+import { DesconectarIntegracao } from "@/components/settings/DesconectarIntegracao";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOrgId } from "@/hooks/useOrgId";
 import { CALCOM_DEFAULTS, useCalcomConfig, useSaveCalcomConfig, type CalcomConfig } from "@/hooks/useCalcom";
@@ -58,6 +59,18 @@ export default function CalcomSettings() {
       toast.success("Integração de agendamento salva.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+    }
+  };
+
+  const removerCalcom = async () => {
+    try {
+      // Só o link some: as preferências de "o que fazer ao confirmar" ficam
+      // como estavam, para reconectar não exigir reconfigurar tudo.
+      await salvar.mutateAsync({ ...form, scheduling_link: "" });
+      setForm((f) => ({ ...f, scheduling_link: "" }));
+      toast.success("Integração removida. A IA não oferece mais o link de reunião.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível remover.");
     }
   };
 
@@ -129,7 +142,17 @@ export default function CalcomSettings() {
         </label>
       </fieldset>
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {form.scheduling_link.trim() ? (
+          <DesconectarIntegracao
+            titulo="Remover o agendamento pelo Cal.com?"
+            consequencia="A IA deixa de oferecer o link de reunião nas conversas e novos agendamentos não viram atividade no CRM. As reuniões já registradas continuam no histórico, e o webhook segue no Cal.com — para voltar, basta salvar o link de novo."
+            rotulo="Remover integração"
+            onConfirmar={removerCalcom}
+            disabled={salvar.isPending}
+            testId="desconectar-calcom"
+          />
+        ) : <span />}
         <Button onClick={submeter} disabled={salvar.isPending} data-testid="calcom-salvar">
           {salvar.isPending ? "Salvando…" : "Salvar agendamento"}
         </Button>
