@@ -60,3 +60,18 @@ verify_jwt = false
 # opcional via NPS_CRON_SECRET, mesmo padrão dos outros dispatchers.
 [functions.nps-dispatcher]
 verify_jwt = false
+
+# Wizard de canal (Evolution). As três recebem chamada do app com a sessão do
+# usuário e validam o token elas mesmas — `admin.auth.getUser` + resolução da
+# org — antes de tocar em qualquer coisa. Ficam declaradas aqui porque é assim
+# que já rodam em produção: sem isso, um deploy pelo CLI subiria com o padrão
+# `verify_jwt = true` e trocaria silenciosamente o erro tratado da função pelo
+# 401 cru do gateway.
+[functions.evolution-connect]
+verify_jwt = false
+
+[functions.evolution-list-instances]
+verify_jwt = false
+
+[functions.evolution-sync-status]
+verify_jwt = false
