@@ -465,7 +465,7 @@ Deno.serve(async (req) => {
       // Nome do arquivo do documento importa para quem abre depois; foto e
       // vídeo não têm nome útil, então vale o timestamp.
       const nomeOriginal = MIDIAS.tipo === "document"
-        ? String(MIDIAS.no?.fileName ?? "").replace(/[^\w.\-]/g, "_")
+        ? String(MIDIAS.no?.fileName ?? "").replace(/[^\w.-]/g, "_")
         : "";
       const nome = nomeOriginal || `${Date.now()}.${MIDIAS.ext}`;
       mediaPath = await salvarMidiaNoBucket(

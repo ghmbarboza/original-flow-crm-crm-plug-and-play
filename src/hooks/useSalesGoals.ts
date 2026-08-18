@@ -45,6 +45,21 @@ export interface GoalWithProgress extends SalesGoal {
  * deals ganhos, atividades criadas e contatos criados — por dono quando a meta é
  * individual.
  */
+/**
+ * Valores aceitos por `sales_goals.assign_type`.
+ *
+ * O banco tem CHECK ('individual', 'team') desde a migration inicial, mas a
+ * tela mandava "user" — então TODA meta individual falhava com violação de
+ * constraint e o usuário via só "não foi possível criar a meta". As leituras
+ * comparavam com "user" também, o que nunca era verdade.
+ *
+ * Constantes em vez de literais soltos: era a divergência entre dois lugares
+ * escrevendo a mesma ideia com palavras diferentes que criou o defeito.
+ */
+export const ASSIGN_INDIVIDUAL = "individual" as const;
+export const ASSIGN_TEAM = "team" as const;
+export type AssignType = typeof ASSIGN_INDIVIDUAL | typeof ASSIGN_TEAM;
+
 export function useSalesGoals(month: number, year: number) {
   const orgId = useOrgId();
 
@@ -104,7 +119,7 @@ export function useSalesGoals(month: number, year: number) {
       }
 
       return (goals.data ?? []).map((goal) => {
-        const userId = goal.assign_type === "user" ? goal.user_id : null;
+        const userId = goal.assign_type === ASSIGN_INDIVIDUAL ? goal.user_id : null;
         return {
           ...goal,
           // Meta individual usa o dono; meta de time soma toda a org (aproximação).
@@ -127,7 +142,7 @@ export function useSaveSalesGoal() {
       goal_type: GoalType;
       goal_subtype?: GoalSubtype | null;
       criteria?: GoalCriteria;
-      assign_type: "user" | "team";
+      assign_type: AssignType;
       user_id: string | null;
       team_id: string | null;
       target_value: number;

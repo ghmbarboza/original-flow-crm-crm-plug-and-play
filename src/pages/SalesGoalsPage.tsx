@@ -17,8 +17,7 @@ import {
 } from "@/components/ui/select";
 import {
   GOAL_SUBTYPES, GOAL_TYPES, useDeleteSalesGoal, useSalesGoals, useSaveSalesGoal,
-  type GoalCriteria, type GoalSubtype, type GoalType, type GoalWithProgress,
-} from "@/hooks/useSalesGoals";
+  type GoalCriteria, type GoalSubtype, type GoalType, type GoalWithProgress, ASSIGN_INDIVIDUAL, ASSIGN_TEAM } from "@/hooks/useSalesGoals";
 import { useOrgMembers, useOrgMemberNames } from "@/hooks/useOrgMembers";
 import { formatCurrency } from "@/lib/format";
 
@@ -91,7 +90,7 @@ export default function SalesGoalsPage() {
           isCriteria && form.goal_subtype === "min_deal_value"
             ? { min_value: Number(form.min_value) }
             : {},
-        assign_type: form.assignee === ALL_MEMBER ? "team" : "user",
+        assign_type: form.assignee === ALL_MEMBER ? ASSIGN_TEAM : ASSIGN_INDIVIDUAL,
         user_id: form.assignee === ALL_MEMBER ? null : form.assignee,
         team_id: null,
         target_value: target,
@@ -177,7 +176,7 @@ export default function SalesGoalsPage() {
                   ? Math.min(100, (goal.computed_current / goal.target_value) * 100)
                   : 0;
               const atingiu = lowerIsBetter ? goal.computed_current <= goal.target_value : pct >= 100;
-              const who = goal.assign_type === "user"
+              const who = goal.assign_type === ASSIGN_INDIVIDUAL
                 ? (goal.user_id ? memberNames.get(goal.user_id) ?? "Usuário" : "Usuário")
                 : "Time";
               return (
