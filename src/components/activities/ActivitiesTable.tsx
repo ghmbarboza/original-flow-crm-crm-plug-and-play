@@ -19,7 +19,7 @@ import { ActivityTypeBadge } from "@/components/activities/ActivityTypeBadge";
 import {
   useDeleteActivity, useToggleActivityComplete, type Activity,
 } from "@/hooks/useActivities";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDueDate } from "@/lib/format";
 
 function linkLabel(activity: Activity): { text: string; to: string | null } {
   if (activity.deal) return { text: activity.deal.title, to: `/deals/${activity.deal.id}` };
@@ -177,7 +177,7 @@ export function ActivitiesTable({
                     )}
                   </TableCell>
                   <TableCell style={{ color: "var(--via-text-muted)" }}>
-                    {formatDate(activity.due_date)}
+                    {formatDueDate(activity.due_date)}
                   </TableCell>
                   <TableCell>
                     <span

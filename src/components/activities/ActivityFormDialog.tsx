@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { dataParaISO } from "@/lib/format";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -75,7 +76,9 @@ export function ActivityFormDialog({ open, onOpenChange, activity, presets, lock
       type: form.type,
       title: form.title.trim(),
       body: form.body.trim() || null,
-      due_date: form.due_date ? new Date(form.due_date).toISOString() : null,
+      // dataParaISO: prazo é data pura; `new Date("2026-08-18")` gravava
+      // meia-noite UTC e a interface exibia o dia anterior no Brasil.
+      due_date: form.due_date ? dataParaISO(form.due_date) : null,
       contact_id: form.contact_id === NONE ? null : form.contact_id,
       deal_id: form.deal_id === NONE ? null : form.deal_id,
       company_id: presets?.companyId ?? null,

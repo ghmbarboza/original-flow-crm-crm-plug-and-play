@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowLeft, Award, Building2, CalendarClock, CheckSquare, Pencil, Plus, StickyNote, UserRound,
+  ArrowLeft, Award, Building2, CalendarClock, Pencil, Plus, StickyNote, UserRound,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { ErrorState } from "@/components/ErrorState";
@@ -34,7 +34,6 @@ export default function ContactDetailPage() {
   const [notaAberta, setNotaAberta] = useState(false);
   const [textoNota, setTextoNota] = useState("");
   const [atividadeOpen, setAtividadeOpen] = useState(false);
-  const [tarefaOpen, setTarefaOpen] = useState(false);
   const [agendarOpen, setAgendarOpen] = useState(false);
 
   const salvarNota = async () => {
@@ -148,13 +147,13 @@ export default function ContactDetailPage() {
             <StickyNote className="h-4 w-4" strokeWidth={1.5} />
             Anotação
           </Button>
-          <Button variant="outline" className="gap-1.5" onClick={() => setAtividadeOpen(true)}>
+          {/* Um botão só: "Atividade" e "Tarefa" abriam o MESMO formulário, e o
+              seletor de tipo já vem em "Tarefa". A diferença era só o seletor
+              travado — dois caminhos para a mesma tela, e nenhuma pista de qual
+              escolher. Tarefa segue a um clique: é o tipo padrão do diálogo. */}
+          <Button variant="outline" className="gap-1.5" onClick={() => setAtividadeOpen(true)} data-testid="contact-nova-atividade">
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Atividade
-          </Button>
-          <Button variant="outline" className="gap-1.5" onClick={() => setTarefaOpen(true)}>
-            <CheckSquare className="h-4 w-4" strokeWidth={1.5} />
-            Tarefa
           </Button>
           <Button variant="outline" className="gap-1.5" onClick={() => setAgendarOpen(true)} data-testid="contact-agendar-mensagem">
             <CalendarClock className="h-4 w-4" strokeWidth={1.5} />
@@ -197,13 +196,6 @@ export default function ContactDetailPage() {
         open={atividadeOpen}
         onOpenChange={setAtividadeOpen}
         presets={{ contactId: contato.id }}
-        hideLinks
-      />
-      <ActivityFormDialog
-        open={tarefaOpen}
-        onOpenChange={setTarefaOpen}
-        presets={{ contactId: contato.id }}
-        lockedType="task"
         hideLinks
       />
       {/* A auditoria de 2026-07-31 pegou o botão sem efeito: o estado ligava,

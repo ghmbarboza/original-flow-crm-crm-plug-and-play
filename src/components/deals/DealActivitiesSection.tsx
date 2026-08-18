@@ -9,7 +9,7 @@ import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import {
   useActivities, useDeleteActivity, useToggleActivityComplete, type Activity,
 } from "@/hooks/useActivities";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDueDate } from "@/lib/format";
 
 interface Props {
   dealId: string;
@@ -113,7 +113,7 @@ export function DealActivitiesSection({ dealId, contactId }: Props) {
                   )}
                   {activity.due_date && (
                     <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-                      Prazo {formatDate(activity.due_date)}
+                      Prazo {formatDueDate(activity.due_date)}
                     </p>
                   )}
                 </div>
