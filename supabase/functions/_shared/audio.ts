@@ -196,6 +196,33 @@ export async function salvarAudioNoBucket(
   return path;
 }
 
+/**
+ * Sobe qualquer mídia recebida (imagem, vídeo, documento) no mesmo bucket.
+ *
+ * Igual ao de áudio, com a pasta separada por tipo — o que muda é só o caminho.
+ * Mantido aqui para não haver duas formas de gravar mídia no projeto.
+ */
+export async function salvarMidiaNoBucket(
+  admin: SupabaseClient,
+  orgId: string,
+  conversationId: string,
+  pasta: string,
+  bytes: Uint8Array,
+  nomeArquivo: string,
+  contentType: string,
+): Promise<string | null> {
+  const path = `${orgId}/${pasta}/${conversationId}/${nomeArquivo}`;
+  const { error } = await admin.storage.from(BUCKET).upload(path, bytes, {
+    contentType,
+    upsert: true,
+  });
+  if (error) {
+    console.error(`[midia] falha ao subir ${path}: ${error.message}`);
+    return null;
+  }
+  return path;
+}
+
 /** Baixa a mídia de uma URL autenticada (Graph API da Meta, por exemplo). */
 export async function baixarBinario(
   url: string,

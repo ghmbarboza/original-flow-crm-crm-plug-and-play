@@ -9,7 +9,8 @@
 // instância pelo instance_name: eventos de instâncias desconhecidas são ignorados.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
-  base64ParaBytes, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket, transcreverAudio,
+  base64ParaBytes, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket,
+  salvarMidiaNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -279,6 +280,25 @@ Deno.serve(async (req) => {
   if (!phone) return ok();
 
   const message = data.message ?? {};
+
+  /**
+   * Mídia que o cliente manda e que antes sumia.
+   *
+   * O webhook só aceitava texto e áudio: foto, vídeo, documento e figurinha
+   * caíam no `ignored` e NADA era gravado — nem a mensagem, nem o registro de
+   * que o cliente enviou algo. Um lead mandando a foto do documento ou do
+   * imóvel virava silêncio no CRM.
+   *
+   * A legenda continua sendo o conteúdo textual; o binário vai para o mesmo
+   * bucket do áudio.
+   */
+  const MIDIAS = [
+    { no: message.imageMessage, tipo: "image", pasta: "imagem", rotulo: "📷 Foto", ext: "jpg" },
+    { no: message.videoMessage, tipo: "video", pasta: "video", rotulo: "🎥 Vídeo", ext: "mp4" },
+    { no: message.documentMessage, tipo: "document", pasta: "documento", rotulo: "📎 Documento", ext: "bin" },
+    { no: message.stickerMessage, tipo: "image", pasta: "figurinha", rotulo: "🈁 Figurinha", ext: "webp" },
+  ].find((m) => m.no);
+
   const textoRecebido: string =
     message.conversation ??
     message.extendedTextMessage?.text ??
@@ -287,11 +307,17 @@ Deno.serve(async (req) => {
 
   // Áudio (inclui PTT — a Evolution entrega os dois em audioMessage).
   const audioMessage = message.audioMessage ?? null;
-  if (!textoRecebido && !audioMessage) return ok({ ignored: "mensagem sem texto" });
+  if (!textoRecebido && !audioMessage && !MIDIAS) {
+    return ok({ ignored: "mensagem sem texto nem mídia" });
+  }
 
   // Preview da conversa antes de saber a transcrição: um áudio precisa aparecer
   // na lista mesmo que a transcrição falhe depois.
-  const preview = textoRecebido ? textoRecebido.slice(0, 120) : "🎤 Áudio";
+  const preview = textoRecebido
+    ? textoRecebido.slice(0, 120)
+    : MIDIAS
+      ? MIDIAS.rotulo
+      : "🎤 Áudio";
 
   const orgId = instance.org_id;
 
@@ -425,6 +451,42 @@ Deno.serve(async (req) => {
         .update({ last_message_preview: transcricao.slice(0, 120) })
         .eq("id", conversationId);
     }
+  } else if (MIDIAS) {
+    const midia = await baixarMidiaEvolution(
+      instance.server_url as string,
+      instance.api_key as string,
+      instance.instance_name as string,
+      data,
+    );
+
+    let mediaPath: string | null = null;
+    if (midia) {
+      const mimetype = (MIDIAS.no?.mimetype as string | undefined) ?? midia.mimetype;
+      // Nome do arquivo do documento importa para quem abre depois; foto e
+      // vídeo não têm nome útil, então vale o timestamp.
+      const nomeOriginal = MIDIAS.tipo === "document"
+        ? String(MIDIAS.no?.fileName ?? "").replace(/[^\w.\-]/g, "_")
+        : "";
+      const nome = nomeOriginal || `${Date.now()}.${MIDIAS.ext}`;
+      mediaPath = await salvarMidiaNoBucket(
+        admin, orgId, conversationId, MIDIAS.pasta, midia.bytes,
+        `${Date.now()}-${nome}`, mimetype,
+      );
+    }
+
+    // Download falho não descarta a mensagem: fica o registro de que o cliente
+    // mandou algo, que é melhor do que a conversa não mostrar nada.
+    const { data: inserida } = await admin.from("conversation_messages").insert({
+      conversation_id: conversationId,
+      org_id: orgId,
+      direction: "inbound",
+      content: textoRecebido || null,
+      media_url: mediaPath,
+      provider_message_id: key.id ?? null,
+      type: MIDIAS.tipo,
+      status: "received",
+    }).select("id").single();
+    mensagemId = inserida?.id ?? null;
   } else {
     const { data: inserida } = await admin.from("conversation_messages").insert({
       conversation_id: conversationId,
@@ -452,9 +514,12 @@ Deno.serve(async (req) => {
     });
   }
 
-  // IA responde só quando está no comando da conversa.
-  // Áudio sem transcrição não vira resposta automática: a IA não tem o que ler.
-  if (status === "ai_active" && (!audioMessage || transcricao)) {
+  // IA responde só quando está no comando da conversa E tem o que ler.
+  // Áudio sem transcrição e mídia sem legenda não viram resposta automática: a
+  // IA não enxerga imagem nem documento, e responder no vácuo seria pior que
+  // ficar calada — a mídia fica na conversa para a equipe tratar.
+  const temTextoParaIA = !!textoRecebido || !!transcricao;
+  if (status === "ai_active" && (audioMessage || MIDIAS ? temTextoParaIA : true)) {
     const call = triggerAI(admin, conversationId, mensagemId);
     const runtime = (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;
     if (!runtime) await call; // sem waitUntil, aguarda para não perder a resposta

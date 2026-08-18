@@ -178,6 +178,9 @@ Deno.serve(async (req) => {
     await admin.from("conversation_messages").insert({
       conversation_id: conv.id, org_id: msg.org_id, direction: "outbound",
       content: text, type: "text", status: "sent",
+      // Sem esta referência a mensagem fica idêntica a uma digitada agora, e
+      // ninguém que abre a conversa sabe que o envio foi programado.
+      scheduled_message_id: msg.id,
     });
     await admin.from("conversations").update({
       last_message_at: now, last_message_preview: text.slice(0, 120),

@@ -13,6 +13,7 @@ import { ReportAIResponseDialog } from "@/components/whatsapp/ReportAIResponseDi
 import { TransferDialog } from "@/components/whatsapp/TransferDialog";
 import { QuickReplyPicker, type QuickReplyPickerHandle } from "@/components/whatsapp/QuickReplyPicker";
 import { AudioMessage } from "@/components/whatsapp/AudioMessage";
+import { MediaMessage } from "@/components/whatsapp/MediaMessage";
 import { ScheduleMessageDialog } from "@/components/contacts/ScheduleMessageDialog";
 import { aplicarVariaveis, type QuickReply } from "@/hooks/useQuickReplies";
 import {
@@ -36,6 +37,11 @@ function MessageBubble({
 }) {
   const outbound = message.direction === "outbound";
   const audio = message.type === "audio";
+  // Imagem, vídeo e documento chegam pelo mesmo caminho do áudio: caminho no
+  // bucket privado, URL assinada na hora de exibir.
+  const midia = ["image", "video", "document"].includes(message.type)
+    ? (message.type as "image" | "video" | "document")
+    : null;
 
   if (message.is_internal_note) {
     return (
@@ -49,6 +55,30 @@ function MessageBubble({
             Nota interna
           </p>
           {message.content}
+        </div>
+      </div>
+    );
+  }
+
+  // Mensagem que saiu de um agendamento leva um rótulo acima da bolha: sem ele
+  // ela fica idêntica a algo digitado agora, e o histórico não conta que o
+  // envio foi programado.
+  // Mesmo formato da nota interna, porque cumpre o mesmo papel: não é a troca
+  // de mensagens em si, é um registro do que a plataforma fez. Sem isso a
+  // mensagem programada fica idêntica a algo digitado na hora.
+  if (message.scheduled_message_id) {
+    return (
+      <div className="flex justify-center">
+        <div
+          className="max-w-[80%] rounded-lg px-3 py-2 text-sm"
+          style={{ background: "var(--via-surface)", color: "var(--via-text-body)" }}
+          data-testid="msg-agendada-enviada"
+        >
+          <p className="mb-0.5 flex flex-wrap items-center gap-1 text-xs font-medium" style={{ color: "var(--via-text-muted)" }}>
+            <CalendarClock className="h-3 w-3" strokeWidth={1.5} />
+            Mensagem agendada · {formatDateTime(message.sent_at)}
+          </p>
+          <p className="whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
     );
@@ -88,6 +118,18 @@ function MessageBubble({
             IA
           </p>
         )}
+        {midia && (message.media_url
+          ? <MediaMessage path={message.media_url} tipo={midia} escuro={outbound} />
+          : (
+            // Download falho no webhook: a mensagem fica, o arquivo não veio.
+            // Melhor dizer isso do que sumir com o registro do que o cliente enviou.
+            <p
+              className="text-xs"
+              style={{ color: outbound ? "rgba(255,255,255,0.75)" : "var(--via-text-muted)" }}
+            >
+              Arquivo não pôde ser baixado do WhatsApp
+            </p>
+          ))}
         {audio && (message.media_url
           ? <AudioMessage path={message.media_url} escuro={outbound} />
           : (

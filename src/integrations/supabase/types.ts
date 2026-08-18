@@ -1162,6 +1162,7 @@ export type Database = {
           media_url: string | null
           org_id: string
           provider_message_id: string | null
+          scheduled_message_id: string | null
           sent_at: string
           sent_by: string | null
           status: string
@@ -1179,6 +1180,7 @@ export type Database = {
           media_url?: string | null
           org_id: string
           provider_message_id?: string | null
+          scheduled_message_id?: string | null
           sent_at?: string
           sent_by?: string | null
           status?: string
@@ -1196,6 +1198,7 @@ export type Database = {
           media_url?: string | null
           org_id?: string
           provider_message_id?: string | null
+          scheduled_message_id?: string | null
           sent_at?: string
           sent_by?: string | null
           status?: string
