@@ -1206,6 +1206,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "conversation_messages_scheduled_message_id_fkey"
+            columns: ["scheduled_message_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_messages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "whatsapp_messages_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
