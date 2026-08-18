@@ -132,11 +132,28 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
                     }}
                   >
                     <span className="relative shrink-0">
+                      {/* A foto vem do perfil do WhatsApp e pode faltar (contato
+                          sem foto, ou URL do CDN já vencida). As iniciais são o
+                          estado normal do avatar, não um fallback de erro — por
+                          isso ficam por baixo, e a imagem só cobre quando carrega. */}
                       <span
-                        className="flex h-10 w-10 items-center justify-center rounded-full text-xs font-medium"
+                        className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-xs font-medium"
                         style={{ background: "var(--via-navy)", color: "var(--via-white)" }}
                       >
                         {initials(name)}
+                        {conversation.contact?.avatar_url && (
+                          <img
+                            src={conversation.contact.avatar_url}
+                            alt=""
+                            aria-hidden
+                            loading="lazy"
+                            className="absolute inset-0 h-full w-full object-cover"
+                            onError={(e) => {
+                              // URL vencida: some com a imagem e deixa as iniciais.
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        )}
                       </span>
                       {/* Badge do canal no canto do avatar. */}
                       <span className="absolute -bottom-1 -right-1 rounded-full border-2 border-white">

@@ -11,12 +11,12 @@ export type Message = Database["public"]["Tables"]["conversation_messages"]["Row
 
 /** Conversa com o contato embutido para exibir nome/avatar na lista. */
 export interface Conversation extends ConversationRow {
-  contact: { id: string; first_name: string; last_name: string | null } | null;
+  contact: { id: string; first_name: string; last_name: string | null; avatar_url: string | null } | null;
 }
 
 const CONVERSATION_SELECT = `
   *,
-  contact:contacts(id, first_name, last_name)
+  contact:contacts(id, first_name, last_name, avatar_url)
 ` as const;
 
 /**

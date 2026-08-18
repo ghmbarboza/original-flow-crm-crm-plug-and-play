@@ -75,6 +75,53 @@ function triggerAI(conversationId: string) {
   return call;
 }
 
+/**
+ * Foto de perfil do contato, buscada no próprio WhatsApp.
+ *
+ * A URL do CDN (`pps.whatsapp.net`) vem com prazo de validade embutido, então
+ * não basta gravar uma vez: `avatar_synced_at` diz quando revalidar. Uma semana
+ * é o meio-termo entre foto velha e uma chamada extra a cada mensagem.
+ *
+ * Nada aqui pode derrubar o recebimento da mensagem — é enfeite. Por isso todo
+ * o corpo é best-effort: falhou, segue sem foto e tenta de novo na próxima.
+ */
+const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function sincronizarFoto(
+  admin: ReturnType<typeof createClient>,
+  instance: { server_url: string; api_key: string; instance_name: string },
+  contactId: string,
+  phone: string,
+  sincronizadoEm: string | null,
+) {
+  try {
+    if (sincronizadoEm && Date.now() - new Date(sincronizadoEm).getTime() < AVATAR_TTL_MS) return;
+
+    const resp = await fetch(
+      `${instance.server_url}/chat/fetchProfilePictureUrl/${instance.instance_name}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: instance.api_key },
+        body: JSON.stringify({ number: phone }),
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+    if (!resp.ok) return;
+
+    const corpo = await resp.json().catch(() => null);
+    const url: string | null = corpo?.profilePictureUrl ?? null;
+
+    // Contato sem foto no WhatsApp também é resposta: grava o carimbo para não
+    // perguntar de novo a cada mensagem que ele mandar.
+    await admin
+      .from("contacts")
+      .update({ avatar_url: url, avatar_synced_at: new Date().toISOString() })
+      .eq("id", contactId);
+  } catch (_) {
+    // silencioso de propósito: ver o comentário acima
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return ok();
 
@@ -189,7 +236,7 @@ Deno.serve(async (req) => {
   // Contato: casa pelo whatsapp_phone; cria um lead se não existir.
   const { data: existingContact } = await admin
     .from("contacts")
-    .select("id")
+    .select("id, avatar_synced_at")
     .eq("org_id", orgId)
     .eq("whatsapp_phone", phone)
     .is("merged_into_id", null)
@@ -209,6 +256,16 @@ Deno.serve(async (req) => {
       .select("id")
       .single();
     contactId = created?.id ?? null;
+  }
+
+  if (contactId) {
+    await sincronizarFoto(
+      admin,
+      instance as { server_url: string; api_key: string; instance_name: string },
+      contactId,
+      phone,
+      (existingContact?.avatar_synced_at as string | null) ?? null,
+    );
   }
 
   // Conversa: uma por telefone dentro da org.

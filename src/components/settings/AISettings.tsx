@@ -44,6 +44,7 @@ function defaultWorkingHours(): WorkingHours {
 export default function AISettings() {
   const { data: config, isLoading } = useAIConfig();
   const upsert = useUpsertAIConfig();
+  const [alternando, setAlternando] = useState(false);
   const gerar = useGenerateSystemPrompt();
   const [regenerando, setRegenerando] = useState(false);
   // Voz da agente: a chave do ElevenLabs é da organização (Vault). Aqui só se
@@ -163,6 +164,36 @@ export default function AISettings() {
     setIntentKeywordsText((pi?.keywords ?? []).join(", "));
   }, [config]);
 
+  /**
+   * O liga/desliga do atendimento grava sozinho, na hora.
+   *
+   * Antes ele só mexia no estado local e a gravação dependia do "Salvar
+   * configuração" do rodapé — depois de quatro abas e do prompt inteiro. Quem
+   * ligava a chave e saía da tela achava que a IA estava atendendo, e ela
+   * continuava desligada no banco. Switch é controle de efeito imediato; quando
+   * ele decide se a IA responde ou não a clientes reais, essa expectativa não
+   * pode ser quebrada.
+   */
+  const alternarAtendimento = async (ativo: boolean) => {
+    const anterior = form.is_active;
+    setForm((f) => ({ ...f, is_active: ativo }));
+    setAlternando(true);
+    try {
+      await upsert.mutateAsync({ is_active: ativo });
+      toast.success(
+        ativo
+          ? `Atendimento por IA ativado. ${form.agent_name || "A agente"} passa a responder novas conversas.`
+          : "Atendimento por IA desativado. Novas conversas ficam com a equipe.",
+      );
+    } catch (error) {
+      // Sem reverter, a tela mentiria: chave ligada, banco desligado.
+      setForm((f) => ({ ...f, is_active: anterior }));
+      toast.error(error instanceof Error ? error.message : "Não foi possível alterar o atendimento por IA.");
+    } finally {
+      setAlternando(false);
+    }
+  };
+
   const save = async () => {
     const keywords = keywordsText.split(",").map((k) => k.trim()).filter(Boolean);
     const intentKeywords = intentKeywordsText.split(",").map((k) => k.trim()).filter(Boolean);
@@ -213,7 +244,9 @@ export default function AISettings() {
         <Switch
           aria-label="Ativar o atendimento automático por IA"
           checked={form.is_active}
-          onCheckedChange={(v) => setForm({ ...form, is_active: v })}
+          disabled={alternando}
+          onCheckedChange={alternarAtendimento}
+          data-testid="ai-toggle"
         />
       </div>
 
