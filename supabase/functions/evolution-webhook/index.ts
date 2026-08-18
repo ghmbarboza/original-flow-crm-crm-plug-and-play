@@ -58,9 +58,22 @@ async function baixarMidiaEvolution(
   }
 }
 
-/** Dispara a resposta da IA sem bloquear a resposta ao provedor. */
-function triggerAI(conversationId: string) {
-  const call = fetch(`${SUPABASE_URL}/functions/v1/ai-reply`, {
+/**
+ * Janela de agrupamento: quanto tempo esperar, depois de uma mensagem, para ver
+ * se a pessoa ainda está escrevendo.
+ *
+ * No WhatsApp ninguém escreve um parágrafo — escreve em pedaços ("Enfrento
+ * fome" / "muita fome"). Respondendo cada pedaço na hora, a IA devolvia uma
+ * resposta por mensagem: duas respostas seguidas, cada uma cega para a outra,
+ * conversando com metade do contexto.
+ *
+ * 8s é o meio-termo entre parecer atenta e atropelar quem está digitando.
+ * Ajustável por AI_DEBOUNCE_MS sem redeploy.
+ */
+const JANELA_AGRUPAMENTO_MS = Number(Deno.env.get("AI_DEBOUNCE_MS") ?? 8000);
+
+async function chamarAiReply(conversationId: string) {
+  return fetch(`${SUPABASE_URL}/functions/v1/ai-reply`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -69,10 +82,59 @@ function triggerAI(conversationId: string) {
     },
     body: JSON.stringify({ conversation_id: conversationId }),
   }).catch(() => {});
+}
+
+/**
+ * Dispara a resposta da IA depois que a rajada de mensagens termina.
+ *
+ * Cada mensagem recebida agenda uma resposta, espera a janela e então pergunta:
+ * "ainda sou a última mensagem desta conversa?". Se não for, desiste em
+ * silêncio — quem chegou depois responde por todas, e a `ai-reply` já lê o
+ * histórico inteiro. Assim uma rajada de N mensagens vira UMA resposta, que
+ * enxerga as N.
+ *
+ * O desempate por id existe porque duas mensagens podem cair no mesmo
+ * milissegundo: sem ele, as duas se veriam como "a última" e a duplicidade
+ * voltaria pela porta dos fundos.
+ */
+function triggerAI(
+  admin: ReturnType<typeof createClient>,
+  conversationId: string,
+  mensagemId: string | null,
+) {
+  const fluxo = (async () => {
+    if (mensagemId && JANELA_AGRUPAMENTO_MS > 0) {
+      await new Promise((r) => setTimeout(r, JANELA_AGRUPAMENTO_MS));
+
+      const { data: ultima } = await admin
+        .from("conversation_messages")
+        .select("id")
+        .eq("conversation_id", conversationId)
+        .eq("direction", "inbound")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (ultima?.id && ultima.id !== mensagemId) return;
+
+      // A janela é tempo real de conversa: um atendente pode ter assumido nesse
+      // intervalo. Responder agora seria a IA falando por cima do humano.
+      const { data: conversa } = await admin
+        .from("conversations")
+        .select("status")
+        .eq("id", conversationId)
+        .maybeSingle();
+      if (conversa?.status !== "ai_active") return;
+    }
+
+    await chamarAiReply(conversationId);
+  })();
+
   // Mantém a função viva até a IA responder, sem atrasar o 200 ao provedor.
   const runtime = (globalThis as { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } }).EdgeRuntime;
-  if (runtime?.waitUntil) runtime.waitUntil(call);
-  return call;
+  if (runtime?.waitUntil) runtime.waitUntil(fluxo);
+  return fluxo;
 }
 
 /**
@@ -322,6 +384,10 @@ Deno.serve(async (req) => {
   // Falha de download ou de transcrição NÃO descarta a mensagem: o áudio (ou ao
   // menos o registro dele) fica na conversa para a equipe ouvir/responder.
   let transcricao: string | null = null;
+  // Id da mensagem recém-gravada: é ele que decide, ao fim da janela de
+  // agrupamento, se esta invocação ainda é a última da rajada.
+  let mensagemId: string | null = null;
+
   if (audioMessage) {
     const midia = await baixarMidiaEvolution(
       instance.server_url as string,
@@ -341,7 +407,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    await admin.from("conversation_messages").insert({
+    const { data: inserida } = await admin.from("conversation_messages").insert({
       conversation_id: conversationId,
       org_id: orgId,
       direction: "inbound",
@@ -350,7 +416,8 @@ Deno.serve(async (req) => {
       provider_message_id: key.id ?? null,
       type: "audio",
       status: "received",
-    });
+    }).select("id").single();
+    mensagemId = inserida?.id ?? null;
 
     if (transcricao) {
       await admin
@@ -359,7 +426,7 @@ Deno.serve(async (req) => {
         .eq("id", conversationId);
     }
   } else {
-    await admin.from("conversation_messages").insert({
+    const { data: inserida } = await admin.from("conversation_messages").insert({
       conversation_id: conversationId,
       org_id: orgId,
       direction: "inbound",
@@ -367,7 +434,8 @@ Deno.serve(async (req) => {
       provider_message_id: key.id ?? null,
       type: "text",
       status: "received",
-    });
+    }).select("id").single();
+    mensagemId = inserida?.id ?? null;
   }
 
   // Lead scoring por canal. Sem regra ativa a função não faz nada.
@@ -387,7 +455,7 @@ Deno.serve(async (req) => {
   // IA responde só quando está no comando da conversa.
   // Áudio sem transcrição não vira resposta automática: a IA não tem o que ler.
   if (status === "ai_active" && (!audioMessage || transcricao)) {
-    const call = triggerAI(conversationId);
+    const call = triggerAI(admin, conversationId, mensagemId);
     const runtime = (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;
     if (!runtime) await call; // sem waitUntil, aguarda para não perder a resposta
   }
