@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
-import { VARIAVEIS_MENSAGEM, renderVariaveis, valoresDoContato } from "./messageVars";
+import {
+  VARIAVEIS_FOLLOWUP, VARIAVEIS_MENSAGEM, renderVariaveis, valoresDoContato,
+} from "./messageVars";
 
 describe("variáveis de mensagem programada", () => {
   it("substitui as três variáveis suportadas", () => {
@@ -36,6 +38,30 @@ describe("variáveis de mensagem programada", () => {
     );
     for (const { chave } of VARIAVEIS_MENSAGEM) {
       expect(fonte, `o dispatcher não substitui {{${chave}}}`).toContain(`"${chave}"`);
+    }
+  });
+
+  /**
+   * Mesma trava do agendamento, para a outra família de variáveis: o follow-up
+   * oferecia `{{agente}}` e o dispatcher preenchia com string vazia fixa.
+   */
+  it("as variáveis do follow-up existem no dispatcher", () => {
+    const fonte = fs.readFileSync(
+      "supabase/functions/followup-dispatcher/index.ts",
+      "utf8",
+    );
+    for (const { chave } of VARIAVEIS_FOLLOWUP) {
+      expect(fonte, `o dispatcher não substitui {{${chave}}}`).toContain(`${chave}:`);
+    }
+  });
+
+  it("nenhuma variável do follow-up é preenchida com vazio fixo", () => {
+    const fonte = fs.readFileSync(
+      "supabase/functions/followup-dispatcher/index.ts",
+      "utf8",
+    );
+    for (const { chave } of VARIAVEIS_FOLLOWUP) {
+      expect(fonte, `{{${chave}}} sai sempre vazio`).not.toContain(`${chave}: "",`);
     }
   });
 });

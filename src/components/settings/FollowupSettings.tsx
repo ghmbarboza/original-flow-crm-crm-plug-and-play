@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { CampoComVariaveis } from "@/components/CampoComVariaveis";
+import { VARIAVEIS_FOLLOWUP } from "@/lib/messageVars";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -20,7 +22,6 @@ import {
 import { FollowupExecucoes } from "@/components/settings/FollowupExecucoes";
 
 /** Variáveis disponíveis nos templates de mensagem. */
-const VARIABLES = ["{{nome}}", "{{empresa}}", "{{agente}}"];
 
 const MEDIA_TYPES = [
   { value: "image", label: "Imagem", accept: "image/*" },
@@ -148,11 +149,19 @@ function StepRow({ step, index }: { step: FollowupStep; index: number }) {
           <Trash2 className="h-4 w-4" strokeWidth={1.5} />
         </Button>
       </div>
-      <Textarea
-        rows={2}
+      {/* Mesmo componente da mensagem agendada: variáveis clicáveis e prévia.
+          Antes as variáveis eram só uma linha de código no rodapé da tela, longe
+          do campo, e erro de digitação virava "Olá ," no WhatsApp do cliente. */}
+      <CampoComVariaveis
+        id={`followup-msg-${step.id}`}
+        label="Mensagem"
         value={template}
-        onChange={(e) => setTemplate(e.target.value)}
+        onChange={setTemplate}
+        variaveis={VARIAVEIS_FOLLOWUP}
+        valores={VALORES_EXEMPLO}
+        rows={2}
         placeholder="Olá {{nome}}, ainda posso te ajudar?"
+        testId={`followup-template-${step.id}`}
       />
 
       {/* Anexo opcional (Parte 10): a mensagem sai com a mídia junto. */}
@@ -239,6 +248,13 @@ function StepRow({ step, index }: { step: FollowupStep; index: number }) {
     </div>
   );
 }
+
+/** A prévia do follow-up é genérica: a régua vale para muitos contatos. */
+const VALORES_EXEMPLO = {
+  nome: "Maria",
+  empresa: "Empresa da Maria",
+  agente: "Sabrina",
+};
 
 export default function FollowupSettings() {
   const { data: config, isLoading } = useFollowupConfig();
@@ -349,7 +365,6 @@ export default function FollowupSettings() {
         </div>
 
         <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-          Variáveis disponíveis: {VARIABLES.map((v) => <code key={v} className="mx-0.5 rounded px-1" style={{ background: "var(--via-surface)" }}>{v}</code>)}
         </p>
 
         {loadingSteps ? (

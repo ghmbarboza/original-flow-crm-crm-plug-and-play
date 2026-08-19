@@ -614,7 +614,7 @@ Deno.serve(async (req) => {
       "",
       (faqs.data ?? []).length ? "FAQs:\n" + (faqs.data ?? []).map((f) => `P: ${f.question}\nR: ${f.answer}`).join("\n\n") : "",
       (objections.data ?? []).length ? "\nComo contornar objeções:\n" + (objections.data ?? []).map((o) => `Objeção: ${o.objection}\nResposta: ${o.response}`).join("\n\n") : "",
-      "\nQuando o cliente perguntar sobre produtos, preços ou o que vendemos, use a ferramenta buscar_produtos para consultar o catálogo antes de responder. Não invente produtos nem preços.",
+      "\nQuando o cliente perguntar sobre produtos, preços ou o que vendemos, use a ferramenta buscar_produtos para consultar o catálogo antes de responder. Não invente produtos nem preços. Respeite a disponibilidade devolvida pela ferramenta: nunca prometa entrega de item ESGOTADO — diga que está sem estoque, ofereça avisar quando repor e sugira alternativa disponível.",
       schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
       "",
       "Responda apenas com a mensagem final ao cliente, sem raciocínio nem meta-comentário.",
@@ -659,7 +659,7 @@ Deno.serve(async (req) => {
 
       let q = admin
         .from("products")
-        .select("name, description, price, currency, custom_fields")
+        .select("name, description, price, currency, custom_fields, track_stock, stock_quantity, stock_minimum_alert")
         .eq("org_id", conversation.org_id)
         .eq("is_active", true)
         .limit(limit);
@@ -672,13 +672,41 @@ Deno.serve(async (req) => {
           ? `Nenhum produto encontrado para "${query}". Diga ao cliente que vai verificar com a equipe.`
           : "Nenhum produto ativo no catálogo.";
       }
-      return JSON.stringify(
-        encontrados.map((p) => ({
+      /**
+       * Disponibilidade em palavras, não em número cru.
+       *
+       * A IA vendia produto esgotado com naturalidade: a ferramenta devolvia
+       * nome, descrição e preço, e o controle de estoque do CRM não chegava até
+       * ela. Agora chega — como rótulo, porque a quantidade exata é dado interno
+       * e não precisa ir para a conversa do cliente.
+       *
+       * Produto sem `track_stock` não ganha rótulo: quem não controla estoque
+       * (serviço, consultoria) não deve ouvir a IA falando em unidades.
+       */
+      const disponibilidade = (p: Record<string, unknown>): string | undefined => {
+        if (!p.track_stock) return undefined;
+        const qtd = Number(p.stock_quantity ?? 0);
+        const minimo = Number(p.stock_minimum_alert ?? 0);
+        if (qtd <= 0) return "ESGOTADO";
+        if (minimo > 0 && qtd <= minimo) return "últimas unidades";
+        return "disponível";
+      };
+
+      const semEstoque = encontrados.some(
+        (p) => disponibilidade(p as Record<string, unknown>) === "ESGOTADO",
+      );
+
+      return JSON.stringify({
+        produtos: encontrados.map((p) => ({
           nome: p.name,
           descricao: p.description ?? undefined,
           preco: new Intl.NumberFormat("pt-BR", { style: "currency", currency: (p.currency as string) ?? "BRL" }).format(Number(p.price ?? 0)),
+          disponibilidade: disponibilidade(p as Record<string, unknown>),
         })),
-      );
+        instrucao: semEstoque
+          ? "Há item ESGOTADO na lista. NAO prometa prazo nem venda desse item: diga que está sem estoque no momento, ofereça avisar quando chegar e sugira uma alternativa disponível, se houver."
+          : undefined,
+      });
     };
 
     const { texto } = await chamarIA({

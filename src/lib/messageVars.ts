@@ -16,6 +16,23 @@ export const VARIAVEIS_MENSAGEM = [
   { chave: "contact.name", rotulo: "Nome completo" },
 ] as const;
 
+/**
+ * Variáveis do follow-up e das campanhas.
+ *
+ * Vocabulário DIFERENTE do agendamento — `{{nome}}` em vez de
+ * `{{contact.first_name}}` — porque os dispatchers são outros e já rodavam
+ * assim. Unificar as duas famílias exigiria migrar os templates que os clientes
+ * já escreveram, então cada tela declara o seu e o componente mostra só o que
+ * vale ali. O que não pode é a tela oferecer o que o servidor não preenche.
+ */
+export const VARIAVEIS_FOLLOWUP = [
+  { chave: "nome", rotulo: "Primeiro nome" },
+  { chave: "empresa", rotulo: "Empresa" },
+  { chave: "agente", rotulo: "Atendente" },
+] as const;
+
+export type VariavelMensagem = { chave: string; rotulo: string };
+
 export type ValoresVariaveis = Record<string, string | null | undefined>;
 
 /** Mesmo regex do dispatcher: `{{ chave }}` com espaços opcionais. */

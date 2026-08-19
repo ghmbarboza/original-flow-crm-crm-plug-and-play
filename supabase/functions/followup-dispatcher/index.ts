@@ -12,6 +12,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+/**
+ * Nome que assina a mensagem: o atendente atribuído ou, na falta dele, a agente
+ * de IA configurada. Nunca vazio — a variável existe justamente para assinar.
+ */
+async function nomeDoAgente(
+  admin: ReturnType<typeof createClient>,
+  orgId: string,
+  assignedTo: string | null,
+): Promise<string> {
+  if (assignedTo) {
+    const { data } = await admin
+      .from("profiles").select("full_name").eq("id", assignedTo).maybeSingle();
+    const nome = (data?.full_name as string | undefined)?.trim();
+    if (nome) return nome.split(" ")[0];
+  }
+  const { data: cfg } = await admin
+    .from("ai_messaging_config").select("agent_name").eq("org_id", orgId).maybeSingle();
+  return ((cfg?.agent_name as string | undefined) ?? "").trim();
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
@@ -209,7 +229,11 @@ Deno.serve(async (req) => {
       const text = render(step.message_template, {
         nome: contact?.first_name ?? "",
         empresa: company?.name ?? "",
-        agente: "",
+        // `agente` era string vazia FIXA: a tela oferecia a variável e quem
+        // escrevesse "aqui é o {{agente}}" mandava "aqui é o " para o cliente.
+        // Quem assina é o atendente da conversa; sem atendente humano, a agente
+        // de IA, que é quem de fato vinha conversando.
+        agente: await nomeDoAgente(admin, orgId, conv.assigned_to as string | null),
       });
 
       // Anexo da etapa (Parte 10): resolvido na hora do envio, com dados frescos.
