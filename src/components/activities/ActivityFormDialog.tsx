@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { useContacts } from "@/hooks/useContacts";
 import { useDeals } from "@/hooks/useDeals";
+import { useOrgId } from "@/hooks/useOrgId";
 import {
   ACTIVITY_TYPE_LABEL, useCreateActivity, useUpdateActivity,
   type Activity, type ActivityType,
@@ -62,6 +63,9 @@ export function ActivityFormDialog({ open, onOpenChange, activity, presets, lock
     });
   }, [open, activity, presets, lockedType]);
 
+  // Sem org_id o insert é recusado ("Organização não carregada"); segurar o
+  // submit até o perfil chegar evita o erro em quem abre o diálogo cedo demais.
+  const orgId = useOrgId();
   const isSaving = createActivity.isPending || updateActivity.isPending;
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -215,7 +219,7 @@ export function ActivityFormDialog({ open, onOpenChange, activity, presets, lock
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving} data-testid="activity-submit">
+            <Button type="submit" disabled={isSaving || !orgId} data-testid="activity-submit">
               {isSaving ? "Salvando…" : isEdit ? "Salvar" : `Criar ${noun}`}
             </Button>
           </DialogFooter>
