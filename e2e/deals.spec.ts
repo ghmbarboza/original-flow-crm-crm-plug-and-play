@@ -8,7 +8,9 @@ test("cria um negócio e move no kanban", async ({ page }) => {
   const title = `Negócio E2E ${Date.now()}`;
 
   // --- Criar ---
-  await page.getByRole("button", { name: "Novo negócio" }).click();
+  // Pelo testid: o nome "Novo negócio" casa por substring com o atalho
+  // "Novo negócio em <etapa>" de cada coluna do kanban.
+  await page.getByTestId("deal-new").click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: "Novo negócio" })).toBeVisible();
 

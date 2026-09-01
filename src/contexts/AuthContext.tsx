@@ -11,6 +11,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileSettled, setProfileSettled] = useState(false);
   const loadedFor = useRef<string | null>(null);
   const accessTokenRef = useRef<string | null>(null);
 
@@ -53,7 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loadedFor.current = uid;
       setTimeout(() => {
         if (!active) return;
-        loadProfileAndRole(uid);
+        // `finally`: mesmo se a carga falhar, o app libera e cai no
+        // comportamento otimista de sempre, em vez de segurar a tela.
+        loadProfileAndRole(uid).finally(() => {
+          if (active) setProfileSettled(true);
+        });
         checkActiveStatus();
       }, 0);
     };
@@ -67,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser((prev) => (prev?.id === nextUser?.id ? prev : nextUser));
 
       if (!nextUser) {
-        setProfile(null); setRole(null); loadedFor.current = null;
+        setProfile(null); setRole(null); setProfileSettled(false); loadedFor.current = null;
       } else {
         maybeLoadProfile(nextUser.id);
       }
@@ -193,14 +198,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo<AuthContextValue>(() => ({
-    user, session, profile, role, isLoading,
+    user, session, profile, role, isLoading, profileSettled,
     isAdmin: role === "admin",
     isMember: role === "member",
     isApproved: !!profile?.is_approved,
     isActive: profile ? profile.is_active : true,
     isPendingApproval: !!profile && profile.is_active && !profile.is_approved,
     signIn, signUp, signOut, refreshProfile,
-  }), [user, session, profile, role, isLoading]);
+  }), [user, session, profile, role, isLoading, profileSettled]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

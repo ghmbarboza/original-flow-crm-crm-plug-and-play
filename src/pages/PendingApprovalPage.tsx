@@ -2,13 +2,20 @@ import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function PendingApprovalPage() {
-  const { profile, signOut, refreshProfile } = useAuth();
+  const { profile, isApproved, isActive, signOut, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(false);
+
+  // Quem já está aprovado não tem o que fazer aqui: sai sozinho, sem depender
+  // do clique em "Verificar novamente". Cobre o resquício de corrida do login
+  // e o caso de a aprovação chegar com a página aberta.
+  useEffect(() => {
+    if (profile && isApproved && isActive) navigate("/dashboard", { replace: true });
+  }, [profile, isApproved, isActive, navigate]);
 
   const onCheck = async () => {
     setChecking(true);

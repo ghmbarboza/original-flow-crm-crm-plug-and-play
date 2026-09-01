@@ -31,6 +31,12 @@ export interface AuthContextValue {
   profile: Profile | null;
   role: AppRole | null;
   isLoading: boolean;
+  /**
+   * A primeira carga de perfil/papel deste usuário terminou (com ou sem linha).
+   * Enquanto false, org_id ainda pode estar a caminho: mutations que dependem
+   * dele falhariam com "Organização não carregada".
+   */
+  profileSettled: boolean;
   isAdmin: boolean;
   isMember: boolean;
   isApproved: boolean;
