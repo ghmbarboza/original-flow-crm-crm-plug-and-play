@@ -1,6 +1,11 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { instalarRenovacaoDeSessaoNasFunctions } from "./integrations/supabase/functionRetry401";
+
+// Antes do primeiro render: toda chamada de edge function com 401 tenta renovar
+// a sessão e repetir uma vez, em vez de pedir para recarregar a página.
+instalarRenovacaoDeSessaoNasFunctions();
 
 createRoot(document.getElementById("root")!).render(<App />);
 

@@ -12,6 +12,7 @@ import {
   useConnectGmail, useDisconnectGmail, useEmailConnection, useSyncGmail,
 } from "@/hooks/useEmailConnection";
 import { useEmailThreads, useThreadEmails, type EmailThread } from "@/hooks/useEmails";
+import { useOrgApiKey } from "@/hooks/useOrgApiKey";
 import { formatDateTime } from "@/lib/format";
 
 function threadName(thread: EmailThread): string {
@@ -63,6 +64,8 @@ export default function InboxPage() {
 
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const { data: temClientId } = useOrgApiKey("google_client_id");
+  const { data: temSecret } = useOrgApiKey("google_client_secret");
 
   const handleConnect = async () => {
     try {
@@ -85,8 +88,11 @@ export default function InboxPage() {
     return <AppShell><PageSkeleton /></AppShell>;
   }
 
-  // Sem conexão: card de conectar Gmail.
+  // Sem conexão: card de conectar Gmail. O texto muda conforme o passo em que a
+  // pessoa parou — quem já cadastrou as credenciais em Integrações lia o mesmo
+  // "Conecte seu Gmail" genérico e entendia que o cadastro não tinha valido.
   if (!connection) {
+    const credenciaisProntas = !!temClientId && !!temSecret;
     return (
       <AppShell>
         <div className="space-y-6">
@@ -100,8 +106,12 @@ export default function InboxPage() {
               componente e largura dos estados vazios do resto da plataforma. */}
           <EmptyState
             icon={Plug}
-            title="Conecte seu Gmail"
-            description="Sincronize suas conversas de email e envie mensagens direto do CRM, com histórico por contato."
+            title={credenciaisProntas ? "Falta autorizar a conta do Gmail" : "Conecte seu Gmail"}
+            description={
+              credenciaisProntas
+                ? "As credenciais do Google já estão cadastradas. Agora clique em Conectar Gmail para autorizar a conta de e-mail — é o último passo."
+                : "Sincronize suas conversas de email e envie mensagens direto do CRM, com histórico por contato."
+            }
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 <Button onClick={handleConnect} disabled={connectGmail.isPending} className="gap-1.5">
@@ -110,10 +120,10 @@ export default function InboxPage() {
                 </Button>
                 {/* Saída para quem ainda não cadastrou as credenciais do Google:
                     sem ela, o botão acima só respondia com erro e não havia
-                    para onde ir. */}
+                    para onde ir. Com tudo cadastrado, vira só um atalho de revisão. */}
                 <Button variant="outline" asChild className="gap-1.5">
                   <Link to="/settings/integrations?integration=gmail">
-                    Configurar credenciais
+                    {credenciaisProntas ? "Rever credenciais" : "Configurar credenciais"}
                     <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
                   </Link>
                 </Button>
