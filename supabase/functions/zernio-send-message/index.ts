@@ -74,12 +74,23 @@ Deno.serve(async (req) => {
       return json({ error: "Conversa sem id do Zernio (nenhuma mensagem recebida ainda)." }, 400);
     }
 
+    // Qualquer falha depois daqui grava a mensagem como "failed", igual Evolution
+    // e Meta. Antes, se a listagem de contas falhava (chave recusada, Zernio fora),
+    // o texto digitado pelo atendente sumia sem deixar rastro na conversa.
+    const falhar = async (erro: string) => {
+      await admin.from("conversation_messages").insert({
+        conversation_id, org_id: conversation.org_id, direction: "outbound",
+        content, sent_by: user.id, type: "text", status: "failed",
+      });
+      return json({ error: erro }, 400);
+    };
+
     const { data: config } = await admin
       .from("zernio_configs")
       .select("api_key, profile_id")
       .eq("org_id", conversation.org_id)
       .maybeSingle();
-    if (!config) return json({ error: "Zernio não configurado para esta organização." }, 400);
+    if (!config) return falhar("Zernio não configurado para esta organização.");
 
     // Resolve a conta conectada do canal da conversa (accountId é obrigatório no envio).
     const accountsUrl = new URL(`${ZERNIO_API}/accounts`);
@@ -91,13 +102,13 @@ Deno.serve(async (req) => {
     });
     if (!accResp.ok) {
       const text = await accResp.text();
-      return json({ error: `Zernio recusou a listagem de contas: ${text.slice(0, 160)}` }, 400);
+      return falhar(`Zernio recusou a listagem de contas: ${text.slice(0, 160)}`);
     }
     const accData = await accResp.json().catch(() => ({}));
     const account = (accData.accounts ?? []).find((a: { isActive?: boolean }) => a.isActive) ?? (accData.accounts ?? [])[0];
     const accountId = account?._id as string | undefined;
     if (!accountId) {
-      return json({ error: `Nenhuma conta conectada no Zernio para o canal ${conversation.channel}.` }, 400);
+      return falhar(`Nenhuma conta conectada no Zernio para o canal ${conversation.channel}.`);
     }
 
     // Entrega ao Zernio.
@@ -109,11 +120,7 @@ Deno.serve(async (req) => {
 
     if (!sendResp.ok) {
       const text = await sendResp.text();
-      await admin.from("conversation_messages").insert({
-        conversation_id, org_id: conversation.org_id, direction: "outbound",
-        content, sent_by: user.id, type: "text", status: "failed",
-      });
-      return json({ error: `Zernio recusou o envio: ${text.slice(0, 200)}` }, 400);
+      return falhar(`Zernio recusou o envio: ${text.slice(0, 200)}`);
     }
 
     const result = await sendResp.json().catch(() => ({}));

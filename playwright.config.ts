@@ -39,6 +39,16 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"], storageState: "e2e/.auth/user.json" },
       dependencies: ["setup"],
+      testIgnore: /hard[\\/]/,
+    },
+    // Hard smoke das integrações (npm run test:hard): chama as functions direto,
+    // com payloads reais de cada fornecedor e a sandbox no lugar dos servidores
+    // externos. Sem navegador, sem dependência do login da UI. Ver e2e/hard/ctx.ts.
+    {
+      name: "hard",
+      testDir: "./e2e/hard",
+      timeout: 120_000,
+      retries: 0,
     },
   ],
   webServer: {

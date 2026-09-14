@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:hard": "cross-env HARD=1 playwright test --project=hard",
     "audit:varredura": "cross-env AUDIT=1 playwright test e2e/_auditoria.spec.ts -g \"varredura\"",
     "audit:axe": "cross-env AUDIT=1 playwright test e2e/_auditoria.spec.ts -g \"axe\"",
     "audit:galeria": "cross-env AUDIT=1 playwright test e2e/_auditoria.spec.ts -g \"galeria\"",
