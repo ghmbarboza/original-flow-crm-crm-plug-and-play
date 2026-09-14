@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowRight, AudioLines, CalendarCheck2, History, Mail, MessageSquare, Plug,
+  ArrowRight, AudioLines, CalendarCheck2, History, Mail, MessageSquare, Plug, Webhook,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { erroDeFunction } from "@/integrations/supabase/functionError";
 import CalcomSettings from "@/components/settings/CalcomSettings";
 import ErpSettings from "@/components/settings/ErpSettings";
+import WebhooksSettings from "@/components/settings/WebhooksSettings";
+import { useWebhookEndpoints, useWebhookInboundKeys } from "@/hooks/useWebhooks";
 import ImportHistorySettings from "@/components/settings/ImportHistorySettings";
 
 /**
@@ -51,6 +53,10 @@ export default function IntegrationsTab() {
   const { data: erp } = useErpConfig();
   const salvarErp = useSaveErpConfig();
   const { data: importacoes } = useConversationImports();
+  const { data: destinosWebhook } = useWebhookEndpoints();
+  const { data: chavesWebhook } = useWebhookInboundKeys();
+  const totalWebhooks =
+    (destinosWebhook ?? []).filter((d) => d.is_active).length + (chavesWebhook ?? []).filter((k) => k.is_active).length;
 
   const totalImportacoes = (importacoes ?? []).filter((i) => i.status === "completed").length;
 
@@ -222,6 +228,19 @@ export default function IntegrationsTab() {
         }
       >
         <ErpSettings />
+      </IntegrationCard>
+
+      <IntegrationCard
+        icon={Webhook}
+        title="Webhooks: outras soluções, n8n e Make"
+        purpose="Conecta o CRM a qualquer sistema: envia os eventos do CRM e recebe leads, contratos, pagamentos e agendamentos."
+        recomendacao="opcional"
+        status={totalWebhooks > 0 ? "ok" : "ausente"}
+        statusLabel={totalWebhooks > 0 ? `${totalWebhooks} conexão(ões) ativa(s)` : "Nenhuma conexão"}
+        abrirPorPadrao={alvo === "webhooks"}
+        testId="integration-webhooks"
+      >
+        <WebhooksSettings />
       </IntegrationCard>
 
       <IntegrationCard

@@ -1,4 +1,4 @@
--- Sprint 11, Fase 1 — simulador de integrações para o hard smoke test.
+-- Sprint 11, Fase 1: simulador de integrações para o hard smoke test.
 --
 -- O hard smoke precisa provar que cada integração funciona sem ter acesso à
 -- ferramenta real. A function integration-sandbox faz dois papéis: finge ser um

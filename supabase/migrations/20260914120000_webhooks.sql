@@ -1,4 +1,4 @@
--- Sprint 11, Fase 2 — Webhooks de entrada e saída.
+-- Sprint 11, Fase 2: Webhooks de entrada e saída.
 --
 -- Ponte padrão entre o FlowCRM e as outras soluções do Viver de IA (e n8n, Make,
 -- qualquer sistema com HTTP). Contrato documentado em WEBHOOKS.md.

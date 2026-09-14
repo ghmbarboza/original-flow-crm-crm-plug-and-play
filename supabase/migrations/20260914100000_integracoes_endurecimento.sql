@@ -1,4 +1,4 @@
--- Sprint 11, Fase 0 — endurecimento das integrações.
+-- Sprint 11, Fase 0: endurecimento das integrações.
 --
 -- Achados da varredura de 14/09 que impactariam a entrega:
 --  1. Nenhuma function tem verify_jwt no ar (a Lovable publica todas com
