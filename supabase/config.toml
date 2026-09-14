@@ -75,3 +75,11 @@ verify_jwt = false
 
 [functions.evolution-sync-status]
 verify_jwt = false
+
+# Dispatcher de webhooks de saída: acionado por cron, sem JWT; autenticação
+# própria. Inbound: chamado por sistemas externos com autenticação própria.
+[functions.webhook-dispatcher]
+verify_jwt = false
+
+[functions.webhook-inbound]
+verify_jwt = false
