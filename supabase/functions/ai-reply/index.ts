@@ -127,8 +127,13 @@ function dentroDoHorario(workingHours: unknown, timezone: string): boolean {
   const minuto = partes.find((p) => p.type === "minute")?.value ?? "00";
   const agora = `${hora}:${minuto}`;
 
+  // O formato por dia vence quando existe. A tela mesclava o default legado com
+  // o que o usuário editava e gravava os dois juntos; lendo o legado primeiro,
+  // a IA ignorava o horário configurado na tela (achado de 14/09: org com
+  // "days" 08-18 e segunda a sexta 09-18 na tela).
+  const temPorDia = DIAS_ISO.some((d) => typeof (workingHours as Record<string, unknown>)[d] === "object");
   const legado = workingHours as WorkingHoursLegado;
-  if (Array.isArray(legado.days)) {
+  if (!temPorDia && Array.isArray(legado.days)) {
     const isoHoje = DIAS_ISO.indexOf(diaKey) + 1; // 0 vira -1+1 = 0, nunca casa
     if (!legado.days.includes(isoHoje)) return false;
     return dentroDaJanela(agora, legado.start ?? "00:00", legado.end ?? "23:59");

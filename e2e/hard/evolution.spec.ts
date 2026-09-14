@@ -254,7 +254,8 @@ test("IA ativa responde e a resposta sai pelo Evolution", async () => {
   const original = ok(await c.db.from("ai_messaging_config").select("id, is_active, working_hours").eq("org_id", c.orgId).single(), "config da IA");
   limpeza.add("restaurar IA", async () =>
     ok(await c.db.from("ai_messaging_config").update({ is_active: original.is_active, working_hours: original.working_hours }).eq("id", original.id), "restaurar IA"));
-  ok(await c.db.from("ai_messaging_config").update({ is_active: true, working_hours: null }).eq("id", original.id), "ligar IA");
+  // `{}` = sem horário configurado = sempre aberto (dentroDoHorario na ai-reply).
+  ok(await c.db.from("ai_messaging_config").update({ is_active: true, working_hours: {} }).eq("id", original.id), "ligar IA");
 
   const telefone = telefoneUnico();
   limpeza.add(`telefone ${telefone}`, () => limparTelefone(telefone));

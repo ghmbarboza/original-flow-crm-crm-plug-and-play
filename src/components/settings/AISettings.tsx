@@ -31,15 +31,7 @@ import { useGenerateSystemPrompt } from "@/hooks/useGenerateSystemPrompt";
 import { BRAND_TONES, useOrganization, useUpdateOrganization } from "@/hooks/useSetup";
 import { useOrgApiKey, useSaveOrgApiKey } from "@/hooks/useOrgApiKey";
 import { formatCurrency } from "@/lib/format";
-
-function defaultWorkingHours(): WorkingHours {
-  const hours: WorkingHours = {};
-  for (const day of WEEK_DAYS) {
-    const weekend = day.key === "sat" || day.key === "sun";
-    hours[day.key] = { enabled: !weekend, start: "09:00", end: "18:00" };
-  }
-  return hours;
-}
+import { horarioParaTela, horarioPadrao as defaultWorkingHours } from "@/lib/horarioAtendimento";
 
 export default function AISettings() {
   const { data: config, isLoading } = useAIConfig();
@@ -149,8 +141,7 @@ export default function AISettings() {
       voice_id: config.voice_id ?? "",
       voice_response_mode: config.voice_response_mode ?? "reply_to_audio",
     });
-    const wh = (config.working_hours ?? {}) as unknown as Partial<WorkingHours>;
-    setWorkingHours(Object.keys(wh).length ? { ...defaultWorkingHours(), ...wh } : defaultWorkingHours());
+    setWorkingHours(horarioParaTela(config.working_hours));
     const tr = (config.human_trigger_rules ?? {}) as unknown as Partial<HumanTriggerRules>;
     setTriggers({ keywords: tr.keywords ?? [], negative_sentiment: tr.negative_sentiment ?? false });
     setKeywordsText((tr.keywords ?? []).join(", "));
