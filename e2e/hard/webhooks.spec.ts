@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   abrirSandbox, capturas, ctx, esperar, hmacHex, invocar, Limpeza, MARCADOR, ok, postFunction, rodarDispatcher,
-  uid, type Ctx, type Sessao,
+  telefoneUnico, uid, type Ctx, type Sessao,
 } from "./ctx";
 
 /**
@@ -47,13 +47,25 @@ test.beforeAll(async () => {
   sandbox = await abrirSandbox(c, limpeza, "webhooks");
 
   const tagsAntes = new Set((ok(await c.db.from("tags").select("name"), "tags") ?? []).map((t) => t.name));
+  // TRAVA DE SEGURANÇA (incidente de 14/09): um upsert casa contato por telefone e
+  // pode gravar o e-mail de teste num contato que já existia. Limpar só pelo
+  // e-mail apagou um contato da base. A limpeza só apaga o que NÃO existia antes
+  // do spec começar.
+  const contatosAntes = new Set((ok(await c.db.from("contacts").select("id"), "contatos antes") ?? []).map((x) => x.id));
+  const empresasAntes = new Set((ok(await c.db.from("companies").select("id"), "empresas antes") ?? []).map((x) => x.id));
   limpeza.add("dados criados pelos webhooks", async () => {
-    const contatos = ok(await c.db.from("contacts").select("id, company_id").like("email", `e2ehard.wh.%.${sufixo}@exemplo.com`), "contatos") ?? [];
-    for (const ct of contatos) {
+    const candidatos = ok(await c.db.from("contacts").select("id, company_id").like("email", `e2ehard.wh.%.${sufixo}@exemplo.com`), "contatos") ?? [];
+    const preexistentes = candidatos.filter((ct) => contatosAntes.has(ct.id));
+    if (preexistentes.length) {
+      throw new Error(`Contato(s) que já existiam receberam e-mail de teste e NÃO foram apagados: ${preexistentes.map((x) => x.id).join(", ")}`);
+    }
+    for (const ct of candidatos) {
       ok(await c.db.from("activities").delete().eq("contact_id", ct.id), "atividades");
       ok(await c.db.from("deals").delete().eq("contact_id", ct.id), "negócios");
       ok(await c.db.from("contacts").delete().eq("id", ct.id), "contato");
-      if (ct.company_id) ok(await c.db.from("companies").delete().eq("id", ct.company_id), "empresa");
+      if (ct.company_id && !empresasAntes.has(ct.company_id)) {
+        ok(await c.db.from("companies").delete().eq("id", ct.company_id), "empresa");
+      }
     }
     for (const nome of ["Detrator", "Promotor", "Inadimplente", `VIP ${sufixo}`]) {
       if (!tagsAntes.has(nome)) ok(await c.db.from("tags").delete().eq("name", nome), `tag ${nome}`);
@@ -198,7 +210,11 @@ test("entrada: chave criada uma vez; sem chave ou chave errada é 401", async ()
 
 test("entrada: contact.upsert cria e depois atualiza o mesmo contato", async () => {
   const email = emailDe("upsert");
-  const criar = await entrada({ action: "contact.upsert", data: { name: "Upsert Silva", email, phone: "(11) 98888-7777", tags: [`VIP ${sufixo}`] } });
+  // Telefone único por execução: fixo, ele casou com um contato real (14/09).
+  const telefone = telefoneUnico();
+  expect(ok(await c.db.from("contacts").select("id").or(`whatsapp_phone.eq.${telefone},phone.eq.${telefone}`), "checar telefone")).toHaveLength(0);
+  const formatado = `(${telefone.slice(2, 4)}) ${telefone.slice(4, 9)}-${telefone.slice(9)}`;
+  const criar = await entrada({ action: "contact.upsert", data: { name: "Upsert Silva", email, phone: formatado, tags: [`VIP ${sufixo}`] } });
   expect(criar.status, criar.texto).toBe(200);
   expect(criar.json).toMatchObject({ created: true });
 
@@ -207,15 +223,17 @@ test("entrada: contact.upsert cria e depois atualiza o mesmo contato", async () 
   expect(atualizar.json).toMatchObject({ contact_id: criar.json?.contact_id, created: false });
 
   const contato = await contatoPorEmail(email);
-  expect(contato).toMatchObject({ first_name: `${MARCADOR} Atualizado`, last_name: "Silva", whatsapp_phone: "5511988887777" });
+  expect(contato).toMatchObject({ first_name: `${MARCADOR} Atualizado`, last_name: "Silva", whatsapp_phone: telefone });
   const tags = ok(await c.db.from("contact_tags").select("tags(name)").eq("contact_id", contato!.id), "tags") as Array<{ tags: { name: string } }>;
   expect(tags.map((t) => t.tags.name)).toContain(`VIP ${sufixo}`);
 });
 
 test("entrada: linha plana de lead (TypeFlow) vira contato, empresa e negócio aberto", async () => {
   const email = emailDe("typeflow");
+  const telefoneLead = telefoneUnico();
+  expect(ok(await c.db.from("contacts").select("id").or(`whatsapp_phone.eq.${telefoneLead},phone.eq.${telefoneLead}`), "checar telefone")).toHaveLength(0);
   const r = await entrada({
-    nome: `${MARCADOR} TypeFlow Souza`, email, telefone: "11977776666", empresa: `Empresa ${MARCADOR} ${sufixo}`,
+    nome: `${MARCADOR} TypeFlow Souza`, email, telefone: telefoneLead.slice(2), empresa: `Empresa ${MARCADOR} ${sufixo}`,
     score: 82, origem: "typeflow",
   }, { "x-webhook-token": chave, Authorization: "" });
   expect(r.status, r.texto).toBe(200);
@@ -223,7 +241,7 @@ test("entrada: linha plana de lead (TypeFlow) vira contato, empresa e negócio a
   expect(r.json?.deal_id).toBeTruthy();
 
   const contato = await contatoPorEmail(email);
-  expect(contato).toMatchObject({ source: "typeflow", whatsapp_phone: "5511977776666" });
+  expect(contato).toMatchObject({ source: "typeflow", whatsapp_phone: telefoneLead });
   expect(contato!.company_id).toBeTruthy();
   const deal = ok(await c.db.from("deals").select("status, contact_id").eq("id", r.json?.deal_id as string).single(), "negócio");
   expect(deal).toMatchObject({ status: "open", contact_id: contato!.id });
