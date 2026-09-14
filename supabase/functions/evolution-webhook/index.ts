@@ -9,7 +9,7 @@
 // `?token=` que o evolution-connect grava na URL do webhook de cada instância
 // (evolution_configs.webhook_token). Só o nome da instância não basta: ele
 // aparece em tela e em log, e bastava ele para injetar mensagem falsa.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { iguais } from "../_shared/seguranca.ts";
 import {
   base64ParaBytes, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket,
@@ -103,7 +103,7 @@ async function chamarAiReply(conversationId: string) {
  * voltaria pela porta dos fundos.
  */
 function triggerAI(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   conversationId: string,
   mensagemId: string | null,
 ) {
@@ -155,7 +155,7 @@ function triggerAI(
 const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 async function sincronizarFoto(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   instance: { server_url: string; api_key: string; instance_name: string },
   contactId: string,
   phone: string,

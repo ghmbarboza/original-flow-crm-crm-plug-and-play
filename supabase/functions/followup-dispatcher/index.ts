@@ -7,7 +7,7 @@
 //
 // Segurança: só o cron chama, com o segredo interno (ver _shared/seguranca.ts).
 // Usa a service role para ler/escrever entre orgs.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -18,7 +18,7 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
  * de IA configurada. Nunca vazio — a variável existe justamente para assinar.
  */
 async function nomeDoAgente(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   orgId: string,
   assignedTo: string | null,
 ): Promise<string> {
@@ -50,7 +50,7 @@ interface StepMedia {
 }
 
 async function sendText(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   provider: string,
   orgId: string,
   phone: string,
