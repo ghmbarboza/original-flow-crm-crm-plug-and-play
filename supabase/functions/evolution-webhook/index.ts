@@ -16,6 +16,7 @@ import {
   salvarMidiaNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
 import { garantirNegocioAberto } from "../_shared/negocio.ts";
+import { obterOuCriarContatoWhatsapp, obterOuCriarConversa } from "../_shared/conversa.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -334,49 +335,14 @@ Deno.serve(async (req) => {
 
   const orgId = instance.org_id;
 
-  // Contato: casa pelo whatsapp_phone; cria um lead se não existir.
-  const { data: existingContact } = await admin
-    .from("contacts")
-    .select("id, avatar_synced_at")
-    .eq("org_id", orgId)
-    .eq("whatsapp_phone", phone)
-    .is("merged_into_id", null)
-    .maybeSingle();
-
-  let contactId = existingContact?.id ?? null;
-  if (!contactId) {
-    const { data: created, error: erroContato } = await admin
-      .from("contacts")
-      .insert({
-        org_id: orgId,
-        first_name: data.pushName ?? phone,
-        whatsapp_phone: phone,
-        status: "lead",
-        source: "whatsapp",
-      })
-      .select("id")
-      .single();
-
-    if (created) {
-      contactId = created.id;
-    } else if (erroContato?.code === "23505") {
-      // Corrida com outra mensagem da mesma rajada: entre o SELECT lá em cima e
-      // este INSERT, uma invocação paralela já criou o contato. O índice único
-      // barra a cópia e aqui a gente adota quem chegou primeiro, em vez de
-      // perder a mensagem. Sem isso, seis mensagens seguidas viravam sete
-      // contatos e o relatório contava sete leads para uma pessoa só.
-      const { data: existente } = await admin
-        .from("contacts")
-        .select("id")
-        .eq("org_id", orgId)
-        .eq("whatsapp_phone", phone)
-        .is("merged_into_id", null)
-        .maybeSingle();
-      contactId = existente?.id ?? null;
-    } else if (erroContato) {
-      console.error(`[evolution] falha ao criar contato ${phone}: ${erroContato.message}`);
-    }
-  }
+  // Contato: casa pelo whatsapp_phone; cria um lead se não existir. À prova de
+  // rajada: ver _shared/conversa.ts.
+  const contato = await obterOuCriarContatoWhatsapp(admin, orgId, phone, {
+    first_name: data.pushName ?? phone,
+    status: "lead",
+    source: "whatsapp",
+  });
+  const contactId = contato?.id ?? null;
 
   if (contactId) {
     await sincronizarFoto(
@@ -384,44 +350,40 @@ Deno.serve(async (req) => {
       instance as { server_url: string; api_key: string; instance_name: string },
       contactId,
       phone,
-      (existingContact?.avatar_synced_at as string | null) ?? null,
+      contato?.avatar_synced_at ?? null,
     );
   }
 
   // Conversa: uma por telefone dentro da org.
-  const { data: existingConversation } = await admin
-    .from("conversations")
-    .select("id, status, unread_count")
-    .eq("org_id", orgId)
-    .eq("phone_number", phone)
-    .maybeSingle();
-
-  let conversationId = existingConversation?.id ?? null;
-  let status = existingConversation?.status ?? "ai_active";
-  if (!conversationId) {
+  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: phone }, async () => {
     // Distribuição por canal: pré-atribui um agente elegível (round-robin) ou null.
     const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", {
       p_org: orgId,
       p_channel: "whatsapp",
     });
-    const { data: created } = await admin
-      .from("conversations")
-      .insert({
-        org_id: orgId,
-        phone_number: phone,
-        contact_id: contactId,
-        provider: "evolution",
-        status: "ai_active",
-        assigned_to: assignedTo ?? null,
-        last_message_at: new Date().toISOString(),
-        last_message_preview: preview,
-        unread_count: 1,
-      })
-      .select("id, status")
-      .single();
-    conversationId = created?.id ?? null;
-    status = created?.status ?? "ai_active";
+    return {
+      contact_id: contactId,
+      provider: "evolution",
+      status: "ai_active",
+      assigned_to: assignedTo ?? null,
+      last_message_at: new Date().toISOString(),
+      last_message_preview: preview,
+      unread_count: 1,
+    };
+  });
+  // Sem conversa não há onde gravar: responde erro para a Evolution reentregar,
+  // em vez de 200 com a mensagem perdida.
+  if (!conversa) {
+    return new Response(JSON.stringify({ error: "falha ao registrar a conversa" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const conversationId = conversa.id;
+  const status = conversa.status;
+  const existingConversation = conversa.criada ? null : conversa;
 
+  if (conversa.criada) {
     // Conversa nova entra no funil. Sem isto, o lead conversava com a IA e o
     // funil seguia vazio — e a detecção de intenção de compra, que MOVE um
     // negócio de etapa, não tinha nada para mover.
@@ -429,7 +391,7 @@ Deno.serve(async (req) => {
     const dealId = await garantirNegocioAberto(
       admin, orgId, contactId, `Atendimento WhatsApp — ${nomeParaTitulo}`,
     );
-    if (dealId && conversationId) {
+    if (dealId) {
       await admin.from("conversations").update({ deal_id: dealId }).eq("id", conversationId);
     }
   } else {
@@ -439,13 +401,11 @@ Deno.serve(async (req) => {
         contact_id: contactId,
         last_message_at: new Date().toISOString(),
         last_message_preview: preview,
-        unread_count: (existingConversation?.unread_count ?? 0) + 1,
+        unread_count: conversa.unread_count + 1,
         updated_at: new Date().toISOString(),
       })
       .eq("id", conversationId);
   }
-
-  if (!conversationId) return ok();
 
   // Áudio: baixa o binário, guarda no bucket e transcreve. A transcrição vai em
   // `content`, então o histórico que a IA lê continua sendo texto.

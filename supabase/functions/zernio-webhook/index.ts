@@ -5,12 +5,13 @@
 // ativa — dispara a resposta automática.
 //
 // Endpoint público (verify_jwt=false). A segurança vem de: (1) resolver a org pelo
-// profileId da conta; e (2) verificar a assinatura HMAC-SHA256 (X-Zernio-Signature)
-// quando a org tem webhook_secret configurado.
+// profileId da conta; e (2) verificar a assinatura HMAC-SHA256 (X-Zernio-Signature),
+// obrigatória desde 14/09 (o secret é gravado pelo zernio-register-webhook).
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
   baixarBinario, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
+import { obterOuCriarContatoWhatsapp, obterOuCriarConversa } from "../_shared/conversa.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -97,7 +98,10 @@ function extrairAudioZernio(message: Record<string, unknown>): AudioRecebido | n
     }
   }
 
-  const temMidia = !!message.attachments || !!message.media || !!message.audio;
+  // Lista de anexos vazia não é mídia: antes toda mensagem de texto caía aqui e
+  // enchia o log de erro falso, escondendo os casos reais.
+  const temMidia = (Array.isArray(message.attachments) && message.attachments.length > 0) ||
+    !!message.media || !!message.audio;
   if (temMidia) {
     console.error("[zernio] anexo em formato não reconhecido:", JSON.stringify(message).slice(0, 800));
   }
@@ -122,35 +126,35 @@ async function resolveContact(
   identifier: string,
   channelContactId: string,
   name: string | null,
-): Promise<string | null> {
+): Promise<{ id: string; novo: boolean } | null> {
+  const dados = {
+    first_name: name ?? identifier,
+    status: "lead",
+    source: channel,
+    custom_fields: { channel_contact_id: channelContactId, channel },
+  };
+
+  // WhatsApp tem índice único por telefone: o helper adota o contato de uma
+  // invocação paralela em vez de perder a mensagem.
   if (channel === "whatsapp") {
-    const { data } = await admin
-      .from("contacts").select("id")
-      .eq("org_id", orgId).eq("whatsapp_phone", identifier)
-      .is("merged_into_id", null).maybeSingle();
-    if (data?.id) return data.id as string;
-  } else {
-    const { data } = await admin
-      .from("contacts").select("id")
-      .eq("org_id", orgId)
-      .eq("custom_fields->>channel_contact_id", channelContactId)
-      .eq("custom_fields->>channel", channel)
-      .is("merged_into_id", null).maybeSingle();
-    if (data?.id) return data.id as string;
+    const contato = await obterOuCriarContatoWhatsapp(admin, orgId, identifier, dados);
+    return contato ? { id: contato.id, novo: false } : null;
   }
 
-  const { data: created } = await admin
+  const { data } = await admin
+    .from("contacts").select("id")
+    .eq("org_id", orgId)
+    .eq("custom_fields->>channel_contact_id", channelContactId)
+    .eq("custom_fields->>channel", channel)
+    .is("merged_into_id", null).maybeSingle();
+  if (data?.id) return { id: data.id as string, novo: false };
+
+  const { data: created, error } = await admin
     .from("contacts")
-    .insert({
-      org_id: orgId,
-      first_name: name ?? identifier,
-      whatsapp_phone: channel === "whatsapp" ? identifier : null,
-      status: "lead",
-      source: channel,
-      custom_fields: { channel_contact_id: channelContactId, channel },
-    })
+    .insert({ ...dados, org_id: orgId })
     .select("id").single();
-  return (created?.id as string | undefined) ?? null;
+  if (error) console.error(`[zernio] falha ao criar contato ${identifier}: ${error.message}`);
+  return created?.id ? { id: created.id as string, novo: true } : null;
 }
 
 /** Cria/atualiza contato+conversa e grava a mensagem inbound. Devolve o status da conversa. */
@@ -171,67 +175,61 @@ async function ingestInbound(
   const preview = text ? text.slice(0, 120) : "🎤 Áudio";
   const now = new Date().toISOString();
 
-  // Conversa: única por (org, canal, identificador).
-  const { data: existing } = await admin
-    .from("conversations")
-    .select("id, status, unread_count, contact_id")
-    .eq("org_id", orgId)
-    .eq("channel", channel)
-    .eq("phone_number", identifier)
-    .maybeSingle();
-
-  let conversationId = existing?.id as string | undefined;
-  let status = (existing?.status as string) ?? "ai_active";
-  let contactId = (existing?.contact_id as string | null) ?? null;
-  const isNewConversation = !conversationId;
-
-  if (!conversationId) {
-    contactId = await resolveContact(
+  // Conversa: única por (org, canal, identificador), à prova de rajada
+  // (ver _shared/conversa.ts). O contato só é resolvido quando a conversa é nova.
+  let contatoCriado: { id: string; novo: boolean } | null = null;
+  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel }, async () => {
+    contatoCriado = await resolveContact(
       admin, orgId, channel, identifier,
       sender.id ?? identifier,
       sender.name ?? sender.username ?? null,
     );
-
     // Distribuição por canal: pré-atribui um agente elegível (round-robin) ou null.
     const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", {
       p_org: orgId,
       p_channel: channel,
     });
-    const { data: conv } = await admin
-      .from("conversations")
-      .insert({
-        org_id: orgId,
-        channel,
-        provider: "zernio",
-        phone_number: identifier,
-        channel_contact_id: sender.id ?? identifier,
-        channel_contact_name: sender.name ?? null,
-        contact_id: contactId,
-        provider_conversation_id: providerConversationId,
-        status: "ai_active",
-        assigned_to: assignedTo ?? null,
-        last_message_at: now,
-        last_message_preview: preview,
-        unread_count: 1,
-      })
-      .select("id, status").single();
-    conversationId = conv?.id as string | undefined;
-    status = (conv?.status as string) ?? "ai_active";
-  } else {
+    return {
+      channel,
+      provider: "zernio",
+      channel_contact_id: sender.id ?? identifier,
+      channel_contact_name: sender.name ?? null,
+      contact_id: contatoCriado?.id ?? null,
+      provider_conversation_id: providerConversationId,
+      status: "ai_active",
+      assigned_to: assignedTo ?? null,
+      last_message_at: now,
+      last_message_preview: preview,
+      unread_count: 1,
+    };
+  });
+  if (!conversa) return null;
+
+  const conversationId = conversa.id;
+  const status = conversa.status;
+  const isNewConversation = conversa.criada;
+  // Perdeu a corrida depois de já ter criado um contato fora do WhatsApp (que
+  // não tem índice único): apaga a cópia para a rajada não virar dois leads.
+  const sobra = contatoCriado as { id: string; novo: boolean } | null;
+  if (!conversa.criada && sobra?.novo) {
+    await admin.from("contacts").delete().eq("id", sobra.id).eq("org_id", orgId);
+  }
+  const { data: dono } = await admin.from("conversations").select("contact_id").eq("id", conversationId).single();
+  const contactId = (dono?.contact_id as string | null) ?? null;
+
+  if (!conversa.criada) {
     await admin
       .from("conversations")
       .update({
         last_message_at: now,
         last_message_preview: preview,
-        unread_count: Number(existing?.unread_count ?? 0) + 1,
+        unread_count: conversa.unread_count + 1,
         // Preenche o id do Zernio se ainda não tínhamos (ex.: conversa criada por outro evento).
         provider_conversation_id: providerConversationId ?? undefined,
         updated_at: now,
       })
       .eq("id", conversationId);
   }
-
-  if (!conversationId) return null;
 
   // Áudio: guarda o binário no bucket e transcreve. A transcrição vai em
   // `content`, então o histórico lido pela IA continua textual. Falha de
@@ -373,9 +371,9 @@ Deno.serve(async (req) => {
       .from("conversations").select("id")
       .eq("org_id", orgId).eq("channel", channel).eq("phone_number", identifier).maybeSingle();
     if (!existing) {
-      const contactId = await resolveContact(
+      const contactId = (await resolveContact(
         admin, orgId, channel, identifier, identifier, conv.participantName ?? null,
-      );
+      ))?.id ?? null;
       // Distribuição por canal: pré-atribui um agente elegível (round-robin) ou null.
       const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", {
         p_org: orgId,

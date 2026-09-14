@@ -164,14 +164,22 @@ test("rajada de 6 mensagens simultâneas: um contato, uma conversa, seis mensage
   );
   respostas.forEach((r) => expect(r.status, r.texto).toBe(200));
 
+  // Espera as 6 mensagens aparecerem, somando todas as conversas do telefone, e
+  // só então afirma a unicidade: assim uma duplicação aparece como duplicação,
+  // não como timeout.
   await esperar("6 mensagens gravadas", async () => {
-    const conv = await c.db.from("conversations").select("id").eq("phone_number", telefone);
-    if (conv.data?.length !== 1) return false;
-    const msgs = await c.db.from("conversation_messages").select("id").eq("conversation_id", conv.data[0].id);
-    return msgs.data?.length === 6;
+    const convs = await c.db.from("conversations").select("id").eq("phone_number", telefone);
+    const ids = (convs.data ?? []).map((x) => x.id);
+    if (!ids.length) return false;
+    const msgs = await c.db.from("conversation_messages").select("id").in("conversation_id", ids);
+    return (msgs.data?.length ?? 0) >= 6;
   });
+  const convs = ok(await c.db.from("conversations").select("id").eq("phone_number", telefone), "conversas");
   const contatos = ok(await c.db.from("contacts").select("id").eq("whatsapp_phone", telefone), "contatos");
+  const msgs = ok(await c.db.from("conversation_messages").select("id").in("conversation_id", convs.map((x) => x.id)), "mensagens");
   expect(contatos, "rajada não pode duplicar contato").toHaveLength(1);
+  expect(convs, "rajada não pode duplicar conversa").toHaveLength(1);
+  expect(msgs, "nenhuma mensagem da rajada pode se perder").toHaveLength(6);
 });
 
 test("foto com legenda é gravada com a mídia baixada pelo Evolution", async () => {

@@ -10,6 +10,7 @@
 // verificação no painel da Meta falhava sempre) e o POST aceitava qualquer corpo.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { hmacSha256Hex, iguais } from "../_shared/seguranca.ts";
+import { obterOuCriarContatoWhatsapp, obterOuCriarConversa } from "../_shared/conversa.ts";
 import {
   baixarBinario, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
@@ -147,78 +148,53 @@ Deno.serve(async (req) => {
         // se a transcrição falhar depois.
         const preview = textoRecebido ? textoRecebido.slice(0, 120) : "🎤 Áudio";
 
-        // Contato.
-        const { data: existingContact } = await admin
-          .from("contacts")
-          .select("id")
-          .eq("org_id", orgId)
-          .eq("whatsapp_phone", phone)
-          .is("merged_into_id", null)
-          .maybeSingle();
+        // Contato e conversa, à prova de rajada (ver _shared/conversa.ts).
+        const contato = await obterOuCriarContatoWhatsapp(admin, orgId, phone, {
+          first_name: profileName ?? phone,
+          status: "lead",
+          source: "whatsapp",
+        });
+        const contactId = contato?.id ?? null;
 
-        let contactId = existingContact?.id ?? null;
-        if (!contactId) {
-          const { data: created } = await admin
-            .from("contacts")
-            .insert({
-              org_id: orgId,
-              first_name: profileName ?? phone,
-              whatsapp_phone: phone,
-              status: "lead",
-              source: "whatsapp",
-            })
-            .select("id")
-            .single();
-          contactId = created?.id ?? null;
-        }
-
-        // Conversa.
-        const { data: existingConversation } = await admin
-          .from("conversations")
-          .select("id, status, unread_count")
-          .eq("org_id", orgId)
-          .eq("phone_number", phone)
-          .maybeSingle();
-
-        let conversationId = existingConversation?.id ?? null;
-        let status = existingConversation?.status ?? "ai_active";
-        if (!conversationId) {
+        const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: phone }, async () => {
           // Distribuição por canal: pré-atribui um agente elegível (round-robin) ou null.
           const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", {
             p_org: orgId,
             p_channel: "whatsapp",
           });
-          const { data: created } = await admin
-            .from("conversations")
-            .insert({
-              org_id: orgId,
-              phone_number: phone,
-              contact_id: contactId,
-              provider: "meta_official",
-              status: "ai_active",
-              assigned_to: assignedTo ?? null,
-              last_message_at: new Date().toISOString(),
-              last_message_preview: preview,
-              unread_count: 1,
-            })
-            .select("id, status")
-            .single();
-          conversationId = created?.id ?? null;
-          status = created?.status ?? "ai_active";
-        } else {
+          return {
+            contact_id: contactId,
+            provider: "meta_official",
+            status: "ai_active",
+            assigned_to: assignedTo ?? null,
+            last_message_at: new Date().toISOString(),
+            last_message_preview: preview,
+            unread_count: 1,
+          };
+        });
+        // Sem conversa não há onde gravar: 500 faz a Meta reentregar, em vez de
+        // 200 com a mensagem perdida.
+        if (!conversa) {
+          return new Response(JSON.stringify({ error: "falha ao registrar a conversa" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        const conversationId = conversa.id;
+        const status = conversa.status;
+        const existingConversation = conversa.criada ? null : conversa;
+        if (!conversa.criada) {
           await admin
             .from("conversations")
             .update({
               contact_id: contactId,
               last_message_at: new Date().toISOString(),
               last_message_preview: preview,
-              unread_count: (existingConversation?.unread_count ?? 0) + 1,
+              unread_count: conversa.unread_count + 1,
               updated_at: new Date().toISOString(),
             })
             .eq("id", conversationId);
         }
-
-        if (!conversationId) continue;
 
         // Áudio: baixa, guarda no bucket e transcreve. A transcrição vai em
         // `content`, de modo que o histórico lido pela IA segue textual. Falha de

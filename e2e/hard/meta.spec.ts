@@ -107,6 +107,24 @@ test("mensagem assinada vira contato, conversa e mensagem", async () => {
   expect(msg).toMatchObject({ direction: "inbound", content: "Olá pela Meta" });
 });
 
+test("rajada de 5 mensagens simultâneas: um contato, uma conversa, cinco mensagens", async () => {
+  const telefone = telefoneUnico();
+  limpeza.add(`telefone ${telefone}`, () => limparTelefone(telefone));
+
+  const respostas = await Promise.all(Array.from({ length: 5 }, (_, i) => {
+    const corpo = JSON.stringify(payloadMeta(telefone, `pedaço ${i + 1}`));
+    return postFunction(c, "meta-webhook", corpo, { "X-Hub-Signature-256": `sha256=${hmacHex(appSecret, corpo)}` });
+  }));
+  respostas.forEach((r) => expect(r.status, r.texto).toBe(200));
+
+  const convs = ok(await c.db.from("conversations").select("id").eq("phone_number", telefone), "conversas");
+  const contatos = ok(await c.db.from("contacts").select("id").eq("whatsapp_phone", telefone), "contatos");
+  const msgs = ok(await c.db.from("conversation_messages").select("id").in("conversation_id", convs.map((x) => x.id)), "mensagens");
+  expect(contatos, "rajada não pode duplicar contato").toHaveLength(1);
+  expect(convs, "rajada não pode duplicar conversa").toHaveLength(1);
+  expect(msgs, "nenhuma mensagem da rajada pode se perder").toHaveLength(5);
+});
+
 test("mensagem sem assinatura ou assinada com outro segredo é recusada e nada é gravado", async () => {
   const telefone = telefoneUnico();
   limpeza.add(`telefone ${telefone}`, () => limparTelefone(telefone));
