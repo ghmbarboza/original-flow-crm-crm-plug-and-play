@@ -3639,6 +3639,235 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_deliveries: {
+        Row: {
+          attempts: number
+          created_at: string
+          delivered_at: string | null
+          endpoint_id: string
+          event: string
+          event_id: string
+          id: string
+          last_error: string | null
+          last_response: string | null
+          last_status_code: number | null
+          next_attempt_at: string
+          org_id: string
+          payload: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          endpoint_id: string
+          event: string
+          event_id: string
+          id?: string
+          last_error?: string | null
+          last_response?: string | null
+          last_status_code?: number | null
+          next_attempt_at?: string
+          org_id: string
+          payload: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          delivered_at?: string | null
+          endpoint_id?: string
+          event?: string
+          event_id?: string
+          id?: string
+          last_error?: string | null
+          last_response?: string | null
+          last_status_code?: number | null
+          next_attempt_at?: string
+          org_id?: string
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_deliveries_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_deliveries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_endpoints: {
+        Row: {
+          consecutive_failures: number
+          created_at: string
+          created_by: string | null
+          events: string[]
+          headers: Json
+          id: string
+          is_active: boolean
+          last_failure_at: string | null
+          last_success_at: string | null
+          name: string
+          org_id: string
+          secret: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          created_at?: string
+          created_by?: string | null
+          events?: string[]
+          headers?: Json
+          id?: string
+          is_active?: boolean
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          name: string
+          org_id: string
+          secret?: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          consecutive_failures?: number
+          created_at?: string
+          created_by?: string | null
+          events?: string[]
+          headers?: Json
+          id?: string
+          is_active?: boolean
+          last_failure_at?: string | null
+          last_success_at?: string | null
+          name?: string
+          org_id?: string
+          secret?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_endpoints_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_inbound_keys: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          org_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          org_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_inbound_keys_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_inbound_logs: {
+        Row: {
+          action: string | null
+          created_at: string
+          error: string | null
+          http_status: number
+          id: string
+          idempotency_key: string | null
+          key_id: string | null
+          org_id: string
+          request: Json | null
+          response: Json | null
+          status: string
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          error?: string | null
+          http_status: number
+          id?: string
+          idempotency_key?: string | null
+          key_id?: string | null
+          org_id: string
+          request?: Json | null
+          response?: Json | null
+          status: string
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          error?: string | null
+          http_status?: number
+          id?: string
+          idempotency_key?: string | null
+          key_id?: string | null
+          org_id?: string
+          request?: Json | null
+          response?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_inbound_logs_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_inbound_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_inbound_logs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_inbound_queue: {
         Row: {
           attempts: number
@@ -3829,6 +4058,7 @@ export type Database = {
         Args: { new_description?: string; new_name: string; new_secret: string }
         Returns: string
       }
+      criar_chave_webhook: { Args: { p_name: string }; Returns: Json }
       current_org_id: { Args: never; Returns: string }
       enqueue_automations: {
         Args: { p_org: string; p_trigger_data: Json; p_trigger_type: string }
@@ -3836,6 +4066,10 @@ export type Database = {
       }
       enqueue_erp_event: {
         Args: { p_event: string; p_org: string; p_payload: Json }
+        Returns: undefined
+      }
+      enqueue_webhook_event: {
+        Args: { p_data: Json; p_event: string; p_org: string }
         Returns: undefined
       }
       ensure_auth_trigger: { Args: never; Returns: Json }
@@ -3881,6 +4115,8 @@ export type Database = {
         Args: { new_secret: string; secret_id: string }
         Returns: undefined
       }
+      webhook_contato_json: { Args: { p_contact: string }; Returns: Json }
+      webhook_negocio_json: { Args: { p_deal: string }; Returns: Json }
     }
     Enums: {
       activity_type: "call" | "email" | "meeting" | "note" | "task"
