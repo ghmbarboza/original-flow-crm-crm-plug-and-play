@@ -1,5 +1,5 @@
 // Helpers compartilhados para as edge functions do Gmail.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { hmacSha256Hex, iguais } from "./seguranca.ts";
 
 export interface EstadoOAuth {
@@ -42,7 +42,10 @@ export async function lerEstado(raw: string): Promise<EstadoOAuth | null> {
   }
 }
 
-type Admin = ReturnType<typeof createClient>;
+// `ReturnType<typeof createClient>` resolve os genéricos como `never` e recusa o
+// cliente real (`SupabaseClient<any, "public", any>`) no `deno check`. Tipar pela
+// instância evita isso (mesmo padrão de demo-data/index.ts).
+type Admin = SupabaseClient;
 
 export interface GmailConnection {
   id: string;

@@ -7,7 +7,7 @@
 // nunca engolida.
 //
 // Segurança: só o cron chama, com o segredo interno (ver _shared/seguranca.ts).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -23,7 +23,9 @@ function render(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, key: string) => vars[key] ?? "");
 }
 
-type Admin = ReturnType<typeof createClient>;
+// Tipar pela instância: `ReturnType<typeof createClient>` resolve os genéricos
+// como `never` e recusa o cliente real no `deno check`.
+type Admin = SupabaseClient;
 
 interface Conversa {
   id: string;

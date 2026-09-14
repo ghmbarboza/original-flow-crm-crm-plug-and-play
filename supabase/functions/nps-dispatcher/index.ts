@@ -9,7 +9,7 @@
 //     capture_nps_response) e sem thanked_at: manda o obrigado e marca.
 //
 // Segurança: só o cron chama, com o segredo interno (ver _shared/seguranca.ts).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -20,7 +20,7 @@ function json(body: unknown, status = 200) {
 }
 
 async function sendText(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   provider: string,
   orgId: string,
   phone: string,
@@ -56,7 +56,7 @@ async function sendText(
 
 /** Registra a mensagem enviada no histórico da conversa, sem reabri-la. */
 async function recordMessage(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   conversationId: string,
   orgId: string,
   content: string,
@@ -143,7 +143,9 @@ Deno.serve(async (req) => {
       .limit(50);
 
     for (const resp of respondidas ?? []) {
-      const conv = resp.conversation as { provider: string; phone_number: string } | null;
+      // O PostgREST embute a relação como objeto, mas os tipos do supabase-js
+      // inferem array; converter via `unknown` alinha tipo e realidade.
+      const conv = resp.conversation as unknown as { provider: string; phone_number: string } | null;
       if (!conv) continue;
       const ok = await sendText(admin, conv.provider, orgId, conv.phone_number, config.thank_you_message);
       // Marca mesmo se o envio falhar? Não: tenta de novo na próxima passada.
