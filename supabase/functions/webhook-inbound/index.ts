@@ -383,7 +383,12 @@ const HANDLERS: Record<string, Handler> = {
 
   "contract.signed": async (ctx, d) => {
     const r = await exigirContato(ctx, d);
-    const nota = await criarAtividade(ctx, d, "note", "Contrato assinado", "Assinatura confirmada pela integração.");
+    const documento = (primeiro(d, "envelope", "document", "documento", "contract", "contrato") as Dados | undefined) ?? {};
+    const nomeDoc = texto(primeiro(documento, "title", "name", "titulo", "nome"));
+    const nota = await criarAtividade(
+      ctx, { ...d, title: nomeDoc ? `Contrato assinado: ${nomeDoc}` : undefined }, "note", "Contrato assinado",
+      "Assinatura confirmada pela integração.",
+    );
     const dealId = await negocioAbertoDoContato(ctx, r.contatoId);
     if (dealId) await ctx.admin.from("deals").update({ status: "won", probability: 100, updated_at: new Date().toISOString() }).eq("id", dealId);
     return { contact_id: r.contatoId, activity_id: nota.activity_id, deal_id: dealId, deal_won: !!dealId };
