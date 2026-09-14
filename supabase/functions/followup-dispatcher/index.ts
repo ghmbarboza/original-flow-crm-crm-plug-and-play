@@ -119,7 +119,7 @@ async function sendText(
  * vira signed URL de 1h — o provedor baixa na hora do envio.
  */
 async function resolveStepMedia(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   step: { media_type?: string | null; media_path?: string | null; media_url?: string | null; media_filename?: string | null },
 ): Promise<StepMedia | null> {
   if (!step.media_type) return null;
