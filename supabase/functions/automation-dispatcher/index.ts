@@ -5,12 +5,12 @@
 // submit-capture-form. Para cada log: reivindica de forma atômica, carrega a
 // automação, avalia as condições contra o trigger_data e executa as ações.
 //
-// Não é acionado por usuário: roda via cron / Supabase Scheduled Function chamando
-// esta URL com a service-role key. verify_jwt = false (ver supabase/config.toml).
-// Usa service-role, mas SEMPRE escopa por org_id do log — nunca confia em dado de
-// fora do org.
+// Não é acionado por usuário: roda pelo cron `automation-dispatch` (a cada minuto,
+// migration 20260914100000) com o segredo interno. Usa service-role, mas SEMPRE
+// escopa por org_id do log — nunca confia em dado de fora do org.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getValidAccessToken, type GmailConnection } from "../_shared/google.ts";
+import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -578,6 +578,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    if (!(await cronAutorizado(req, admin))) return naoAutorizado();
 
     // Pega candidatos 'queued' mais antigos primeiro.
     const { data: candidates, error: selErr } = await admin

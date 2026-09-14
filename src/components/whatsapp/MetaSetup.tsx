@@ -18,19 +18,34 @@ function webhookUrl() {
   return base ? `${base}/functions/v1/meta-webhook` : "/functions/v1/meta-webhook";
 }
 
+async function copiar(texto: string, sucesso: string) {
+  // Clipboard pode ser negado (permissão, iframe): sem o catch o clique vira
+  // exceção não tratada.
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast.success(sucesso);
+  } catch {
+    toast.error("Não foi possível copiar automaticamente. Selecione o texto e copie à mão.");
+  }
+}
+
 export function MetaSetup({ onConnected, onBack }: Props) {
   const verify = useVerifyMeta();
   const [form, setForm] = useState({
     phone_number_id: "",
     business_account_id: "",
     access_token: "",
+    app_secret: "",
     display_name: "",
   });
-  const [verified, setVerified] = useState<{ phone_number: string | null } | null>(null);
+  const [verified, setVerified] = useState<{ phone_number: string | null; verify_token: string } | null>(null);
 
   const handleVerify = async () => {
-    if (!form.phone_number_id.trim() || !form.business_account_id.trim() || !form.access_token.trim()) {
-      toast.error("Preencha phone number ID, business account ID e access token.");
+    if (
+      !form.phone_number_id.trim() || !form.business_account_id.trim() ||
+      !form.access_token.trim() || !form.app_secret.trim()
+    ) {
+      toast.error("Preencha phone number ID, business account ID, access token e App Secret.");
       return;
     }
     try {
@@ -38,18 +53,14 @@ export function MetaSetup({ onConnected, onBack }: Props) {
         phone_number_id: form.phone_number_id.trim(),
         business_account_id: form.business_account_id.trim(),
         access_token: form.access_token.trim(),
+        app_secret: form.app_secret.trim(),
         display_name: form.display_name.trim() || undefined,
       });
-      setVerified({ phone_number: result.phone_number });
-      toast.success("Conta Meta verificada.");
+      setVerified({ phone_number: result.phone_number, verify_token: result.webhook_verify_token });
+      toast.success("Conta Meta verificada. Falta cadastrar o webhook no painel da Meta.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível verificar a conta Meta.");
     }
-  };
-
-  const copyWebhook = () => {
-    navigator.clipboard.writeText(webhookUrl());
-    toast.success("URL do webhook copiada.");
   };
 
   return (
@@ -85,6 +96,20 @@ export function MetaSetup({ onConnected, onBack }: Props) {
           />
         </div>
         <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="app_secret">App Secret</Label>
+          <Input
+            id="app_secret"
+            type="password"
+            value={form.app_secret}
+            onChange={(e) => setForm({ ...form, app_secret: e.target.value })}
+            disabled={!!verified}
+          />
+          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+            Em developers.facebook.com › seu app › Configurações do app › Básico. É com ele que o CRM
+            confere que cada mensagem veio mesmo da Meta.
+          </p>
+        </div>
+        <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="display_name">Nome de exibição (opcional)</Label>
           <Input
             id="display_name"
@@ -96,14 +121,15 @@ export function MetaSetup({ onConnected, onBack }: Props) {
         </div>
       </div>
 
-      {/* Webhook: o usuário precisa configurar isso no painel da Meta. */}
-      <div className="via-card space-y-2 p-4">
+      {/* Webhook: o usuário precisa configurar isso no painel da Meta. O verify
+          token só existe depois de verificar a conta, porque é gerado por empresa. */}
+      <div className="via-card space-y-3 p-4">
         <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
           Webhook
         </p>
         <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-          No painel da Meta (WhatsApp › Configuração), aponte o webhook para esta URL e assine os
-          eventos <span className="font-mono">messages</span>.
+          No painel da Meta (WhatsApp › Configuração), aponte o webhook para esta URL, cole o token de
+          verificação e assine o evento <span className="font-mono">messages</span>.
         </p>
         <div className="flex items-center gap-2">
           <code
@@ -112,10 +138,38 @@ export function MetaSetup({ onConnected, onBack }: Props) {
           >
             {webhookUrl()}
           </code>
-          <Button variant="outline" size="icon" onClick={copyWebhook} aria-label="Copiar URL do webhook">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => copiar(webhookUrl(), "URL do webhook copiada.")}
+            aria-label="Copiar URL do webhook"
+          >
             <Copy className="h-4 w-4" strokeWidth={1.5} />
           </Button>
         </div>
+        {verified ? (
+          <div className="flex items-center gap-2">
+            <code
+              className="flex-1 truncate rounded-md px-2 py-1.5 text-xs"
+              style={{ background: "var(--via-surface)", color: "var(--via-text-body)" }}
+              data-testid="meta-verify-token"
+            >
+              {verified.verify_token}
+            </code>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => copiar(verified.verify_token, "Token de verificação copiado.")}
+              aria-label="Copiar token de verificação"
+            >
+              <Copy className="h-4 w-4" strokeWidth={1.5} />
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+            O token de verificação aparece aqui depois de verificar a conta.
+          </p>
+        )}
       </div>
 
       {verified && (
@@ -128,6 +182,9 @@ export function MetaSetup({ onConnected, onBack }: Props) {
             {verified.phone_number && (
               <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>{verified.phone_number}</p>
             )}
+            <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+              O canal aparece como conectado assim que a Meta confirmar o webhook.
+            </p>
           </div>
         </div>
       )}

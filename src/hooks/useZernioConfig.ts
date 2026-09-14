@@ -54,6 +54,12 @@ export function useSaveZernioConfig() {
           { onConflict: "org_id" },
         );
       if (error) throw error;
+
+      // Sem o webhook cadastrado no Zernio nenhuma mensagem chega ao CRM, então
+      // conectar só termina quando ele foi aceito.
+      const { data, error: fnError } = await supabase.functions.invoke("zernio-register-webhook", { body: {} });
+      if (fnError) throw await erroDeFunction(fnError, "Falha ao cadastrar o webhook no Zernio.");
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["zernio-config", orgId] });

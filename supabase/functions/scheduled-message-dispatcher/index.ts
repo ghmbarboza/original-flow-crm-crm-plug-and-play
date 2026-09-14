@@ -6,9 +6,9 @@
 // (evolution/meta/zernio). Marca sent/failed — falha fica dita em error_msg,
 // nunca engolida.
 //
-// Segurança: sem auth de usuário — proteja por header secreto
-// (SCHEDULED_CRON_SECRET) ao agendar, como o followup-dispatcher.
+// Segurança: só o cron chama, com o segredo interno (ver _shared/seguranca.ts).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -101,12 +101,8 @@ async function enviar(
 }
 
 Deno.serve(async (req) => {
-  const secret = Deno.env.get("SCHEDULED_CRON_SECRET");
-  if (secret && req.headers.get("x-cron-secret") !== secret) {
-    return json({ error: "Não autorizado" }, 401);
-  }
-
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  if (!(await cronAutorizado(req, admin))) return naoAutorizado();
   const now = new Date().toISOString();
   let sent = 0;
   let failed = 0;

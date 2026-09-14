@@ -5,9 +5,10 @@
 // etapa venceu, envia a mensagem e registra a tentativa em followup_executions.
 // Ao esgotar as tentativas, aplica o comportamento configurado (on_limit_reached).
 //
-// Segurança: sem auth de usuário — proteja por header secreto (FOLLOWUP_CRON_SECRET)
-// ao agendar. Usa a service role para ler/escrever entre orgs.
+// Segurança: só o cron chama, com o segredo interno (ver _shared/seguranca.ts).
+// Usa a service role para ler/escrever entre orgs.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -135,13 +136,8 @@ async function resolveStepMedia(
 }
 
 Deno.serve(async (req) => {
-  // Proteção opcional por segredo do cron.
-  const secret = Deno.env.get("FOLLOWUP_CRON_SECRET");
-  if (secret && req.headers.get("x-cron-secret") !== secret) {
-    return json({ error: "Não autorizado" }, 401);
-  }
-
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+  if (!(await cronAutorizado(req, admin))) return naoAutorizado();
   const now = new Date();
   let sent = 0;
   let closed = 0;

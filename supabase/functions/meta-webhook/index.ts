@@ -1,9 +1,15 @@
 // Webhook público da WhatsApp Cloud API (Meta).
 //
-// GET  → verificação do webhook (hub.challenge) contra META_WEBHOOK_VERIFY_TOKEN.
-// POST → mensagens recebidas: resolve a instância pelo phone_number_id, cria/atualiza
-//        contato e conversa, grava a mensagem e dispara a IA se ela estiver ativa.
+// GET  → verificação do webhook (hub.challenge) contra o verify token da
+//        organização (meta_configs.webhook_verify_token, exibido no setup).
+// POST → mensagens recebidas: resolve a instância pelo phone_number_id, confere a
+//        assinatura X-Hub-Signature-256 com o App Secret dessa instância, cria/
+//        atualiza contato e conversa, grava a mensagem e dispara a IA.
+//
+// Antes o GET dependia de um secret de ambiente que nunca foi cadastrado (a
+// verificação no painel da Meta falhava sempre) e o POST aceitava qualquer corpo.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { hmacSha256Hex, iguais } from "../_shared/seguranca.ts";
 import {
   baixarBinario, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
@@ -65,22 +71,42 @@ function triggerAI(conversationId: string) {
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
   // Verificação do webhook.
   if (req.method === "GET") {
     const mode = url.searchParams.get("hub.mode");
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
-    const expected = Deno.env.get("META_WEBHOOK_VERIFY_TOKEN");
-    if (mode === "subscribe" && token && expected && token === expected) {
-      return new Response(challenge ?? "", { status: 200 });
+    if (mode === "subscribe" && token) {
+      const { data: dono } = await admin
+        .from("meta_configs").select("id").eq("webhook_verify_token", token).limit(1).maybeSingle();
+      if (dono) {
+        await admin.from("meta_configs").update({ webhook_verified: true }).eq("id", dono.id);
+        return new Response(challenge ?? "", { status: 200 });
+      }
     }
     return new Response("Forbidden", { status: 403 });
   }
 
   if (req.method !== "POST") return ok();
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-  const body = await req.json().catch(() => ({}));
+  const rawBody = await req.text();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let body: any;
+  try { body = JSON.parse(rawBody); } catch { return ok({ ignored: "corpo inválido" }); }
+
+  // A Meta assina o corpo inteiro com o App Secret. Cada App Secret é checado
+  // uma vez por requisição, mesmo com várias mensagens no mesmo corpo.
+  const assinatura = (req.headers.get("X-Hub-Signature-256") ?? "").replace(/^sha256=/, "");
+  const conferidas = new Map<string, boolean>();
+  const assinaturaValida = async (appSecret: string | null) => {
+    if (!appSecret || !assinatura) return false;
+    if (!conferidas.has(appSecret)) {
+      conferidas.set(appSecret, iguais(assinatura, await hmacSha256Hex(appSecret, rawBody)));
+    }
+    return conferidas.get(appSecret)!;
+  };
 
   // Estrutura: entry[].changes[].value.{ metadata.phone_number_id, contacts, messages }
   for (const entry of body.entry ?? []) {
@@ -92,10 +118,20 @@ Deno.serve(async (req) => {
 
       const { data: instance } = await admin
         .from("meta_configs")
-        .select("id, org_id, access_token")
+        .select("id, org_id, access_token, app_secret")
         .eq("phone_number_id", phoneNumberId)
         .maybeSingle();
       if (!instance) continue;
+      if (!(await assinaturaValida(instance.app_secret as string | null))) {
+        console.error(
+          `[meta] assinatura ${instance.app_secret ? "inválida" : "sem App Secret cadastrado"} ` +
+          `para o número ${phoneNumberId}; mensagens descartadas`,
+        );
+        return new Response(JSON.stringify({ error: "Assinatura inválida" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
 
       const orgId = instance.org_id;
       const profileName = value.contacts?.[0]?.profile?.name ?? null;

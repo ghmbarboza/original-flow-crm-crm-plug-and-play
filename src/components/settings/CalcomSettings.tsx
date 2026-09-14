@@ -42,12 +42,12 @@ export default function CalcomSettings() {
     window.open(link.startsWith("http") ? link : `https://${link}`, "_blank", "noopener");
   };
 
-  const copiarWebhook = async () => {
+  const copiar = async (texto: string, sucesso: string) => {
     // Clipboard pode ser negado (permissão, iframe) — sem o catch o clique
     // vira exceção não tratada.
     try {
-      await navigator.clipboard.writeText(webhookUrl);
-      toast.success("URL do webhook copiada.");
+      await navigator.clipboard.writeText(texto);
+      toast.success(sucesso);
     } catch {
       toast.error("Não foi possível copiar automaticamente. Selecione o texto e copie à mão.");
     }
@@ -104,13 +104,48 @@ export default function CalcomSettings() {
         <Label htmlFor="calcom-webhook">Webhook de confirmação (cole no Cal.com)</Label>
         <div className="flex flex-wrap gap-2">
           <Input id="calcom-webhook" readOnly className="min-w-64 flex-1 text-xs" value={webhookUrl} />
-          <Button variant="outline" className="gap-1.5" onClick={copiarWebhook}>
+          <Button
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => copiar(webhookUrl, "URL do webhook copiada.")}
+          >
             <Copy className="h-4 w-4" strokeWidth={1.5} />
             Copiar
           </Button>
         </div>
         <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
           No Cal.com: Settings → Developer → Webhooks → New, evento "Booking created".
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="calcom-secret">Secret do webhook (cole no campo "Secret" do Cal.com)</Label>
+        {data?.config.webhook_secret ? (
+          <div className="flex flex-wrap gap-2">
+            <Input
+              id="calcom-secret"
+              readOnly
+              className="min-w-64 flex-1 font-mono text-xs"
+              value={data.config.webhook_secret}
+              data-testid="calcom-secret"
+            />
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => copiar(data.config.webhook_secret!, "Secret copiado.")}
+            >
+              <Copy className="h-4 w-4" strokeWidth={1.5} />
+              Copiar
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+            O secret é gerado quando você salva o agendamento.
+          </p>
+        )}
+        <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+          Sem o secret no Cal.com, o CRM recusa os agendamentos: é assim que ele confere que o aviso
+          veio mesmo do Cal.com.
         </p>
       </div>
 

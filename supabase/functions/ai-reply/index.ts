@@ -15,6 +15,7 @@ import {
   bytesParaBase64, gerarAudioDaResposta, resolverChaveElevenLabs, salvarAudioNoBucket,
 } from "../_shared/audio.ts";
 import { PREFIXO_SIMULADO } from "../_shared/demo.ts";
+import { chamadaInterna, naoAutorizado } from "../_shared/seguranca.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -351,6 +352,10 @@ async function deliver(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Só os webhooks do próprio projeto chamam, com a service role. Sem essa
+  // trava, qualquer um com o id de uma conversa fazia a IA responder nela.
+  if (!chamadaInterna(req)) return naoAutorizado();
 
   try {
     const admin = createClient(

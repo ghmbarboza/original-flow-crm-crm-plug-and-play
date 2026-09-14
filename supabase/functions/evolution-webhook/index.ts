@@ -5,9 +5,12 @@
 // grava a mensagem e — se a conversa está com a IA ativa — dispara a resposta
 // automática (ai-reply).
 //
-// Endpoint público (a Evolution não envia auth). A segurança vem de resolver a
-// instância pelo instance_name: eventos de instâncias desconhecidas são ignorados.
+// Endpoint público (a Evolution não assina o que envia). A prova de origem é o
+// `?token=` que o evolution-connect grava na URL do webhook de cada instância
+// (evolution_configs.webhook_token). Só o nome da instância não basta: ele
+// aparece em tela e em log, e bastava ele para injetar mensagem falsa.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { iguais } from "../_shared/seguranca.ts";
 import {
   base64ParaBytes, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket,
   salvarMidiaNoBucket, transcreverAudio,
@@ -200,10 +203,19 @@ Deno.serve(async (req) => {
 
   const { data: instance } = await admin
     .from("evolution_configs")
-    .select("id, org_id, server_url, api_key, instance_name, status")
+    .select("id, org_id, server_url, api_key, instance_name, status, webhook_token")
     .eq("instance_name", instanceName)
     .maybeSingle();
   if (!instance) return ok({ ignored: "instância desconhecida" });
+
+  const token = new URL(req.url).searchParams.get("token") ?? "";
+  if (!token || !iguais(token, instance.webhook_token as string)) {
+    console.error(`[evolution] token do webhook ausente ou errado para a instância ${instanceName}`);
+    return new Response(JSON.stringify({ error: "Token do webhook inválido" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const normalizedEvent = event.toUpperCase().replace(/\./g, "_");
 

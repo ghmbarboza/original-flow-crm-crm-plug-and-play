@@ -14,6 +14,12 @@ export interface CalcomConfig {
   create_activity: boolean;
   link_deal: boolean;
   notify_agent: boolean;
+  /**
+   * Colado no campo "Secret" do webhook no Cal.com, que passa a assinar cada
+   * evento (x-cal-signature-256). O calcom-webhook recusa evento sem assinatura.
+   * Gerado no primeiro salvamento e mantido depois.
+   */
+  webhook_secret?: string;
 }
 
 export const CALCOM_DEFAULTS: CalcomConfig = {
@@ -22,6 +28,10 @@ export const CALCOM_DEFAULTS: CalcomConfig = {
   link_deal: true,
   notify_agent: true,
 };
+
+export function novoSegredoCalcom(): string {
+  return (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "");
+}
 
 export function useCalcomConfig() {
   const orgId = useOrgId();
@@ -57,7 +67,11 @@ export function useSaveCalcomConfig() {
         {
           org_id: orgId,
           provider: "calcom",
-          config: { ...config, scheduling_link: config.scheduling_link.trim() },
+          config: {
+            ...config,
+            scheduling_link: config.scheduling_link.trim(),
+            webhook_secret: config.webhook_secret || novoSegredoCalcom(),
+          },
           // Sem link não há integração: o webhook ignora e a IA não oferece agenda.
           is_active: !!config.scheduling_link.trim(),
           connected_by: auth.user?.id ?? null,

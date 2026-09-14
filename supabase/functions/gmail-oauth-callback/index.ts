@@ -4,7 +4,7 @@
 // token, descobrimos o email da conta e gravamos em email_connections. Por fim,
 // redirecionamos de volta ao app. Requer GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APP_URL.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { resolverCredenciaisGoogle } from "../_shared/google.ts";
+import { lerEstado, resolverCredenciaisGoogle } from "../_shared/google.ts";
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
@@ -19,7 +19,8 @@ Deno.serve(async (req) => {
   if (!code || !stateRaw) return redirect("/inbox?email_error=missing_code");
 
   try {
-    const state = JSON.parse(atob(stateRaw)) as { user_id: string; org_id: string; redirect_path: string };
+    const state = await lerEstado(stateRaw);
+    if (!state) return redirect("/inbox?email_error=estado_invalido");
     const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/gmail-oauth-callback`;
 
     // O `state` carrega a org, então a troca do code usa a MESMA credencial que

@@ -1,5 +1,46 @@
 // Helpers compartilhados para as edge functions do Gmail.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { hmacSha256Hex, iguais } from "./seguranca.ts";
+
+export interface EstadoOAuth {
+  user_id: string;
+  org_id: string;
+  redirect_path: string;
+}
+
+const VALIDADE_ESTADO_MS = 15 * 60 * 1000;
+
+function chaveDoEstado(): string {
+  const chave = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!chave) throw new Error("SUPABASE_SERVICE_ROLE_KEY ausente");
+  return `gmail-oauth-state:${chave}`;
+}
+
+/**
+ * O `state` do OAuth volta pela URL e diz a quem a conta do Gmail pertence.
+ * Sem assinatura, bastava montar um state com outro user_id/org_id para ligar a
+ * própria caixa de e-mail na conta de outra pessoa. Assinado e com validade.
+ */
+export async function assinarEstado(estado: EstadoOAuth): Promise<string> {
+  const corpo = btoa(JSON.stringify({ ...estado, exp: Date.now() + VALIDADE_ESTADO_MS }))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${corpo}.${await hmacSha256Hex(chaveDoEstado(), corpo)}`;
+}
+
+/** Devolve o estado só se a assinatura confere e ainda está no prazo. */
+export async function lerEstado(raw: string): Promise<EstadoOAuth | null> {
+  const [corpo, assinatura] = raw.split(".");
+  if (!corpo || !assinatura) return null;
+  if (!iguais(assinatura, await hmacSha256Hex(chaveDoEstado(), corpo))) return null;
+  try {
+    const b64 = corpo.replace(/-/g, "+").replace(/_/g, "/");
+    const dados = JSON.parse(atob(b64)) as EstadoOAuth & { exp?: number };
+    if (!dados.exp || dados.exp < Date.now()) return null;
+    return { user_id: dados.user_id, org_id: dados.org_id, redirect_path: dados.redirect_path };
+  } catch {
+    return null;
+  }
+}
 
 type Admin = ReturnType<typeof createClient>;
 

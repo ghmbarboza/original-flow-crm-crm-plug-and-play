@@ -20,6 +20,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const GRAPH_VERSION = "v21.0";
+/** Mais que o teto de execução de uma function: depois disso ninguém está enviando. */
+const CAMPANHA_TRAVADA_MS = 10 * 60 * 1000;
 const ZERNIO_API = "https://zernio.com/api/v1";
 
 function json(body: unknown, status = 200) {
@@ -74,12 +76,19 @@ Deno.serve(async (req) => {
 
     const { data: campaign } = await admin
       .from("campaigns")
-      .select("id, org_id, message_template, status, channel, provider, template_name, template_language")
+      .select("id, org_id, message_template, status, channel, provider, template_name, template_language, started_at")
       .eq("id", campaign_id)
       .maybeSingle();
     if (!campaign) return json({ error: "Campanha não encontrada" }, 404);
-    if (campaign.status === "sending" || campaign.status === "completed") {
-      return json({ error: "Campanha já está em envio ou concluída." }, 409);
+    if (campaign.status === "completed") {
+      return json({ error: "Campanha já concluída." }, 409);
+    }
+    // Uma execução que estourou o tempo da function deixa a campanha em
+    // "sending" para sempre. Passado o prazo, retomar é seguro: só os
+    // destinatários ainda "pending" são enviados, ninguém recebe duas vezes.
+    const iniciou = campaign.started_at ? new Date(campaign.started_at as string).getTime() : 0;
+    if (campaign.status === "sending" && Date.now() - iniciou < CAMPANHA_TRAVADA_MS) {
+      return json({ error: "Campanha já está em envio." }, 409);
     }
 
     const { data: profile } = await admin
@@ -259,12 +268,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Conta pelo banco, não pela execução: numa retomada, `sent` só tem a parte
+    // enviada agora.
+    const { count: totalEnviados } = await admin
+      .from("campaign_recipients")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campaign_id)
+      .eq("status", "sent");
+
     await admin
       .from("campaigns")
       .update({
         status: "completed",
         completed_at: new Date().toISOString(),
-        sent_count: sent,
+        sent_count: totalEnviados ?? sent,
         updated_at: new Date().toISOString(),
       })
       .eq("id", campaign_id);

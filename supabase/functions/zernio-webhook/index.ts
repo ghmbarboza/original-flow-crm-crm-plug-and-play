@@ -323,12 +323,15 @@ Deno.serve(async (req) => {
   if (!config) return ok({ ignored: "profile desconhecido" });
   const orgId = config.org_id as string;
 
-  // Assinatura: obrigatória apenas quando a org configurou um webhook_secret.
-  if (config.webhook_secret) {
-    const valid = await verifySignature(
-      config.webhook_secret as string, rawBody, req.headers.get("X-Zernio-Signature"),
-    );
-    if (!valid) return new Response(JSON.stringify({ error: "assinatura inválida" }), { status: 401 });
+  // Assinatura obrigatória. O secret é gravado pelo zernio-register-webhook no
+  // mesmo momento em que o webhook é cadastrado no Zernio, então toda org que
+  // recebe eventos tem um. Sem secret, não há como provar que veio do Zernio.
+  const valid = !!config.webhook_secret && await verifySignature(
+    config.webhook_secret as string, rawBody, req.headers.get("X-Zernio-Signature"),
+  );
+  if (!valid) {
+    console.error(`[zernio] assinatura ${config.webhook_secret ? "inválida" : "sem secret cadastrado"} (org ${orgId})`);
+    return new Response(JSON.stringify({ error: "assinatura inválida" }), { status: 401 });
   }
 
   // ---- message.received: nova mensagem recebida ----

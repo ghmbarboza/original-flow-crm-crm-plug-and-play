@@ -33,6 +33,10 @@ const MARKER = "E2E";
  * e libera o produto.
  */
 const TABELAS: { tabela: string; coluna: string }[] = [
+  // Automação de teste que fica viva dispara a cada contato criado (inclusive
+  // pelos próprios testes): foram 2.748 execuções acumuladas até 14/09.
+  // O CASCADE de automation_logs leva o histórico junto.
+  { tabela: "automations", coluna: "name" },
   { tabela: "activities", coluna: "title" },
   { tabela: "deals", coluna: "title" },
   { tabela: "contacts", coluna: "first_name" },

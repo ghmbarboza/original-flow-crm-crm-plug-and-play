@@ -231,12 +231,18 @@ export function useVerifyMeta() {
       phone_number_id: string;
       business_account_id: string;
       access_token: string;
+      app_secret: string;
       display_name?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke("meta-verify", { body: input });
       if (error) throw await erroDeFunction(error, "Falha ao verificar a conta Meta.");
       if (data?.error) throw new Error(data.error);
-      return data as { instance_id: string; phone_number: string | null; webhook_verified: boolean };
+      return data as {
+        instance_id: string;
+        phone_number: string | null;
+        webhook_verify_token: string;
+        webhook_verified: boolean;
+      };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] }),
   });

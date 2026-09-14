@@ -3,7 +3,7 @@
 // O estado (state) carrega user_id/org_id/redirect para o callback saber a quem
 // pertence a conexão. Requer os secrets GOOGLE_CLIENT_ID e APP_URL (base do app).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { resolverCredenciaisGoogle } from "../_shared/google.ts";
+import { assinarEstado, resolverCredenciaisGoogle } from "../_shared/google.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,11 +58,11 @@ Deno.serve(async (req) => {
     const { redirect_path } = await req.json().catch(() => ({}));
 
     const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/gmail-oauth-callback`;
-    const state = btoa(JSON.stringify({
+    const state = await assinarEstado({
       user_id: user.id,
-      org_id: profile.org_id,
+      org_id: profile.org_id as string,
       redirect_path: redirect_path ?? "/inbox",
-    }));
+    });
 
     const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     url.searchParams.set("client_id", clientId);

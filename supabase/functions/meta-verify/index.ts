@@ -49,9 +49,12 @@ Deno.serve(async (req) => {
     const business_account_id: string = body.business_account_id ?? "";
     const access_token: string = body.access_token ?? "";
     const display_name: string = body.display_name ?? "";
+    // Sem o App Secret o meta-webhook não consegue provar que a mensagem veio da
+    // Meta e recusa tudo, então ele é obrigatório já na conexão.
+    const app_secret: string = (body.app_secret ?? "").trim();
 
-    if (!phone_number_id || !business_account_id || !access_token) {
-      return json({ error: "Informe phone_number_id, business_account_id e access_token." }, 400);
+    if (!phone_number_id || !business_account_id || !access_token || !app_secret) {
+      return json({ error: "Informe phone_number_id, business_account_id, access_token e App Secret." }, 400);
     }
 
     // Verifica o número na Graph API.
@@ -74,36 +77,47 @@ Deno.serve(async (req) => {
       phone_number_id,
       business_account_id,
       access_token,
+      app_secret,
       phone_number: phoneNumber,
       display_name: display_name || info?.verified_name || "WhatsApp Business",
       status: "connected",
-      webhook_verified: true,
       is_active: true,
       updated_at: new Date().toISOString(),
     };
 
     const { data: existing } = await admin
       .from("meta_configs")
-      .select("id")
+      .select("id, webhook_verify_token, webhook_verified")
       .eq("org_id", orgId)
       .eq("phone_number_id", phone_number_id)
       .maybeSingle();
 
-    let instanceId: string;
+    // webhook_verified só vira true quando a Meta chama o GET de verificação
+    // com o verify token certo (meta-webhook). Antes era gravado true aqui, sem
+    // nenhuma verificação real.
+    let saved: { id: string; webhook_verify_token: string; webhook_verified: boolean };
     if (existing?.id) {
-      await admin.from("meta_configs").update(record).eq("id", existing.id);
-      instanceId = existing.id;
+      const { data, error } = await admin
+        .from("meta_configs").update(record).eq("id", existing.id)
+        .select("id, webhook_verify_token, webhook_verified").single();
+      if (error) return json({ error: `Falha ao salvar instância: ${error.message}` }, 500);
+      saved = data;
     } else {
-      const { data: inserted, error } = await admin
+      const { data, error } = await admin
         .from("meta_configs")
-        .insert(record)
-        .select("id")
+        .insert({ ...record, webhook_verified: false })
+        .select("id, webhook_verify_token, webhook_verified")
         .single();
       if (error) return json({ error: `Falha ao salvar instância: ${error.message}` }, 500);
-      instanceId = inserted.id;
+      saved = data;
     }
 
-    return json({ instance_id: instanceId, phone_number: phoneNumber, webhook_verified: true });
+    return json({
+      instance_id: saved.id,
+      phone_number: phoneNumber,
+      webhook_verify_token: saved.webhook_verify_token,
+      webhook_verified: saved.webhook_verified,
+    });
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : "Erro inesperado" }, 500);
   }

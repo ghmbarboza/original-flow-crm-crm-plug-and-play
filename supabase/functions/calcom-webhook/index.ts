@@ -11,28 +11,18 @@
 // orgs. Sem config ativa do Cal.com para a org, o evento é ignorado — a URL
 // vazar não permite escrever nada em quem não ligou a integração.
 //
-// Assinatura: se CALCOM_WEBHOOK_SECRET estiver configurado, o header
-// x-cal-signature-256 (HMAC-SHA256 do corpo) é verificado; sem o secret, o
-// webhook aceita os eventos como o Cal.com os envia.
+// Assinatura obrigatória: o header x-cal-signature-256 (HMAC-SHA256 hex do corpo)
+// é conferido com o secret da org (integration_configs.config.webhook_secret,
+// gerado na tela e colado no Cal.com). Antes dependia de um secret de ambiente
+// que nunca existiu, então qualquer um com o id da org criava reuniões.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { hmacSha256Hex, iguais } from "../_shared/seguranca.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
-}
-
-async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
-  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 interface CalcomAttendee {
@@ -48,20 +38,6 @@ Deno.serve(async (req) => {
     if (!orgId) return json({ error: "Parâmetro org ausente." }, 400);
 
     const raw = await req.text();
-
-    const secret = Deno.env.get("CALCOM_WEBHOOK_SECRET");
-    if (secret) {
-      const signature = req.headers.get("x-cal-signature-256") ?? "";
-      if (signature !== (await hmacSha256Hex(secret, raw))) {
-        return json({ error: "Assinatura inválida." }, 401);
-      }
-    }
-
-    const event = JSON.parse(raw || "{}");
-    const trigger = String(event?.triggerEvent ?? "");
-    if (trigger && trigger !== "BOOKING_CREATED") {
-      return json({ skipped: `evento ${trigger} ignorado` });
-    }
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -80,7 +56,20 @@ Deno.serve(async (req) => {
       create_activity?: boolean;
       link_deal?: boolean;
       notify_agent?: boolean;
+      webhook_secret?: string;
     };
+
+    const signature = req.headers.get("x-cal-signature-256") ?? "";
+    if (!config.webhook_secret || !signature ||
+      !iguais(signature, await hmacSha256Hex(config.webhook_secret, raw))) {
+      return json({ error: "Assinatura inválida. Confira o Secret do webhook no Cal.com." }, 401);
+    }
+
+    const event = JSON.parse(raw || "{}");
+    const trigger = String(event?.triggerEvent ?? "");
+    if (trigger && trigger !== "BOOKING_CREATED") {
+      return json({ skipped: `evento ${trigger} ignorado` });
+    }
 
     const payload = event?.payload ?? {};
     const attendee: CalcomAttendee = (payload.attendees ?? [])[0] ?? {};

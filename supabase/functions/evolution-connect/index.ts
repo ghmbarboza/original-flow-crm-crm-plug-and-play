@@ -176,7 +176,19 @@ Deno.serve(async (req) => {
     }
 
     const alvo: EvolutionAlvo = { server_url, api_key, instance_name };
-    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/evolution-webhook`;
+
+    // O token vai na URL do webhook e é a prova de origem que o evolution-webhook
+    // confere. Reconectar a mesma instância mantém o token (e a URL) de antes.
+    const { data: existing } = await admin
+      .from("evolution_configs")
+      .select("id, webhook_token")
+      .eq("org_id", orgId)
+      .eq("instance_name", instance_name)
+      .maybeSingle();
+    const webhookToken = (existing?.webhook_token as string | undefined) ??
+      crypto.randomUUID().replaceAll("-", "") + crypto.randomUUID().replaceAll("-", "");
+    const webhookUrl =
+      `${Deno.env.get("SUPABASE_URL")}/functions/v1/evolution-webhook?token=${webhookToken}`;
 
     let qrCode: string | null = null;
     let status = "connecting";
@@ -230,18 +242,12 @@ Deno.serve(async (req) => {
     const semQr = !qrCode && status !== "connected";
 
     // 4. Persiste (upsert por instância dentro da org).
-    const { data: existing } = await admin
-      .from("evolution_configs")
-      .select("id")
-      .eq("org_id", orgId)
-      .eq("instance_name", instance_name)
-      .maybeSingle();
-
     const record = {
       org_id: orgId,
       server_url,
       api_key,
       instance_name,
+      webhook_token: webhookToken,
       display_name,
       qr_code: qrCode,
       status,
