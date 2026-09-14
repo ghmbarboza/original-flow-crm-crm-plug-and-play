@@ -2296,6 +2296,107 @@ export type Database = {
           },
         ]
       }
+      integration_sandbox_captures: {
+        Row: {
+          body: Json | null
+          created_at: string
+          headers: Json
+          id: string
+          method: string
+          org_id: string
+          path: string
+          query: Json
+          raw_body: string | null
+          response_status: number
+          session_id: string
+        }
+        Insert: {
+          body?: Json | null
+          created_at?: string
+          headers?: Json
+          id?: string
+          method: string
+          org_id: string
+          path: string
+          query?: Json
+          raw_body?: string | null
+          response_status: number
+          session_id: string
+        }
+        Update: {
+          body?: Json | null
+          created_at?: string
+          headers?: Json
+          id?: string
+          method?: string
+          org_id?: string
+          path?: string
+          query?: Json
+          raw_body?: string | null
+          response_status?: number
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_sandbox_captures_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_sandbox_captures_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "integration_sandbox_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_sandbox_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          label: string | null
+          org_id: string
+          response_status: number
+          token: string
+          webhook_events: Json | null
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          label?: string | null
+          org_id: string
+          response_status?: number
+          token?: string
+          webhook_events?: Json | null
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          label?: string | null
+          org_id?: string
+          response_status?: number
+          token?: string
+          webhook_events?: Json | null
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_sandbox_sessions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_score_history: {
         Row: {
           channel: string | null
@@ -3738,6 +3839,10 @@ export type Database = {
         Returns: undefined
       }
       ensure_auth_trigger: { Args: never; Returns: Json }
+      executar_dispatcher_agora: {
+        Args: { p_function: string }
+        Returns: number
+      }
       get_handle_new_user_def: { Args: never; Returns: string }
       get_org_api_key: {
         Args: { _org_id: string; _service: string }
