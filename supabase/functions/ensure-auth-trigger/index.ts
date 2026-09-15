@@ -24,6 +24,17 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+    // 0. Infra que o remix não copia: crons, segredo interno, realtime e
+    //    biblioteca de modelos (migration 20260915120000). A URL vem do
+    //    ambiente, nunca do navegador. Idempotente: no projeto pronto não cria nada.
+    const infra = await admin.rpc("garantir_infra_do_projeto", { p_url: url });
+    if (infra.error) {
+      console.error(`[ensure-auth-trigger] infra do projeto: ${infra.error.message}`);
+      return json({ ok: false, message: `RPC garantir_infra_do_projeto failed: ${infra.error.message}` });
+    }
+    const criado = ((infra.data ?? {}) as { criado?: string[] }).criado ?? [];
+    if (criado.length) console.log(`[ensure-auth-trigger] infra recriada: ${criado.join(", ")}`);
+
     // 1. Ensure trigger exists; create if missing
     const triggerResult = await admin.rpc("ensure_auth_trigger");
     if (triggerResult.error) {
@@ -67,6 +78,7 @@ Deno.serve(async (req) => {
 
     return json({
       ok,
+      infra: { criado },
       trigger: {
         exists: !triggerData.created || triggerData.created,
         recreated: !!triggerData.created,
