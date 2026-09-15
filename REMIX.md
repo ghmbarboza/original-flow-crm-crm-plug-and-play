@@ -1,0 +1,45 @@
+# Remix do FlowCRM 2.0 para um cliente
+
+Um projeto Lovable por cliente. Este guia foi escrito a partir do remix de teste de 15/09/2026 (`via-flowcrm2-remix-teste-2`).
+
+## O que o remix da Lovable faz e o que não faz
+
+| Vem no remix | Não vem no remix |
+|---|---|
+| Código e as 44 edge functions, já publicadas | O arquivo `.env` (o app abre em branco até ele existir) |
+| Tabelas, funções, triggers, policies e buckets | Crons (automações, NPS, follow-up, mensagens agendadas, ERP, webhooks, conversa parada) |
+| | Segredos do Vault (`internal_cron_secret`, `project_url`) |
+| | Realtime (inbox, kanban e notificações atualizando sozinhos) |
+| | Biblioteca de modelos (16 modelos) |
+| | Trigger de cadastro em `auth.users` |
+| | Secrets de ambiente (`APP_URL`, `ANTHROPIC_API_KEY`...) |
+| | Dados (organização, usuários, contatos) |
+
+Tudo da coluna da direita que é infraestrutura se recria sozinho: a function `ensure-auth-trigger` roda a cada abertura do app e chama `garantir_infra_do_projeto()`, que cria só o que faltar. No remix de teste ela criou o segredo, os 7 crons, o realtime das 5 tabelas, os 16 modelos e o trigger na primeira chamada, e os crons passaram a chamar as functions do próprio remix com 200.
+
+## Passo a passo
+
+1. **Remix** do projeto `[ORIGINAL] Flow CRM 2.0` no workspace, com o nome `viver-de-ia-<cliente>` ou o combinado.
+2. **Abrir o projeto no editor da Lovable** e esperar o preview carregar a tela de login. No remix de teste o preview abriu em branco: o servidor do preview tinha subido antes do Cloud novo ficar pronto. Pedir ao agente "reinicie o preview, o .env deste projeto já existe" resolveu no editor. O link `id-preview--...lovable.app` continuou em branco até uma nova build, então confira pelo editor e depois pelo app publicado.
+3. **Abrir o app uma vez** (preview ou publicado). Isso recria a infraestrutura. Para conferir sem abrir, chame a function e veja o campo `infra`:
+   `curl -X POST https://<ref>.supabase.co/functions/v1/ensure-auth-trigger -d '{}'`
+   No projeto pronto a resposta é `"infra":{"criado":[]}`.
+4. **Criar a conta do administrador** do cliente pela tela de cadastro. Pelo código, o primeiro usuário vira admin e a organização nasce com o funil padrão (`handle_new_user` + `on_profile_created_assign_org`). Isso ainda não foi conferido num remix: confira no primeiro cliente que o admin entra direto, sem cair em "aguardando aprovação", e que o kanban mostra as etapas.
+5. **Secrets de ambiente** (pelo agente da Lovable, em Cloud > Secrets):
+   - `APP_URL` = URL publicada do app do cliente. Sem ela, o login do Gmail não volta para o app.
+   - `ANTHROPIC_API_KEY` só se o cliente for usar Claude; sem ela a IA usa o gateway da Lovable.
+6. **Publicar** o app e, se houver, ligar o domínio do cliente.
+7. **Integrações**: seguir o "Checklist do dia da entrega" em `PRONTIDAO_INTEGRACOES.md` (WhatsApp, Meta, Zernio, Cal.com, webhooks). Credenciais do Google, ElevenLabs e demais ficam no Vault por organização, cadastradas pela tela.
+
+## Conferência final
+
+Rodar no SQL do projeto do cliente:
+
+```sql
+select (select count(*) from cron.job) as crons,                 -- 7
+       (select count(*) from library_templates) as modelos,      -- 16
+       (select count(*) from pg_publication_tables
+         where pubname = 'supabase_realtime') as realtime;       -- 5
+```
+
+E, depois de um minuto, `select status_code, content from net._http_response order by created desc limit 5;` deve mostrar só 200.
