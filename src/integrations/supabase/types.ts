@@ -4084,6 +4084,7 @@ export type Database = {
         Args: { p_function: string }
         Returns: number
       }
+      garantir_infra_do_projeto: { Args: { p_url: string }; Returns: Json }
       get_handle_new_user_def: { Args: never; Returns: string }
       get_org_api_key: {
         Args: { _org_id: string; _service: string }
@@ -4118,6 +4119,7 @@ export type Database = {
         Returns: number
       }
       registrar_url_do_projeto: { Args: { p_url: string }; Returns: undefined }
+      semear_biblioteca_modelos: { Args: never; Returns: number }
       url_do_projeto: { Args: never; Returns: string }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
       vault_update_secret: {
