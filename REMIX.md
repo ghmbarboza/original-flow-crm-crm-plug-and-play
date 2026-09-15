@@ -19,7 +19,7 @@ Tudo da coluna da direita que é infraestrutura se recria sozinho: a function `e
 ## Passo a passo
 
 1. **Remix** do projeto `[ORIGINAL] Flow CRM 2.0` no workspace, com o nome `viver-de-ia-<cliente>` ou o combinado.
-2. **Abrir o projeto no editor da Lovable** e esperar o preview carregar a tela de login. No remix de teste o preview abriu em branco: o servidor do preview tinha subido antes do Cloud novo ficar pronto. Pedir ao agente "reinicie o preview, o .env deste projeto já existe" resolveu no editor. O link `id-preview--...lovable.app` continuou em branco até uma nova build, então confira pelo editor e depois pelo app publicado.
+2. **Abrir o projeto no editor da Lovable** e esperar o preview carregar a tela de login. No remix de teste o preview abriu em branco com o erro `supabaseUrl is required` no console: a Lovable gera o build do remix antes de o Cloud novo existir, e o bundle sai sem `VITE_SUPABASE_URL`. Uma alteração mínima pelo agente (linha em branco no README) não atualizou o link `id-preview--...lovable.app` na hora. Ainda não está confirmado o que força o build novo: anote aqui o que resolver no primeiro cliente.
 3. **Abrir o app uma vez** (preview ou publicado). Isso recria a infraestrutura. Para conferir sem abrir, chame a function e veja o campo `infra`:
    `curl -X POST https://<ref>.supabase.co/functions/v1/ensure-auth-trigger -d '{}'`
    No projeto pronto a resposta é `"infra":{"criado":[]}`.
