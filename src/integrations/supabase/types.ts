@@ -4045,6 +4045,10 @@ export type Database = {
         }
         Returns: number
       }
+      chamar_function: {
+        Args: { p_function: string; p_timeout_ms?: number }
+        Returns: number
+      }
       create_notification: {
         Args: {
           p_body: string
@@ -4113,6 +4117,8 @@ export type Database = {
         Args: { p_channel?: string; p_event: string; p_org: string }
         Returns: number
       }
+      registrar_url_do_projeto: { Args: { p_url: string }; Returns: undefined }
+      url_do_projeto: { Args: never; Returns: string }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
       vault_update_secret: {
         Args: { new_secret: string; secret_id: string }
