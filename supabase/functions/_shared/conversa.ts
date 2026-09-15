@@ -104,3 +104,51 @@ export async function obterOuCriarContatoWhatsapp(
   console.error(`[conversa] não foi possível criar o contato ${telefone}: ${error?.message ?? "sem retorno"}`);
   return null;
 }
+
+/**
+ * Contato de canal sem telefone (Instagram, Messenger, Telegram...) por org +
+ * `custom_fields.channel` + `custom_fields.channel_contact_id`, com o índice
+ * uniq_contact_canal_por_org garantindo um só contato na rajada. `novo` é true
+ * só para a invocação que de fato criou.
+ */
+export async function obterOuCriarContatoCanal(
+  admin: SupabaseClient,
+  orgId: string,
+  canal: string,
+  idNoCanal: string,
+  novoContato: Record<string, unknown>,
+): Promise<{ id: string; novo: boolean } | null> {
+  const buscar = async () => {
+    const { data } = await admin
+      .from("contacts")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("custom_fields->>channel", canal)
+      .eq("custom_fields->>channel_contact_id", idNoCanal)
+      .is("merged_into_id", null)
+      .maybeSingle();
+    return data;
+  };
+
+  const existente = await buscar();
+  if (existente) return { id: existente.id, novo: false };
+
+  const campos = (novoContato.custom_fields ?? {}) as Record<string, unknown>;
+  const { data: criado, error } = await admin
+    .from("contacts")
+    .insert({
+      ...novoContato,
+      org_id: orgId,
+      custom_fields: { ...campos, channel: canal, channel_contact_id: idNoCanal },
+    })
+    .select("id")
+    .single();
+  if (criado) return { id: criado.id, novo: true };
+
+  if (error?.code === VIOLACAO_UNICA) {
+    const vencedor = await buscar();
+    if (vencedor) return { id: vencedor.id, novo: false };
+  }
+  console.error(`[conversa] não foi possível criar o contato ${canal}:${idNoCanal}: ${error?.message ?? "sem retorno"}`);
+  return null;
+}

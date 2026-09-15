@@ -11,7 +11,11 @@
 // "<X-FlowCRM-Timestamp>.<corpo>"). Resposta 2xx em até 10 s = sucesso. Qualquer
 // outra coisa agenda nova tentativa (1 min, 5 min, 30 min, 2 h, 12 h); na sexta
 // falha a entrega fica "failed" com o status e o começo da resposta do destino.
+//
+// Destino com format = "painel_preditivo" recebe o corpo convertido para o
+// formato do Painel Preditivo de Metas (_shared/painelPreditivo.ts).
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { corpoPainelPreditivo } from "../_shared/painelPreditivo.ts";
 import { cronAutorizado, hmacSha256Hex, naoAutorizado } from "../_shared/seguranca.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -43,6 +47,7 @@ interface Destino {
   url: string;
   secret: string;
   headers: Record<string, string> | null;
+  format: "flowcrm" | "painel_preditivo";
   is_active: boolean;
   consecutive_failures: number;
 }
@@ -64,7 +69,21 @@ interface Resultado {
 }
 
 async function enviar(destino: Destino, entrega: Entrega): Promise<Resultado> {
-  const corpo = JSON.stringify(entrega.payload);
+  const painel = destino.format === "painel_preditivo";
+  const ping = entrega.event === "ping";
+  let corpoObj: Record<string, unknown> | null = entrega.payload;
+  if (painel) {
+    // O painel exige `deal` em todo evento; no teste vai um negócio vazio, que ele
+    // registra e recusa com corretor_not_found sem criar nada.
+    corpoObj = ping
+      ? { event_type: "ping", deal: { external_id: `flowcrm-ping-${entrega.event_id}` } }
+      : corpoPainelPreditivo(entrega.payload);
+    if (!corpoObj) {
+      return { ok: true, status_code: null, resposta: "Não enviado: o Painel Preditivo só recebe eventos de negócio.", erro: null };
+    }
+  }
+
+  const corpo = JSON.stringify(corpoObj);
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const assinatura = await hmacSha256Hex(destino.secret, `${timestamp}.${corpo}`);
 
@@ -79,6 +98,8 @@ async function enviar(destino: Destino, entrega: Entrega): Promise<Resultado> {
     "X-FlowCRM-Delivery": entrega.id,
     "X-FlowCRM-Timestamp": timestamp,
     "X-FlowCRM-Signature": `sha256=${assinatura}`,
+    // O painel confere o secret em texto nesse header (integrations.config.secret).
+    ...(painel ? { "x-webhook-secret": destino.secret } : {}),
   };
 
   try {
@@ -89,6 +110,11 @@ async function enviar(destino: Destino, entrega: Entrega): Promise<Resultado> {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const texto = (await resp.text().catch(() => "")).slice(0, 500);
+    // Teste no painel: 422 corretor_not_found prova URL certa e secret aceito
+    // (secret errado seria 401 invalid_secret).
+    if (painel && ping && resp.status === 422 && texto.includes("corretor_not_found")) {
+      return { ok: true, status_code: resp.status, resposta: "Painel alcançado e secret aceito (o teste não cria negócio).", erro: null };
+    }
     return {
       ok: resp.ok,
       status_code: resp.status,
@@ -158,7 +184,7 @@ async function reivindicar(admin: SupabaseClient, id: string, de: string[]): Pro
 async function carregarDestino(admin: SupabaseClient, id: string): Promise<Destino | null> {
   const { data } = await admin
     .from("webhook_endpoints")
-    .select("id, url, secret, headers, is_active, consecutive_failures")
+    .select("id, url, secret, headers, format, is_active, consecutive_failures")
     .eq("id", id)
     .maybeSingle();
   return (data as Destino | null) ?? null;

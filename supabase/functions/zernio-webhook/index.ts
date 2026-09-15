@@ -9,9 +9,10 @@
 // obrigatória desde 14/09 (o secret é gravado pelo zernio-register-webhook).
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
-  baixarBinario, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket, transcreverAudio,
+  baixarBinario, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket, salvarMidiaNoBucket,
+  transcreverAudio,
 } from "../_shared/audio.ts";
-import { obterOuCriarContatoWhatsapp, obterOuCriarConversa } from "../_shared/conversa.ts";
+import { obterOuCriarContatoCanal, obterOuCriarContatoWhatsapp, obterOuCriarConversa } from "../_shared/conversa.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -65,21 +66,41 @@ interface Sender {
   phoneNumber?: string | null;
 }
 
-/** Áudio recebido, já resolvido para uma URL baixável. */
-interface AudioRecebido {
+type TipoAnexo = "audio" | "image" | "video" | "document";
+
+/** Anexo recebido, já resolvido para uma URL baixável. */
+interface AnexoRecebido {
+  tipo: TipoAnexo;
   url: string;
   mimetype?: string;
-  headers?: Record<string, string>;
+  /** Nome original do arquivo, quando o canal informa (documento). */
+  nome?: string;
+}
+
+// Pasta no bucket e rótulo da lista de conversas, iguais aos do evolution-webhook.
+const MIDIA: Record<Exclude<TipoAnexo, "audio">, { pasta: string; rotulo: string; ext: string }> = {
+  image: { pasta: "imagem", rotulo: "📷 Foto", ext: "jpg" },
+  video: { pasta: "video", rotulo: "🎥 Vídeo", ext: "mp4" },
+  document: { pasta: "documento", rotulo: "📎 Documento", ext: "bin" },
+};
+
+function tipoDoAnexo(tipo: string, mimetype: string): TipoAnexo | null {
+  if (tipo.includes("audio") || tipo === "voice" || tipo === "ptt" || mimetype.startsWith("audio/")) return "audio";
+  if (tipo === "image" || tipo === "sticker" || tipo === "gif" || mimetype.startsWith("image/")) return "image";
+  if (tipo === "video" || mimetype.startsWith("video/")) return "video";
+  if (tipo === "file" || tipo === "document" || mimetype) return "document";
+  return null;
 }
 
 /**
- * Procura um anexo de áudio no payload do Zernio.
+ * Procura o primeiro anexo (áudio, foto, vídeo ou documento) no payload do Zernio.
  *
- * O spec não fixa o formato dos anexos, então tentamos os arranjos plausíveis
- * (`attachments[]`, `media`, `audio`) e, quando o evento parece ter mídia mas
- * nada casa, logamos o payload para ajustar o parser com um caso real em mão.
+ * O contrato é `attachments[]` com `{ type: image|video|file|sticker|audio, url }`
+ * (InboxWebhookMessage no zernio-api-openapi.yaml). `media` e `audio` ficam como
+ * tolerância; quando o evento parece ter mídia mas nada casa, logamos o payload
+ * para ajustar o parser com um caso real em mão.
  */
-function extrairAudioZernio(message: Record<string, unknown>): AudioRecebido | null {
+function extrairAnexoZernio(message: Record<string, unknown>): AnexoRecebido | null {
   const candidatos: unknown[] = [
     ...(Array.isArray(message.attachments) ? message.attachments : []),
     message.media,
@@ -89,13 +110,20 @@ function extrairAudioZernio(message: Record<string, unknown>): AudioRecebido | n
   for (const bruto of candidatos) {
     if (!bruto || typeof bruto !== "object") continue;
     const item = bruto as Record<string, unknown>;
-    const tipo = String(item.type ?? item.mediaType ?? "").toLowerCase();
-    const mimetype = String(item.mimetype ?? item.mimeType ?? item.contentType ?? "");
+    const payload = (item.payload && typeof item.payload === "object" ? item.payload : {}) as Record<string, unknown>;
+    const tipoBruto = String(item.type ?? item.mediaType ?? "").toLowerCase();
+    const mimetype = String(item.mimetype ?? item.mimeType ?? item.contentType ?? payload.mimeType ?? payload.mime_type ?? "");
     const url = item.url ?? item.mediaUrl ?? item.downloadUrl ?? item.link;
     if (typeof url !== "string" || !url) continue;
-    if (tipo.includes("audio") || tipo === "voice" || tipo === "ptt" || mimetype.startsWith("audio/")) {
-      return { url, mimetype: mimetype || undefined };
-    }
+    // O objeto `audio` legado não traz type: vale como áudio.
+    const tipo = tipoDoAnexo(tipoBruto || (bruto === message.audio ? "audio" : ""), mimetype);
+    if (!tipo) continue;
+    const nome = item.filename ?? item.fileName ?? payload.filename ?? payload.fileName;
+    return {
+      tipo, url,
+      mimetype: mimetype || undefined,
+      nome: typeof nome === "string" && nome ? nome : undefined,
+    };
   }
 
   // Lista de anexos vazia não é mídia: antes toda mensagem de texto caía aqui e
@@ -141,20 +169,8 @@ async function resolveContact(
     return contato ? { id: contato.id, novo: false } : null;
   }
 
-  const { data } = await admin
-    .from("contacts").select("id")
-    .eq("org_id", orgId)
-    .eq("custom_fields->>channel_contact_id", channelContactId)
-    .eq("custom_fields->>channel", channel)
-    .is("merged_into_id", null).maybeSingle();
-  if (data?.id) return { id: data.id as string, novo: false };
-
-  const { data: created, error } = await admin
-    .from("contacts")
-    .insert({ ...dados, org_id: orgId })
-    .select("id").single();
-  if (error) console.error(`[zernio] falha ao criar contato ${identifier}: ${error.message}`);
-  return created?.id ? { id: created.id as string, novo: true } : null;
+  // Demais canais: índice único uniq_contact_canal_por_org, mesma adoção em corrida.
+  return await obterOuCriarContatoCanal(admin, orgId, channel, channelContactId, dados);
 }
 
 /** Cria/atualiza contato+conversa e grava a mensagem inbound. Devolve o status da conversa. */
@@ -166,20 +182,22 @@ async function ingestInbound(
   text: string,
   providerConversationId: string | null,
   providerMessageId: string | null,
-  audio: AudioRecebido | null = null,
+  anexo: AnexoRecebido | null = null,
+  apiKey: string | null = null,
 ): Promise<{ conversationId: string; status: string; transcricao: string | null } | null> {
   // Identificador do remetente no canal. WhatsApp = telefone; demais = id da plataforma.
   const identifier = (sender.phoneNumber ?? sender.id ?? "").replace(/^\+/, "");
   if (!identifier) return null;
-  // Áudio ainda não transcrito precisa aparecer na lista de conversas.
-  const preview = text ? text.slice(0, 120) : "🎤 Áudio";
+  // Mídia sem legenda (e áudio ainda não transcrito) precisa aparecer na lista de conversas.
+  const preview = text
+    ? text.slice(0, 120)
+    : !anexo || anexo.tipo === "audio" ? "🎤 Áudio" : MIDIA[anexo.tipo].rotulo;
   const now = new Date().toISOString();
 
   // Conversa: única por (org, canal, identificador), à prova de rajada
   // (ver _shared/conversa.ts). O contato só é resolvido quando a conversa é nova.
-  let contatoCriado: { id: string; novo: boolean } | null = null;
   const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel }, async () => {
-    contatoCriado = await resolveContact(
+    const contatoCriado = await resolveContact(
       admin, orgId, channel, identifier,
       sender.id ?? identifier,
       sender.name ?? sender.username ?? null,
@@ -208,12 +226,9 @@ async function ingestInbound(
   const conversationId = conversa.id;
   const status = conversa.status;
   const isNewConversation = conversa.criada;
-  // Perdeu a corrida depois de já ter criado um contato fora do WhatsApp (que
-  // não tem índice único): apaga a cópia para a rajada não virar dois leads.
-  const sobra = contatoCriado as { id: string; novo: boolean } | null;
-  if (!conversa.criada && sobra?.novo) {
-    await admin.from("contacts").delete().eq("id", sobra.id).eq("org_id", orgId);
-  }
+  // Contato de rajada não precisa de limpeza: o índice uniq_contact_canal_por_org
+  // faz as invocações paralelas adotarem o mesmo contato. Apagar a "sobra" aqui
+  // apagaria justamente o contato que a conversa vencedora referencia.
   const { data: dono } = await admin.from("conversations").select("contact_id").eq("id", conversationId).single();
   const contactId = (dono?.contact_id as string | null) ?? null;
 
@@ -234,12 +249,43 @@ async function ingestInbound(
   // Áudio: guarda o binário no bucket e transcreve. A transcrição vai em
   // `content`, então o histórico lido pela IA continua textual. Falha de
   // download ou de transcrição nunca descarta a mensagem.
+  // Mídia do WhatsApp vem por GET /v1/whatsapp/media/{id} do próprio Zernio, que
+  // exige a API Key; Instagram, Facebook e Telegram mandam link direto da CDN.
+  // Sem o header o download dava 401 e o áudio do WhatsApp nunca era transcrito.
+  const headersDownload: Record<string, string> =
+    anexo && apiKey && /(^|\.)zernio\.com$/i.test(new URL(anexo.url, "https://x").hostname)
+      ? { Authorization: `Bearer ${apiKey}` }
+      : {};
+
   let transcricao: string | null = null;
-  if (audio) {
-    const midia = await baixarBinario(audio.url, audio.headers ?? {});
+  if (anexo && anexo.tipo !== "audio") {
+    const info = MIDIA[anexo.tipo];
+    const midia = await baixarBinario(anexo.url, headersDownload);
     let mediaPath: string | null = null;
     if (midia) {
-      const mimetype = audio.mimetype ?? midia.mimetype;
+      const mimetype = anexo.mimetype ?? midia.mimetype;
+      // Documento guarda o nome original; foto e vídeo não têm nome útil.
+      const nome = (anexo.tipo === "document" ? anexo.nome?.replace(/[^\w.-]/g, "_") : "") || `${Date.now()}.${info.ext}`;
+      mediaPath = await salvarMidiaNoBucket(
+        admin, orgId, conversationId, info.pasta, midia.bytes, `${Date.now()}-${nome}`, mimetype,
+      );
+    }
+    // Download falho não descarta a mensagem: fica o registro de que o cliente mandou algo.
+    await admin.from("conversation_messages").insert({
+      conversation_id: conversationId,
+      org_id: orgId,
+      direction: "inbound",
+      content: text || null,
+      media_url: mediaPath,
+      provider_message_id: providerMessageId,
+      type: anexo.tipo,
+      status: "received",
+    });
+  } else if (anexo) {
+    const midia = await baixarBinario(anexo.url, headersDownload);
+    let mediaPath: string | null = null;
+    if (midia) {
+      const mimetype = anexo.mimetype ?? midia.mimetype;
       mediaPath = await salvarAudioNoBucket(
         admin, orgId, conversationId, midia.bytes,
         `${Date.now()}.${extensaoDeAudio(mimetype)}`, mimetype,
@@ -315,7 +361,7 @@ Deno.serve(async (req) => {
 
   const { data: config } = await admin
     .from("zernio_configs")
-    .select("org_id, webhook_secret")
+    .select("org_id, webhook_secret, api_key")
     .eq("profile_id", profileId)
     .maybeSingle();
   if (!config) return ok({ ignored: "profile desconhecido" });
@@ -340,17 +386,19 @@ Deno.serve(async (req) => {
     const conversation = (body.conversation ?? {}) as { id?: string };
     const channel = message.platform ?? account.platform ?? "whatsapp";
     const text = message.text ?? "";
-    const audio = extrairAudioZernio(message as Record<string, unknown>);
-    if (!text && !audio) return ok({ ignored: "mensagem sem texto" });
+    const anexo = extrairAnexoZernio(message as Record<string, unknown>);
+    if (!text && !anexo) return ok({ ignored: "mensagem sem texto nem mídia" });
 
     const result = await ingestInbound(
       admin, orgId, channel, message.sender ?? {}, text,
-      conversation.id ?? message.conversationId ?? null, message.id ?? null, audio,
+      conversation.id ?? message.conversationId ?? null, message.id ?? null, anexo,
+      (config.api_key as string | null) ?? null,
     );
     if (!result) return ok();
 
-    // Áudio sem transcrição não dispara a IA: não há texto para ela ler.
-    if (result.status === "ai_active" && (!audio || result.transcricao)) {
+    // A IA só lê texto: áudio sem transcrição e mídia sem legenda ficam para a
+    // equipe, porque responder no vácuo é pior que ficar calada.
+    if (result.status === "ai_active" && (!!text || !!result.transcricao)) {
       const call = triggerAI(result.conversationId);
       const runtime = (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;
       if (!runtime) await call;
@@ -367,10 +415,9 @@ Deno.serve(async (req) => {
     const identifier = conv.participantId ?? "";
     if (!identifier) return ok();
 
-    const { data: existing } = await admin
-      .from("conversations").select("id")
-      .eq("org_id", orgId).eq("channel", channel).eq("phone_number", identifier).maybeSingle();
-    if (!existing) {
+    // Chega junto com o message.received da mesma conversa: usa o mesmo helper à
+    // prova de corrida em vez de SELECT-e-INSERT.
+    await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel }, async () => {
       const contactId = (await resolveContact(
         admin, orgId, channel, identifier, identifier, conv.participantName ?? null,
       ))?.id ?? null;
@@ -379,14 +426,14 @@ Deno.serve(async (req) => {
         p_org: orgId,
         p_channel: channel,
       });
-      await admin.from("conversations").insert({
-        org_id: orgId, channel, provider: "zernio", phone_number: identifier,
+      return {
+        channel, provider: "zernio",
         channel_contact_id: identifier, channel_contact_name: conv.participantName ?? null,
         contact_id: contactId, provider_conversation_id: conv.id ?? null,
         status: "ai_active", assigned_to: assignedTo ?? null,
         last_message_at: new Date().toISOString(), unread_count: 0,
-      });
-    }
+      };
+    });
     return ok();
   }
 

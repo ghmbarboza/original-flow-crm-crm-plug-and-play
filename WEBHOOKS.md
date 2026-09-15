@@ -64,6 +64,36 @@ function assinaturaValida(secret, timestamp, corpoCru, cabecalho) {
 
 Assinar `*` recebe todos, inclusive eventos criados no futuro. Dados de demonstração nunca são enviados.
 
+O `deal` leva `stage` (`id`, `name`, `win_probability`), `owner` (`id`, `name`, `email`) e `custom_fields`, além dos campos de valor e status.
+
+### Formato do Painel Preditivo de Metas
+
+O destino pode trocar o formato para **Painel Preditivo de Metas**. Aí o corpo sai no formato que o `receive-crm-webhook` do painel já entende, sem n8n no meio:
+
+```json
+{
+  "event_type": "deal.created",
+  "deal": {
+    "external_id": "<id do negócio>",
+    "user_email": "<e-mail do responsável>",
+    "title": "Apto Jardins",
+    "stage": "visita",
+    "value": 850000,
+    "lead_origin": "whatsapp",
+    "segment": "alto_padrao",
+    "client_gender": "feminino",
+    "closed_at": "só em fechamento"
+  }
+}
+```
+
+- Eventos: `deal.created`, `deal.stage_changed` e `deal.won` (vira `deal.closed`). Negócio perdido não vai, porque o painel não tem esse status.
+- `stage`: pelo nome da etapa (lead, contato/qualificação, visita/reunião, proposta/negociação, fechamento) e, se o nome não disser nada, pela probabilidade de ganho da etapa. Ganho é sempre `fechamento`.
+- `lead_origin` vem da origem do contato; `segment` do campo extra `segment` do negócio; `client_gender` e `client_age_range` dos campos extras `gender` e `age_range` do contato.
+- O secret do destino vai em `x-webhook-secret` (os headers X-FlowCRM continuam indo).
+- O painel acha o corretor pelo `user_email`: **negócio sem responsável, ou com responsável sem usuário no painel, é recusado lá** (`corretor_not_found`).
+- O botão Testar manda um negócio vazio: o painel registra e responde 422 `corretor_not_found`, que o FlowCRM mostra como conexão ok (secret errado seria 401).
+
 ### Resposta, novas tentativas e reenvio
 
 - Sucesso é qualquer **2xx em até 10 segundos**. Responda rápido e processe depois, se precisar.
@@ -140,7 +170,7 @@ Toda chamada autenticada fica no log da tela, com o que chegou e o que foi respo
 | Análise de Satisfação, Pesquisa de Satisfação do Paciente, Avaliação de Restaurantes | `feedback.received` / `nps.submitted` com o e-mail ou telefone do cliente |
 | Sistema de Agendamentos, NinaTalks | `appointment.scheduled` |
 | n8n, Make, Zapier | nó HTTP com a chave no header |
-| Painel Preditivo de Metas | recebe no formato próprio `{event_type, deal}`: precisa de um passo de conversão (n8n) ou de adaptação no painel |
+| Painel Preditivo de Metas | destino com formato "Painel Preditivo de Metas" (ver acima) |
 
 Eventos de RH (candidato, colaborador) não fazem parte do CRM e são recusados com 400.
 

@@ -3714,6 +3714,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           events: string[]
+          format: string
           headers: Json
           id: string
           is_active: boolean
@@ -3730,6 +3731,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           events?: string[]
+          format?: string
           headers?: Json
           id?: string
           is_active?: boolean
@@ -3746,6 +3748,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           events?: string[]
+          format?: string
           headers?: Json
           id?: string
           is_active?: boolean

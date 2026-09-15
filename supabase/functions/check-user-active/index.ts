@@ -26,6 +26,14 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Grava a URL deste projeto no Vault para os agendamentos (migration
+    // 20260915100000). Vem do ambiente da function, nunca do navegador, e é o
+    // que faz um remix passar a chamar as próprias functions no primeiro login.
+    const { error: urlErr } = await admin.rpc("registrar_url_do_projeto", {
+      p_url: Deno.env.get("SUPABASE_URL")!,
+    });
+    if (urlErr) console.error(`[check-user-active] URL do projeto não registrada: ${urlErr.message}`);
+
     const { data: userData, error: userErr } = await admin.auth.getUser(token);
     if (userErr || !userData.user) {
       return new Response(JSON.stringify({ active: true, unauthenticated: true }), {

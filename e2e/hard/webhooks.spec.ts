@@ -328,3 +328,58 @@ test("entrada: chave revogada para de funcionar na hora", async () => {
   const r = await entrada({ action: "ping" });
   expect(r.status).toBe(401);
 });
+
+// ---------------------------------------------------------------------------
+// Formato do Painel Preditivo de Metas (15/09)
+// ---------------------------------------------------------------------------
+
+test("saída no formato do Painel Preditivo: corpo convertido, secret no header e teste aceito", async () => {
+  const painel = ok(await c.db.from("webhook_endpoints").insert({
+    org_id: c.orgId,
+    name: `${MARCADOR} painel`,
+    url: `${sandbox.base}/painel`,
+    events: ["deal.created", "deal.stage_changed", "deal.won"],
+    format: "painel_preditivo",
+    created_by: c.userId,
+  }).select("id, secret").single(), "criar destino painel");
+  limpeza.add("destino painel", async () => ok(await c.db.from("webhook_endpoints").delete().eq("id", painel.id), "apagar destino painel"));
+
+  const { data: perfil } = await c.db.from("profiles").select("email").eq("id", c.userId).single();
+  const contato = ok(await c.db.from("contacts").insert({
+    org_id: c.orgId, first_name: `${MARCADOR} Painel`, email: emailDe("painel"), source: "whatsapp",
+  }).select("id").single(), "contato painel");
+  const deal = ok(await c.db.from("deals").insert({
+    org_id: c.orgId, title: `Negócio ${MARCADOR} painel`, value: 350000, contact_id: contato.id,
+    owner_id: c.userId, status: "open", custom_fields: { segment: "medio" },
+  }).select("id").single(), "negócio painel");
+  ok(await c.db.from("deals").update({ status: "won" }).eq("id", deal.id), "ganhar negócio painel");
+
+  await rodarDispatcher(c, "webhook-dispatcher");
+  const chegaram = await esperar("negócio no painel", async () => {
+    const lista = (await capturas(c, sandbox, "/painel")).filter((x) => (x.body?.deal as { external_id?: string })?.external_id === deal.id);
+    return lista.length >= 2 ? lista : null;
+  }, { timeout: 45_000, intervalo: 2_000 });
+
+  const criado = chegaram.find((x) => x.body?.event_type === "deal.created")!;
+  expect(criado.headers["x-webhook-secret"]).toBe(painel.secret);
+  expect(criado.body).toMatchObject({
+    event_type: "deal.created",
+    deal: { external_id: deal.id, title: `Negócio ${MARCADOR} painel`, value: 350000, lead_origin: "whatsapp", segment: "medio", user_email: perfil?.email },
+  });
+  expect(["lead", "contato", "visita", "proposta", "fechamento"]).toContain((criado.body?.deal as { stage: string }).stage);
+  expect(criado.body, "nada do envelope padrão vai junto").not.toHaveProperty("data");
+
+  const fechado = chegaram.find((x) => x.body?.event_type === "deal.closed")!;
+  expect(fechado.body?.deal).toMatchObject({ stage: "fechamento" });
+  expect((fechado.body?.deal as { closed_at?: string }).closed_at).toBeTruthy();
+
+  // O painel responde 422 corretor_not_found a um negócio vazio: é a prova de URL e secret certos.
+  ok(await c.db.from("integration_sandbox_sessions").update({ response_status: 422 }).eq("id", sandbox.id), "painel recusa corretor");
+  const teste = await invocar(c, "webhook-dispatcher", { action: "test", endpoint_id: painel.id });
+  ok(await c.db.from("integration_sandbox_sessions").update({ response_status: 200 }).eq("id", sandbox.id), "religar destino");
+  // A sandbox não devolve o corpo do painel, então aqui o 422 genérico tem que continuar sendo falha.
+  expect(teste.status, "só o corretor_not_found do painel conta como sucesso").toBe(502);
+  const ping = (await capturas(c, sandbox, "/painel")).find((x) => x.body?.event_type === "ping");
+  expect(ping?.headers["x-webhook-secret"]).toBe(painel.secret);
+  expect((ping?.body?.deal as { external_id?: string })?.external_id).toMatch(/^flowcrm-ping-/);
+});

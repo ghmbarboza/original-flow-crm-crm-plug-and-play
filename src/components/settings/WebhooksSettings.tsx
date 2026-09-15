@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { DesconectarIntegracao } from "@/components/settings/DesconectarIntegracao";
 import {
-  WEBHOOK_ACOES_ENTRADA, WEBHOOK_EVENTOS_SAIDA, useCreateWebhookKey, useDeleteWebhookEndpoint,
+  WEBHOOK_ACOES_ENTRADA, WEBHOOK_EVENTOS_PAINEL, WEBHOOK_EVENTOS_SAIDA, type WebhookFormato, useCreateWebhookKey, useDeleteWebhookEndpoint,
   useRedeliverWebhook, useRegenerateWebhookSecret, useSaveWebhookEndpoint, useSetWebhookKeyActive,
   useTestWebhookEndpoint, useWebhookDeliveries, useWebhookEndpoints, useWebhookInboundKeys,
   useWebhookInboundLogs, type EndpointInput, type WebhookEndpoint,
@@ -48,12 +49,25 @@ const STATUS_ENTREGA: Record<string, { label: string; variant: "secondary" | "ou
   failed: { label: "falhou", variant: "destructive" },
 };
 
-const VAZIO: EndpointInput = { name: "", url: "", events: [], is_active: true };
+const VAZIO: EndpointInput = { name: "", url: "", events: [], format: "flowcrm", is_active: true };
 
 function FormularioDestino({ inicial, onFechar }: { inicial: EndpointInput; onFechar: () => void }) {
   const salvar = useSaveWebhookEndpoint();
   const [form, setForm] = useState<EndpointInput>(inicial);
-  const todos = form.events.includes("*");
+  const painel = form.format === "painel_preditivo";
+  const todos = !painel && form.events.includes("*");
+  const eventosVisiveis = painel
+    ? WEBHOOK_EVENTOS_SAIDA.filter((ev) => WEBHOOK_EVENTOS_PAINEL.includes(ev.value))
+    : WEBHOOK_EVENTOS_SAIDA;
+
+  const trocarFormato = (format: WebhookFormato) => {
+    setForm((f) => ({
+      ...f,
+      format,
+      // No painel já vêm marcados os três eventos que ele usa.
+      events: format === "painel_preditivo" ? [...WEBHOOK_EVENTOS_PAINEL] : f.events,
+    }));
+  };
 
   const alternar = (evento: string, marcado: boolean) => {
     setForm((f) => {
@@ -87,15 +101,37 @@ function FormularioDestino({ inicial, onFechar }: { inicial: EndpointInput; onFe
             onChange={(e) => setForm({ ...form, url: e.target.value })} />
         </div>
       </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="wh-formato">Formato</Label>
+        <Select value={form.format} onValueChange={(v) => trocarFormato(v as WebhookFormato)}>
+          <SelectTrigger id="wh-formato" className="sm:w-80" data-testid="webhook-format">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="flowcrm">Padrão do FlowCRM (envelope assinado)</SelectItem>
+            <SelectItem value="painel_preditivo">Painel Preditivo de Metas</SelectItem>
+          </SelectContent>
+        </Select>
+        {painel && (
+          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+            Cole aqui a URL do webhook que aparece no Painel (Configurações &gt; Integrações &gt; CRM). O Painel acha
+            o corretor pelo e-mail do responsável do negócio, então cada responsável precisa ter usuário lá com o
+            mesmo e-mail. O secret deste destino vai no header <code>x-webhook-secret</code>. Negócio perdido não é
+            enviado, porque o Painel não tem esse status.
+          </p>
+        )}
+      </div>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Eventos</legend>
-        <label className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
-          <Checkbox checked={todos} onCheckedChange={(v) => alternar("*", v === true)} />
-          Todos os eventos, inclusive os que forem criados depois
-        </label>
+        {!painel && (
+          <label className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
+            <Checkbox checked={todos} onCheckedChange={(v) => alternar("*", v === true)} />
+            Todos os eventos, inclusive os que forem criados depois
+          </label>
+        )}
         {!todos && (
           <div className="grid gap-1.5 sm:grid-cols-2">
-            {WEBHOOK_EVENTOS_SAIDA.map((ev) => (
+            {eventosVisiveis.map((ev) => (
               <label key={ev.value} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
                 <Checkbox checked={form.events.includes(ev.value)} onCheckedChange={(v) => alternar(ev.value, v === true)} />
                 {ev.label} <code className="text-xs" style={{ color: "var(--via-text-muted)" }}>{ev.value}</code>
@@ -187,7 +223,10 @@ function CartaoDestino({ destino }: { destino: WebhookEndpoint }) {
   if (editando) {
     return (
       <FormularioDestino
-        inicial={{ id: destino.id, name: destino.name, url: destino.url, events: destino.events, is_active: destino.is_active }}
+        inicial={{
+          id: destino.id, name: destino.name, url: destino.url, events: destino.events,
+          format: destino.format === "painel_preditivo" ? "painel_preditivo" : "flowcrm", is_active: destino.is_active,
+        }}
         onFechar={() => setEditando(false)}
       />
     );
@@ -203,6 +242,9 @@ function CartaoDestino({ destino }: { destino: WebhookEndpoint }) {
             <Badge variant={destino.is_active ? "secondary" : "outline"} className="ml-1 text-xs">
               {destino.is_active ? "ativo" : "desativado"}
             </Badge>
+            {destino.format === "painel_preditivo" && (
+              <Badge variant="outline" className="ml-1 text-xs">formato Painel Preditivo</Badge>
+            )}
           </p>
           <p className="truncate font-mono text-xs" style={{ color: "var(--via-text-muted)" }}>{destino.url}</p>
           <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>

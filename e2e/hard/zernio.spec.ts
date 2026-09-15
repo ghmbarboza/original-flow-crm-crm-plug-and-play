@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ctx, hmacHex, invocar, Limpeza, MARCADOR, ok, postFunction, uid, type Ctx } from "./ctx";
+import { abrirSandbox, capturas, ctx, hmacHex, invocar, Limpeza, MARCADOR, ok, postFunction, uid, type Ctx } from "./ctx";
 
 /**
  * Multicanal pelo Zernio.
@@ -123,4 +123,90 @@ test("envio com chave recusada: erro visível e mensagem marcada como falha", as
   const msg = ok(await c.db.from("conversation_messages").select("status").eq("conversation_id", conversaId).eq("content", texto).maybeSingle(), "mensagem");
   expect(msg, "o texto digitado não pode sumir: fica na conversa como falha").not.toBeNull();
   expect(msg!.status).toBe("failed");
+});
+
+// ---------------------------------------------------------------------------
+// 15/09: mídia além de áudio e contato único por canal
+// ---------------------------------------------------------------------------
+
+/** Remetente novo, com limpeza de conversa, mensagens, contato e arquivos. */
+function remetenteNovo(rotulo: string) {
+  const id = `ig_${rotulo}_${uid().slice(0, 8)}`;
+  limpeza.add(`remetente ${id}`, async () => {
+    const convs = ok(await c.db.from("conversations").select("id").eq("phone_number", id), "ler conversas") ?? [];
+    for (const conv of convs) {
+      const midias = (ok(await c.db.from("conversation_messages").select("media_url").eq("conversation_id", conv.id), "ler mídias") ?? [])
+        .map((m) => m.media_url).filter((p): p is string => !!p);
+      if (midias.length) ok(await c.db.storage.from("whatsapp-media").remove(midias), "apagar arquivos");
+      ok(await c.db.from("conversation_messages").delete().eq("conversation_id", conv.id), "apagar mensagens");
+      ok(await c.db.from("conversations").delete().eq("id", conv.id), "apagar conversa");
+    }
+    // Contato pelo identificador do canal: pega também a cópia que uma rajada criaria.
+    ok(await c.db.from("contacts").delete().eq("org_id", c.orgId).eq("custom_fields->>channel_contact_id", id), "apagar contatos");
+  });
+  return id;
+}
+
+function mensagemInstagram(sender: string, message: Record<string, unknown>) {
+  return assinado({
+    event: "message.received",
+    id: uid(),
+    timestamp: new Date().toISOString(),
+    account: { accountId: "acc_e2e", profileId, platform: "instagram" },
+    conversation: { id: `conv_${uid().slice(0, 10)}` },
+    message: {
+      id: `msg_${uid().slice(0, 10)}`, platform: "instagram", direction: "incoming", text: null,
+      sender: { id: sender, name: `${MARCADOR} Zernio mídia`, phoneNumber: null },
+      attachments: [], ...message,
+    },
+  });
+}
+
+test("foto com legenda e documento sem legenda viram mensagens com a mídia gravada", async () => {
+  test.setTimeout(90_000);
+  const sandbox = await abrirSandbox(c, limpeza, "zernio-midia");
+  const sender = remetenteNovo("midia");
+
+  const foto = mensagemInstagram(sender, {
+    text: "Olha o imóvel",
+    attachments: [{ type: "image", url: `${sandbox.base}/cdn/foto.jpg`, payload: { mimeType: "image/jpeg" } }],
+  });
+  const r1 = await postFunction(c, "zernio-webhook", foto.raw, foto.headers);
+  expect(r1.status, r1.texto).toBe(200);
+
+  const doc = mensagemInstagram(sender, {
+    attachments: [{ type: "file", url: `${sandbox.base}/cdn/contrato`, payload: { filename: "contrato final.pdf", mimeType: "application/pdf" } }],
+  });
+  const r2 = await postFunction(c, "zernio-webhook", doc.raw, doc.headers);
+  expect(r2.status, r2.texto).toBe(200);
+
+  const conv = ok(await c.db.from("conversations").select("id, last_message_preview").eq("phone_number", sender).single(), "conversa");
+  expect(conv.last_message_preview, "mídia sem legenda aparece com rótulo na lista").toBe("📎 Documento");
+  const msgs = ok(await c.db.from("conversation_messages").select("type, content, media_url")
+    .eq("conversation_id", conv.id).order("created_at"), "mensagens") ?? [];
+  expect(msgs).toHaveLength(2);
+  expect(msgs[0]).toMatchObject({ type: "image", content: "Olha o imóvel" });
+  expect(msgs[0].media_url).toMatch(new RegExp(`^${c.orgId}/imagem/${conv.id}/`));
+  expect(msgs[1]).toMatchObject({ type: "document", content: null });
+  expect(msgs[1].media_url, "documento guarda o nome original").toMatch(/contrato_final\.pdf$/);
+
+  const baixadas = (await capturas(c, sandbox, "/cdn/")).map((x) => x.method);
+  expect(baixadas, "o webhook baixa cada anexo na hora").toEqual(["GET", "GET"]);
+});
+
+test("rajada de 6 mensagens simultâneas no Instagram: um contato, uma conversa, seis mensagens", async () => {
+  test.setTimeout(90_000);
+  const sender = remetenteNovo("rajada");
+  const envios = Array.from({ length: 6 }, (_, i) => mensagemInstagram(sender, { text: `Rajada ${i + 1}` }));
+  const respostas = await Promise.all(envios.map((e) => postFunction(c, "zernio-webhook", e.raw, e.headers)));
+  for (const r of respostas) expect(r.status, r.texto).toBe(200);
+
+  const contatos = ok(await c.db.from("contacts").select("id").eq("org_id", c.orgId)
+    .eq("custom_fields->>channel", "instagram").eq("custom_fields->>channel_contact_id", sender), "contatos") ?? [];
+  expect(contatos, "índice uniq_contact_canal_por_org").toHaveLength(1);
+  const convs = ok(await c.db.from("conversations").select("id, contact_id").eq("phone_number", sender), "conversas") ?? [];
+  expect(convs).toHaveLength(1);
+  expect(convs[0].contact_id, "a conversa aponta para o contato que sobrou").toBe(contatos[0].id);
+  const { count } = await c.db.from("conversation_messages").select("id", { count: "exact", head: true }).eq("conversation_id", convs[0].id);
+  expect(count).toBe(6);
 });

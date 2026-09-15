@@ -102,11 +102,21 @@ export function useWebhookEndpoints() {
   });
 }
 
+/**
+ * Formato do corpo entregue. "painel_preditivo" converte para o que o Painel
+ * Preditivo de Metas espera (supabase/functions/_shared/painelPreditivo.ts).
+ */
+export type WebhookFormato = "flowcrm" | "painel_preditivo";
+
+/** Eventos que o Painel Preditivo usa; espelho de EVENTOS_PAINEL (conferido em teste). */
+export const WEBHOOK_EVENTOS_PAINEL = ["deal.created", "deal.stage_changed", "deal.won"];
+
 export interface EndpointInput {
   id?: string;
   name: string;
   url: string;
   events: string[];
+  format: WebhookFormato;
   is_active: boolean;
 }
 
@@ -119,8 +129,15 @@ export function useSaveWebhookEndpoint() {
       const url = input.url.trim();
       if (!/^https?:\/\//i.test(url)) throw new Error("A URL precisa começar com https:// (ou http://).");
       if (!input.name.trim()) throw new Error("Dê um nome ao destino (ex.: a solução que vai receber).");
-      if (input.events.length === 0) throw new Error("Escolha pelo menos um evento.");
-      const campos = { name: input.name.trim(), url, events: input.events, is_active: input.is_active, updated_at: new Date().toISOString() };
+      // Formato do painel só entrega negócios: evento de outro tipo nunca sairia.
+      const events = input.format === "painel_preditivo"
+        ? input.events.filter((e) => WEBHOOK_EVENTOS_PAINEL.includes(e))
+        : input.events;
+      if (events.length === 0) throw new Error("Escolha pelo menos um evento.");
+      const campos = {
+        name: input.name.trim(), url, events, format: input.format,
+        is_active: input.is_active, updated_at: new Date().toISOString(),
+      };
       const { error } = input.id
         ? await supabase.from("webhook_endpoints").update(campos).eq("id", input.id)
         : await supabase.from("webhook_endpoints").insert({ ...campos, org_id: orgId });

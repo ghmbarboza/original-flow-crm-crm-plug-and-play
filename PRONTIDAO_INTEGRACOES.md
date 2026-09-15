@@ -15,7 +15,7 @@ O que está provado por teste automatizado contra o backend de produção (`npm 
 |---|---|---|
 | **WhatsApp pelo Evolution** | conectar e registrar webhook com token; reconectar sem trocar o token; conexão aberta; token errado recusado; texto, rajada de 6 mensagens, foto com mídia; resposta pelo inbox; mensagem agendada; IA respondendo pelo canal; servidor fora do ar vira falha visível | parear o QR; o servidor gravar o webhook de verdade (v2.3); baixar mídia criptografada real |
 | **WhatsApp API oficial (Meta)** | verificação do webhook com token da empresa; mensagem assinada; rajada de 5; assinatura errada recusada; envio, conexão e campanha com token recusado mostram o motivo da Meta | verificação no painel da Meta com a URL publicada; entrega em celular real; template aprovado; janela de 24 h |
-| **Zernio (Instagram, Messenger, Telegram...)** | mensagem assinada vira conversa do canal; assinatura errada recusada; status de entrega e leitura; cadastro de webhook e envio com chave recusada mostram erro e não perdem a mensagem | login dos canais (OAuth); o Zernio aceitar o cadastro automático do webhook; envio real |
+| **Zernio (Instagram, Messenger, Telegram...)** | mensagem assinada vira conversa do canal; foto e documento gravados; rajada de 6 vira um contato e uma conversa; assinatura errada recusada; status de entrega e leitura; cadastro de webhook e envio com chave recusada mostram erro e não perdem a mensagem | login dos canais (OAuth); o Zernio aceitar o cadastro automático do webhook; envio real |
 | **Agendamento (Cal.com)** | reserva assinada vira reunião ligada ao contato e ao negócio; sem assinatura, assinatura errada ou outra empresa não cria nada; outros eventos ignorados | o Cal.com assinar com o secret colado na tela |
 | **ERP** | 4 eventos de entrada; token errado 401; evento desconhecido 400 com log; saída com Bearer e campos mapeados; destino 500 vira falha com motivo; botão Testar | o ERP do cliente aceitar o formato e a autenticação escolhidos |
 | **Automações** | contato criado dispara a automação pelo cron e a tarefa aparece; condição que não bate registra que pulou | envio de e-mail pela conta Gmail conectada |
@@ -70,7 +70,11 @@ O que está provado por teste automatizado contra o backend de produção (`npm 
 ## Pendências conhecidas
 
 - Servidores Evolution usados nos testes (2.25.150.154:32768 e o do Easypanel) fora do ar desde 12/09. Quando voltarem: reconectar a instância `sabrina-testesdesolucoes` pela tela, para gravar o webhook com o token novo. Sem isso as mensagens dela serão recusadas.
-- Painel Preditivo de Metas recebe num formato próprio: precisa de um passo de conversão (n8n) ou de adaptação no painel.
-- Contatos criados pelo Zernio fora do WhatsApp não têm índice único: numa rajada simultânea a cópia é apagada pelo próprio webhook, mas não há garantia no banco.
-- Mídia (foto, vídeo, documento) recebida pelo Zernio ainda não é gravada; só texto e áudio.
-- URL do projeto está fixa nos agendamentos (cron); num remix precisa ser trocada.
+- Painel Preditivo de Metas: o painel encontra o corretor pelo e-mail do responsável do negócio. Negócio aberto pela conversa sai sem responsável e é recusado lá até alguém ser atribuído.
+
+## Resolvidas em 15/09
+
+- **Painel Preditivo de Metas:** o destino de webhook ganhou o formato "Painel Preditivo de Metas", que converte na entrega para `{event_type, deal}` com `x-webhook-secret` (WEBHOOKS.md).
+- **Contato único por canal no Zernio:** índice `uniq_contact_canal_por_org` (org + canal + identificador). A rajada adota o mesmo contato. A limpeza antiga, que apagava a "sobra", foi retirada, porque com o índice ela apagaria o contato certo. O `conversation.started` também passou a ser à prova de corrida.
+- **Mídia pelo Zernio:** foto, vídeo e documento são baixados na hora e gravados no bucket, como no Evolution. A mídia do WhatsApp via Zernio agora é baixada com a API Key, que o endpoint `/v1/whatsapp/media` exige: antes o download dava 401, e o áudio desse canal nunca era transcrito.
+- **URL do projeto nos agendamentos:** os crons chamam `chamar_function()`, que lê a URL do Vault (`project_url`). Quem grava a URL é a `check-user-active`, a partir do ambiente, no primeiro login. Num remix, os dispatchers ficam parados (com aviso no log do Postgres) até o primeiro login, e nunca chamam o projeto original.
