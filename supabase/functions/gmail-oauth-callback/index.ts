@@ -2,7 +2,7 @@
 //
 // O Google redireciona para cá com ?code&state. Trocamos o code por access/refresh
 // token, descobrimos o email da conta e gravamos em email_connections. Por fim,
-// redirecionamos de volta ao app. Requer GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APP_URL.
+// redirecionamos de volta ao app (endereço guardado no state).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { lerEstado, resolverCredenciaisGoogle } from "../_shared/google.ts";
 
@@ -10,9 +10,17 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const stateRaw = url.searchParams.get("state");
-  const appUrl = Deno.env.get("APP_URL") ?? "";
+  // O endereço do app vem do state assinado (gmail-auth-url). APP_URL fica só
+  // como compatibilidade para projetos que ainda têm o secret.
+  let appUrl = Deno.env.get("APP_URL")?.replace(/\/+$/, "") ?? "";
 
   function redirect(path: string) {
+    if (!appUrl) {
+      return new Response(
+        "<meta charset=utf-8><p>Não foi possível voltar ao app automaticamente. Feche esta aba, volte ao FlowCRM e tente conectar o Gmail de novo.</p>",
+        { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } },
+      );
+    }
     return new Response(null, { status: 302, headers: { Location: `${appUrl}${path}` } });
   }
 
@@ -21,6 +29,7 @@ Deno.serve(async (req) => {
   try {
     const state = await lerEstado(stateRaw);
     if (!state) return redirect("/inbox?email_error=estado_invalido");
+    if (state.app_origin) appUrl = state.app_origin;
     const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/gmail-oauth-callback`;
 
     // O `state` carrega a org, então a troca do code usa a MESMA credencial que

@@ -12,7 +12,6 @@ Um projeto Lovable por cliente. Este guia foi escrito a partir do remix de teste
 | | Realtime (inbox, kanban e notificações atualizando sozinhos) |
 | | Biblioteca de modelos (16 modelos) |
 | | Trigger de cadastro em `auth.users` |
-| | Secrets de ambiente (`APP_URL`, `ANTHROPIC_API_KEY`...) |
 | | Dados (organização, usuários, contatos) |
 
 Tudo da coluna da direita que é infraestrutura se recria sozinho: a function `ensure-auth-trigger` roda a cada abertura do app e chama `garantir_infra_do_projeto()`, que cria só o que faltar. No remix de teste ela criou o segredo, os 7 crons, o realtime das 5 tabelas, os 16 modelos e o trigger na primeira chamada, e os crons passaram a chamar as functions do próprio remix com 200.
@@ -25,9 +24,8 @@ Tudo da coluna da direita que é infraestrutura se recria sozinho: a function `e
    `curl -X POST https://<ref>.supabase.co/functions/v1/ensure-auth-trigger -d '{}'`
    No projeto pronto a resposta é `"infra":{"criado":[]}`.
 4. **Criar a conta do administrador** do cliente pela tela de cadastro. Pelo código, o primeiro usuário vira admin e a organização nasce com o funil padrão (`handle_new_user` + `on_profile_created_assign_org`). Isso ainda não foi conferido num remix: confira no primeiro cliente que o admin entra direto, sem cair em "aguardando aprovação", e que o kanban mostra as etapas.
-5. **Secrets de ambiente** (pelo agente da Lovable, em Cloud > Secrets):
-   - `APP_URL` = URL publicada do app do cliente. Sem ela, o login do Gmail não volta para o app.
-   - `ANTHROPIC_API_KEY` só se o cliente for usar Claude; sem ela a IA usa o gateway da Lovable.
+5. **Nenhum secret de ambiente é obrigatório.** Credenciais do Google, ElevenLabs e outras ficam no Vault por organização, cadastradas pela tela, e o login do Gmail volta para o endereço de onde foi pedido. `ANTHROPIC_API_KEY` só se o cliente for usar Claude; sem ela a IA usa o gateway da Lovable.
+   A Lovable manda sozinha, logo depois do remix, uma mensagem "I've remixed this project... Update the value of the secret X" para cada secret que existir no projeto original. Por isso o original não deve ter secret de ambiente: se essa mensagem aparecer, clique em Skip e avise, porque alguém cadastrou um secret no original.
 6. **Publicar** o app e, se houver, ligar o domínio do cliente.
 7. **Integrações**: seguir o "Checklist do dia da entrega" em `PRONTIDAO_INTEGRACOES.md` (WhatsApp, Meta, Zernio, Cal.com, webhooks). Credenciais do Google, ElevenLabs e demais ficam no Vault por organização, cadastradas pela tela.
 

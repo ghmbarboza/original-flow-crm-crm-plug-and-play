@@ -40,7 +40,9 @@ export function useConnectGmail() {
   return useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("gmail-auth-url", {
-        body: { redirect_path: "/inbox" },
+        // A origem vai junto para o callback devolver a este mesmo endereço
+        // (preview, publicado ou domínio do cliente) sem o secret APP_URL.
+        body: { redirect_path: "/inbox", app_origin: window.location.origin },
       });
       if (error) throw await erroDeFunction(error, "Não foi possível iniciar a conexão.");
       if (data?.error) throw new Error(data.error);

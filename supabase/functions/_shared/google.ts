@@ -1,11 +1,16 @@
 // Helpers compartilhados para as edge functions do Gmail.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { origemDoApp } from "./origem.ts";
 import { hmacSha256Hex, iguais } from "./seguranca.ts";
+
+export { origemDoApp };
 
 export interface EstadoOAuth {
   user_id: string;
   org_id: string;
   redirect_path: string;
+  /** Endereço do app que pediu a conexão; é para onde o callback devolve o usuário. */
+  app_origin?: string;
 }
 
 const VALIDADE_ESTADO_MS = 15 * 60 * 1000;
@@ -36,7 +41,10 @@ export async function lerEstado(raw: string): Promise<EstadoOAuth | null> {
     const b64 = corpo.replace(/-/g, "+").replace(/_/g, "/");
     const dados = JSON.parse(atob(b64)) as EstadoOAuth & { exp?: number };
     if (!dados.exp || dados.exp < Date.now()) return null;
-    return { user_id: dados.user_id, org_id: dados.org_id, redirect_path: dados.redirect_path };
+    return {
+      user_id: dados.user_id, org_id: dados.org_id, redirect_path: dados.redirect_path,
+      app_origin: origemDoApp(dados.app_origin) ?? undefined,
+    };
   } catch {
     return null;
   }

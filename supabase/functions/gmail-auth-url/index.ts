@@ -1,9 +1,10 @@
 // Devolve a URL de consentimento OAuth do Google para conectar o Gmail.
 //
 // O estado (state) carrega user_id/org_id/redirect para o callback saber a quem
-// pertence a conexão. Requer os secrets GOOGLE_CLIENT_ID e APP_URL (base do app).
+// pertence a conexão e o endereço do app para a volta. Credenciais do Google vêm
+// do Vault da organização; não depende de secret de ambiente.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { assinarEstado, resolverCredenciaisGoogle } from "../_shared/google.ts";
+import { assinarEstado, origemDoApp, resolverCredenciaisGoogle } from "../_shared/google.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -55,13 +56,19 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    const { redirect_path } = await req.json().catch(() => ({}));
+    const { redirect_path, app_origin } = await req.json().catch(() => ({}));
+
+    // Para onde o Google devolve no fim: a origem da tela que pediu (body, e o
+    // header Origin como segunda fonte). Vai no state assinado.
+    const origem = origemDoApp(app_origin) ?? origemDoApp(req.headers.get("Origin"));
+    if (!origem) return json({ error: "Não foi possível identificar o endereço do app. Recarregue a página e tente de novo." }, 400);
 
     const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/gmail-oauth-callback`;
     const state = await assinarEstado({
       user_id: user.id,
       org_id: profile.org_id as string,
       redirect_path: redirect_path ?? "/inbox",
+      app_origin: origem,
     });
 
     const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
