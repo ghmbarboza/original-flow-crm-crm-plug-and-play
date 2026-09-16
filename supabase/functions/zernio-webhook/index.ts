@@ -13,6 +13,7 @@ import {
   transcreverAudio,
 } from "../_shared/audio.ts";
 import { obterOuCriarContatoCanal, obterOuCriarContatoWhatsapp, obterOuCriarConversa } from "../_shared/conversa.ts";
+import { garantirNegocioAberto } from "../_shared/negocio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -232,7 +233,16 @@ async function ingestInbound(
   const { data: dono } = await admin.from("conversations").select("contact_id").eq("id", conversationId).single();
   const contactId = (dono?.contact_id as string | null) ?? null;
 
-  if (!conversa.criada) {
+  if (conversa.criada) {
+    // Conversa nova entra no funil, como no Evolution: Instagram, Messenger e
+    // Telegram também são leads.
+    const dealId = await garantirNegocioAberto(
+      admin, orgId, contactId, `Atendimento ${channel} — ${sender.name ?? sender.username ?? identifier}`,
+    );
+    if (dealId) {
+      await admin.from("conversations").update({ deal_id: dealId }).eq("id", conversationId);
+    }
+  } else {
     await admin
       .from("conversations")
       .update({

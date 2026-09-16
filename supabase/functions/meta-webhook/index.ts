@@ -11,6 +11,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { hmacSha256Hex, iguais } from "../_shared/seguranca.ts";
 import { obterOuCriarContatoWhatsapp, obterOuCriarConversa } from "../_shared/conversa.ts";
+import { garantirNegocioAberto } from "../_shared/negocio.ts";
 import {
   baixarBinario, extensaoDeAudio, resolverChaveElevenLabs, salvarAudioNoBucket, transcreverAudio,
 } from "../_shared/audio.ts";
@@ -183,7 +184,16 @@ Deno.serve(async (req) => {
         const conversationId = conversa.id;
         const status = conversa.status;
         const existingConversation = conversa.criada ? null : conversa;
-        if (!conversa.criada) {
+        if (conversa.criada) {
+          // Conversa nova entra no funil, como no Evolution: sem isto o lead da
+          // API oficial conversava com a IA e o funil seguia vazio.
+          const dealId = await garantirNegocioAberto(
+            admin, orgId, contactId, `Atendimento WhatsApp — ${profileName ?? phone}`,
+          );
+          if (dealId) {
+            await admin.from("conversations").update({ deal_id: dealId }).eq("id", conversationId);
+          }
+        } else {
           await admin
             .from("conversations")
             .update({

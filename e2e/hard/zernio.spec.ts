@@ -39,7 +39,11 @@ test.beforeAll(async () => {
     for (const conv of convs) {
       ok(await c.db.from("conversation_messages").delete().eq("conversation_id", conv.id), "apagar mensagens");
       ok(await c.db.from("conversations").delete().eq("id", conv.id), "apagar conversa");
-      if (conv.contact_id) ok(await c.db.from("contacts").delete().eq("id", conv.contact_id), "apagar contato");
+      if (conv.contact_id) {
+        // Conversa nova abre negócio (16/09) e a FK não é em cascata.
+        ok(await c.db.from("deals").delete().eq("contact_id", conv.contact_id), "apagar negócios");
+        ok(await c.db.from("contacts").delete().eq("id", conv.contact_id), "apagar contato");
+      }
     }
   });
 });
@@ -67,11 +71,18 @@ test("message.received assinado vira contato, conversa do canal e mensagem", asy
   const r = await postFunction(c, "zernio-webhook", raw, headers);
   expect(r.status, r.texto).toBe(200);
 
-  const conv = ok(await c.db.from("conversations").select("id, provider, channel, contact_id, provider_conversation_id").eq("phone_number", remetente).single(), "conversa");
+  const conv = ok(await c.db.from("conversations").select("id, provider, channel, contact_id, provider_conversation_id, deal_id, assigned_to").eq("phone_number", remetente).single(), "conversa");
   expect(conv).toMatchObject({ provider: "zernio", channel: "instagram" });
   expect(conv.contact_id).toBeTruthy();
   expect(conv.provider_conversation_id).toMatch(/^conv_/);
   conversaId = conv.id;
+
+  // Conversa nova de qualquer canal entra no funil (16/09), e o negócio herda o
+  // atendente da conversa como responsável quando há um.
+  expect(conv.deal_id, "conversa nova abre negócio").toBeTruthy();
+  const deal = ok(await c.db.from("deals").select("status, owner_id, contact_id").eq("id", conv.deal_id!).single(), "negócio");
+  expect(deal).toMatchObject({ status: "open", contact_id: conv.contact_id });
+  expect(deal.owner_id).toBe(conv.assigned_to);
 
   const msg = ok(await c.db.from("conversation_messages").select("direction, content").eq("conversation_id", conv.id).single(), "mensagem");
   expect(msg).toMatchObject({ direction: "inbound", content: "Oi pelo Instagram" });
@@ -142,6 +153,8 @@ function remetenteNovo(rotulo: string) {
       ok(await c.db.from("conversations").delete().eq("id", conv.id), "apagar conversa");
     }
     // Contato pelo identificador do canal: pega também a cópia que uma rajada criaria.
+    const contatos = ok(await c.db.from("contacts").select("id").eq("org_id", c.orgId).eq("custom_fields->>channel_contact_id", id), "ler contatos") ?? [];
+    for (const ct of contatos) ok(await c.db.from("deals").delete().eq("contact_id", ct.id), "apagar negócios");
     ok(await c.db.from("contacts").delete().eq("org_id", c.orgId).eq("custom_fields->>channel_contact_id", id), "apagar contatos");
   });
   return id;
