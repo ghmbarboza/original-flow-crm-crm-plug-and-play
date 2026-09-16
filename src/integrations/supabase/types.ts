@@ -4090,10 +4090,6 @@ export type Database = {
         Args: { _org_id: string; _service: string }
         Returns: string
       }
-      instancia_sem_usuarios: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -4101,6 +4097,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      instancia_sem_usuarios: { Args: never; Returns: boolean }
       internal_cron_secret: { Args: never; Returns: string }
       notify_org_admins: {
         Args: {
