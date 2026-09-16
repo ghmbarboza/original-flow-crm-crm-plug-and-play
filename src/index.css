@@ -211,7 +211,9 @@
   --accent-foreground:      213 96% 9%;
   --destructive:            0 84% 60%;
   --destructive-foreground: 210 40% 98%;
-  --success:                160 84% 39%;
+  /* Mesmo verde do --via-success (#187A4F): 5,3:1 com branco. O anterior
+     (160 84% 39%) dava 2,6:1 e reprovava no axe nos selos "Conectado/Ativo". */
+  --success:                154 67% 29%;
   --success-foreground:     0 0% 100%;
   --warning:                43 96% 56%;
   --warning-foreground:     0 0% 100%;

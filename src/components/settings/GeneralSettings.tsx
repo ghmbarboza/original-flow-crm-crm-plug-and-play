@@ -101,7 +101,7 @@ function SobreAEmpresa() {
         <div className="space-y-2">
           <Label id="empresa-setor-label">Setor de atuação</Label>
           <Select
-            value={form.business_sector || undefined}
+            value={form.business_sector}
             onValueChange={(v) => setForm({ ...form, business_sector: v })}
           >
             <SelectTrigger aria-labelledby="empresa-setor-label" data-testid="empresa-setor">
@@ -132,7 +132,7 @@ function SobreAEmpresa() {
         <div className="space-y-2">
           <Label id="empresa-tamanho-label">Tamanho da equipe</Label>
           <Select
-            value={form.company_size || undefined}
+            value={form.company_size}
             onValueChange={(v) => setForm({ ...form, company_size: v })}
           >
             <SelectTrigger aria-labelledby="empresa-tamanho-label" data-testid="empresa-tamanho">

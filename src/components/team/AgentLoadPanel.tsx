@@ -89,7 +89,7 @@ function AgentDetailDialog({
                       </p>
                     </div>
                     <Select onValueChange={(v) => handleReassign(c.id, v)}>
-                      <SelectTrigger className="w-44 shrink-0">
+                      <SelectTrigger className="w-44 shrink-0" aria-label="Reatribuir conversa">
                         <SelectValue placeholder="Reatribuir…" />
                       </SelectTrigger>
                       <SelectContent>

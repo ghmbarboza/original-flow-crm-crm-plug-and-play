@@ -42,7 +42,7 @@ export default function TeamSettings() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-3">
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[180px]" aria-label="Filtrar por permissão"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas permissões</SelectItem>
               <SelectItem value="admin">Admin</SelectItem>
@@ -50,7 +50,7 @@ export default function TeamSettings() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[180px]" aria-label="Filtrar por status"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos status</SelectItem>
               <SelectItem value="active">Ativos</SelectItem>
@@ -95,7 +95,7 @@ export default function TeamSettings() {
                 <TableCell className="text-muted-foreground">{m.email}</TableCell>
                 <TableCell>
                   <Select value={m.role ?? "member"} onValueChange={(v) => changeRole.mutate({ userId: m.id, newRole: v as AppRole })}>
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-[140px]" aria-label={`Permissão de ${m.full_name ?? m.email ?? "membro"}`}>
                       <Badge className={roleColor(m.role)}>{m.role ?? "—"}</Badge>
                     </SelectTrigger>
                     <SelectContent>
