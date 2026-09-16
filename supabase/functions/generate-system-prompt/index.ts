@@ -166,28 +166,43 @@ Deno.serve(async (req) => {
     const { agent_name } = await req.json().catch(() => ({}));
     const agentName = String(agent_name ?? "").trim() || "Assistente";
 
-    const { texto } = await chamarIA({
-      tarefa: "estruturado",
-      maxTokens: 8000,
-      messages: [{ role: "user", content: promptDoGerador(org as OrgContexto, agentName) }],
-    });
+    // O modelo às vezes devolve fora do formato (JSON quebrado ou prompt sem os
+    // blocos). Na bateria de 16/09 isso apareceu em 2 de 2 rodadas do wizard e
+    // o usuário caía no rascunho. Uma segunda tentativa resolve quase sempre, e
+    // custa menos que o usuário refazer o passo.
+    const TENTATIVAS = 2;
+    let systemPrompt = "";
+    let parsed: Record<string, unknown> | null = null;
+    let ultimoErro: { error: string; blocos_faltando?: string[] } | null = null;
+    for (let tentativa = 1; tentativa <= TENTATIVAS && !systemPrompt; tentativa++) {
+      const { texto } = await chamarIA({
+        tarefa: "estruturado",
+        maxTokens: 8000,
+        messages: [{ role: "user", content: promptDoGerador(org as OrgContexto, agentName) }],
+      });
 
-    const parsed = extrairJson(texto);
-    if (!parsed || typeof parsed.system_prompt !== "string") {
-      return json({ error: "A IA não devolveu um prompt no formato esperado. Tente novamente." }, 502);
+      parsed = extrairJson(texto);
+      if (!parsed || typeof parsed.system_prompt !== "string") {
+        ultimoErro = { error: "A IA não devolveu um prompt no formato esperado. Tente novamente." };
+        console.warn(`[generate-system-prompt] tentativa ${tentativa}: resposta fora do formato`);
+        continue;
+      }
+
+      // Valida a estrutura antes de devolver: prompt sem os blocos não serve, e
+      // deixar passar aqui esconderia o defeito até a IA responder mal em produção.
+      const candidato = parsed.system_prompt as string;
+      const faltando = BLOCOS_OBRIGATORIOS.filter((b) => !candidato.includes(`<${b}>`));
+      if (faltando.length > 0) {
+        ultimoErro = {
+          error: `O prompt gerado veio sem os blocos: ${faltando.join(", ")}. Tente novamente.`,
+          blocos_faltando: faltando,
+        };
+        console.warn(`[generate-system-prompt] tentativa ${tentativa}: sem os blocos ${faltando.join(", ")}`);
+        continue;
+      }
+      systemPrompt = candidato;
     }
-
-    const systemPrompt = parsed.system_prompt as string;
-
-    // Valida a estrutura antes de devolver: prompt sem os blocos não serve, e
-    // deixar passar aqui esconderia o defeito até a IA responder mal em produção.
-    const faltando = BLOCOS_OBRIGATORIOS.filter((b) => !systemPrompt.includes(`<${b}>`));
-    if (faltando.length > 0) {
-      return json({
-        error: `O prompt gerado veio sem os blocos: ${faltando.join(", ")}. Tente novamente.`,
-        blocos_faltando: faltando,
-      }, 502);
-    }
+    if (!systemPrompt || !parsed) return json(ultimoErro, 502);
 
     const faqs = Array.isArray(parsed.faqs)
       ? (parsed.faqs as { question?: string; answer?: string }[])
