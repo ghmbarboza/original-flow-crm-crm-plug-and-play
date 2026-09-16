@@ -41,7 +41,18 @@ export function telaSemBackend(raiz: HTMLElement) {
           Para resolver, abra o projeto no editor da Lovable e clique em <strong>Publicar</strong>,
           ou peça ao agente para gerar um build novo. Depois recarregue esta página.
         </p>
+        <button id="via-tentar-de-novo" style="margin:0 0 16px;padding:10px 18px;border:0;border-radius:8px;
+                background:#0f2a47;color:#ffffff;font-size:14px;cursor:pointer">Tentar de novo</button>
         <p style="margin:0;font-size:13px;color:#64748b">Detalhe técnico: VITE_SUPABASE_URL não veio no build.</p>
       </div>
     </div>`;
+  raiz.querySelector("#via-tentar-de-novo")?.addEventListener("click", () => window.location.reload());
+
+  // No editor da Lovable o `.env` aparece minutos depois do remix e o servidor
+  // reinicia (ver vite.config.ts). Aqui a página se recupera sozinha quando isso
+  // acontece, em vez de esperar alguém recarregar. Só em desenvolvimento: no app
+  // publicado, quem resolve é publicar de novo.
+  if (import.meta.env?.DEV && import.meta.env?.MODE !== "test") {
+    setInterval(() => window.location.reload(), 5000);
+  }
 }

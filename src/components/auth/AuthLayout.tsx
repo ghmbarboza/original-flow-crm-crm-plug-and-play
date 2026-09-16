@@ -1,9 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoginForm } from "./LoginForm";
 import { SignupForm } from "./SignupForm";
+import { usePrimeiroAcesso } from "@/hooks/usePrimeiroAcesso";
 
+/**
+ * Tela de /auth.
+ *
+ * Instância nova (nenhum cadastro ainda): abre direto em "Configuração inicial",
+ * porque o primeiro cadastro é quem vira administrador da plataforma. É o caso de
+ * todo projeto recém-remixado, que antes caía num "Entrar" sem conta nenhuma.
+ * Depois disso, a tela é a de sempre: login, com o cadastro atrás do botão.
+ */
 export function AuthLayout() {
+  const { primeiroAcesso, carregando } = usePrimeiroAcesso();
   const [isActive, setIsActive] = useState(false);
+
+  // Só empurra para o cadastro quando a resposta chega; enquanto isso mostra o
+  // login, que é o caso normal.
+  useEffect(() => {
+    if (primeiroAcesso) setIsActive(true);
+  }, [primeiroAcesso]);
 
   return (
     <>
@@ -145,6 +161,7 @@ export function AuthLayout() {
       <main
         className="min-h-screen flex items-center justify-center font-sans"
         style={{ background: "var(--via-white)" }}
+        data-testid={carregando ? "auth-carregando" : primeiroAcesso ? "auth-primeiro-acesso" : "auth-login"}
       >
         <div className={`auth-wrap ${isActive ? "active" : ""}`}>
           <div className="auth-form-box login">
@@ -156,21 +173,29 @@ export function AuthLayout() {
 
           <div className="auth-form-box register">
             <div className="auth-form-inner">
-              <SignupForm />
+              <SignupForm primeiroAcesso={primeiroAcesso} />
             </div>
           </div>
 
           <div className="auth-toggle-box">
             <div className="auth-toggle-panel toggle-left">
-              <h2>Olá!</h2>
-              <p>Não tem uma conta?<br />Cadastre-se para começar.</p>
+              <h2>{primeiroAcesso ? "Primeiro acesso" : "Olá!"}</h2>
+              <p>
+                {primeiroAcesso
+                  ? <>Esta instância ainda não tem administrador.<br />Crie a conta que vai configurar a empresa.</>
+                  : <>Não tem uma conta?<br />Cadastre-se para começar.</>}
+              </p>
               <button type="button" className="auth-toggle-btn" onClick={() => setIsActive(true)}>
-                Criar conta
+                {primeiroAcesso ? "Criar administrador" : "Criar conta"}
               </button>
             </div>
             <div className="auth-toggle-panel toggle-right">
-              <h2>Bem-vindo de volta!</h2>
-              <p>Já tem uma conta?<br />Faça login para continuar.</p>
+              <h2>{primeiroAcesso ? "Já criou a conta?" : "Bem-vindo de volta!"}</h2>
+              <p>
+                {primeiroAcesso
+                  ? <>Entre com o e-mail e a senha<br />do administrador.</>
+                  : <>Já tem uma conta?<br />Faça login para continuar.</>}
+              </p>
               <button type="button" className="auth-toggle-btn" onClick={() => setIsActive(false)}>
                 Entrar
               </button>

@@ -17,7 +17,12 @@ const schema = z.object({
   message: "As senhas não coincidem.", path: ["confirmPassword"],
 });
 
-export function SignupForm() {
+/**
+ * `primeiroAcesso`: instância ainda sem ninguém. O cadastro vira "Configuração
+ * inicial" e deixa claro que essa conta administra a plataforma (o banco já faz
+ * isso: o primeiro perfil entra como admin aprovado).
+ */
+export function SignupForm({ primeiroAcesso = false }: { primeiroAcesso?: boolean }) {
   const { signUp } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ fullName: "", email: "", password: "", confirmPassword: "" });
@@ -49,15 +54,19 @@ export function SignupForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold">Criar conta</h2>
-        <p className="text-sm text-muted-foreground">Preencha os dados para começar.</p>
+        <h2 className="text-xl font-semibold">{primeiroAcesso ? "Configuração inicial" : "Criar conta"}</h2>
+        <p className="text-sm text-muted-foreground">
+          {primeiroAcesso
+            ? "Primeiro acesso ao sistema. A conta criada será a administradora da plataforma."
+            : "Preencha os dados para começar."}
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="su-name">Nome Completo</Label>
         <Input id="su-name" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="su-email">Email</Label>
+        <Label htmlFor="su-email">{primeiroAcesso ? "E-mail do administrador" : "Email"}</Label>
         <Input id="su-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
       </div>
       <div className="space-y-2">
@@ -70,7 +79,7 @@ export function SignupForm() {
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Cadastrar
+        {primeiroAcesso ? "Criar administrador" : "Cadastrar"}
       </Button>
     </form>
   );
