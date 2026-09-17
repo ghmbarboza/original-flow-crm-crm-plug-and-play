@@ -16,8 +16,9 @@ No remix de teste 3 isso aconteceu sem nenhuma intervenção: 7 agendamentos res
 ## Passo a passo
 
 1. **Remix** do projeto `[ORIGINAL] Flow CRM 2.0` no workspace, com o nome `viver-de-ia-<cliente>` ou o combinado.
-2. **Abrir o projeto no editor da Lovable.** O preview do editor já carrega a tela de login, porque ali as configurações do projeto existem. É essa abertura que dispara o reparo da infraestrutura.
-   O link `id-preview--...lovable.app` mostra a tela "Este projeto ainda não está ligado ao banco de dados" até sair um build novo. É esperado: aquele build foi gerado antes do banco do projeto existir. Uma linha em branco no README pelo agente não regerou o link na hora; o caminho é publicar (passo 6).
+2. **Acordar o ambiente do projeto.** A Lovable só grava o arquivo de configuração do backend (`.env`) quando o ambiente do projeto roda pela primeira vez, e isso não acontece no remix em si: acontece na primeira mensagem ao agente ou no primeiro Publicar. No remix de 17/09 o projeto foi criado às 13:08 e o `.env` só apareceu às 13:25, quando o agente recebeu uma mensagem. Até lá o preview mostra "Este projeto ainda não está ligado ao banco de dados".
+   Então, logo depois do remix: **mande qualquer mensagem ao agente** (um "oi" basta) **ou clique em Publicar**. O servidor do preview reinicia sozinho quando o arquivo chega (`vite.config.ts`) e a tela de aviso se recarrega sozinha. Em até um minuto aparece a tela de login.
+   O link `id-preview--...lovable.app` é um build estático feito na hora do remix, sem o backend; ele só atualiza com Publicar.
 3. **Abrir o app uma vez** (preview ou publicado). Isso recria a infraestrutura. Para conferir sem abrir, chame a function e veja o campo `infra`:
    `curl -X POST https://<ref>.supabase.co/functions/v1/ensure-auth-trigger -d '{}'`
    No projeto pronto a resposta é `"infra":{"criado":[]}`.
