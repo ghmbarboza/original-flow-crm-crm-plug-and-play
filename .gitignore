@@ -39,9 +39,14 @@ e2e/.auth/
 /auditoria/telas/
 /auditoria/galeria.html
 
-# Env / secrets (nunca versionar, nem templates)
-.env
-.env.*
+# Segredos locais (senha do E2E etc.) ficam fora do git.
+# O `.env` NÃO pode ser ignorado: ele só tem a URL e a chave pública do backend,
+# e a Lovable o regenera e commita em cada remix. Com ele ignorado, o remix
+# nascia sem `.env` no repositório e o app publicado saía sem backend
+# (achado de 17/09/2026; a Gestão de RH nunca teve esse problema porque não
+# ignorava o arquivo).
+.env.local
+.env.*.local
 
 # Docs de planejamento de sprint: ficam no disco para referência, fora do
 # versionamento. Evita que `git add -A` os varra para dentro de commits de
