@@ -6,8 +6,9 @@ Um projeto Lovable por cliente. Guia escrito a partir dos remixes de teste de 15
 
 | Vem no remix | Não vem no remix |
 |---|---|
-| Código e as 44 edge functions, já publicadas | O endereço do banco no app publicado: a Lovable gera o build do remix antes do Cloud novo existir |
-| Tabelas, funções, triggers, policies e buckets | Dados: nenhum lead, negócio, conversa, usuário ou credencial de cliente |
+| Código e as 44 edge functions, já publicadas | Dados: nenhum lead, negócio, conversa, usuário ou credencial de cliente |
+| Tabelas, funções, triggers, policies e buckets | |
+| `.env` regenerado para o backend novo, commitado no primeiro Publicar | |
 
 A infraestrutura que a Lovable não copia (agendamentos, segredo interno do cron, endereço do projeto, realtime e biblioteca de modelos) se recria sozinha: a function `ensure-auth-trigger` roda a cada abertura do app e chama `garantir_infra_do_projeto()`, que cria só o que faltar. Basta o app abrir uma vez dentro do editor da Lovable, onde as configurações existem.
 
@@ -16,8 +17,8 @@ No remix de teste 3 isso aconteceu sem nenhuma intervenção: 7 agendamentos res
 ## Passo a passo
 
 1. **Remix** do projeto `[ORIGINAL] Flow CRM 2.0` no workspace, com o nome `viver-de-ia-<cliente>` ou o combinado.
-2. **Acordar o ambiente do projeto.** A Lovable só grava o arquivo de configuração do backend (`.env`) quando o ambiente do projeto roda pela primeira vez, e isso não acontece no remix em si: acontece na primeira mensagem ao agente ou no primeiro Publicar. No remix de 17/09 o projeto foi criado às 13:08 e o `.env` só apareceu às 13:25, quando o agente recebeu uma mensagem. Até lá o preview mostra "Este projeto ainda não está ligado ao banco de dados".
-   Então, logo depois do remix, **clique em Publicar**. É o que grava o `.env`, refaz o build estático do preview com o backend e deixa o app publicado no ar. Uma mensagem ao agente também grava o `.env` e o servidor de desenvolvimento reinicia sozinho (`vite.config.ts`), mas o preview que o editor mostra é o build estático da hora do remix, e esse só muda com Publicar. Não confie em "Tentar de novo" nessa tela: nesse build ele não tem o que recarregar.
+2. **Publicar.** A Lovable regenera o `.env` (endereço e chave pública do backend do projeto novo) e o commita no repositório do remix; o build publicado e o preview passam a apontar para o backend certo. Até 17/09 o `.gitignore` do CRM ignorava o `.env`, então o arquivo nunca entrava no repositório e o app publicado saía sem backend, com a tela "Este projeto ainda não está ligado ao banco de dados". Corrigido no commit `3652553`; a Gestão de RH nunca teve o problema porque não ignora o arquivo.
+   Se a tela de aviso aparecer mesmo assim num remix feito antes dessa correção: peça ao agente para trocar `.env` e `.env.*` por `.env.local` e `.env.*.local` no `.gitignore`, adicionar o `.env` ao repositório e publicar.
 3. **Abrir o app uma vez** (preview ou publicado). Isso recria a infraestrutura. Para conferir sem abrir, chame a function e veja o campo `infra`:
    `curl -X POST https://<ref>.supabase.co/functions/v1/ensure-auth-trigger -d '{}'`
    No projeto pronto a resposta é `"infra":{"criado":[]}`.
