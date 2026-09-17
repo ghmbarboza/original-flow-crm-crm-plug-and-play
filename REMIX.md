@@ -1,6 +1,6 @@
 # Remix do FlowCRM 2.0 para um cliente
 
-Um projeto Lovable por cliente. Guia escrito a partir dos remixes de teste de 15 e 16/09/2026 (`via-flowcrm2-remix-teste-2` e `-3`).
+Um projeto Lovable por cliente. Guia escrito a partir dos remixes de teste de 15 a 17/09/2026. Validado em 17/09/2026: remix do original já com o `.gitignore` corrigido abriu direto em "Configuração inicial", com a infraestrutura recriada e zero dados de cliente.
 
 ## O que o remix da Lovable faz e o que não faz
 
