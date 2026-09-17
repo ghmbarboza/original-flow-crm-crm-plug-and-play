@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowRight, Ban, Plus, Send, XCircle } from "lucide-react";
-import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Button } from "@/components/ui/button";
@@ -50,34 +49,25 @@ export default function CampaignsPage() {
   };
   const canRunCampaigns = activeProviders.meta || activeProviders.zernio;
 
-  const header = (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
-        <Send className="h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-        <h1
-          className="font-display text-3xl font-medium tracking-tight"
-          style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}
-        >
-          Campanhas
-        </h1>
-      </div>
-      {canRunCampaigns && (
-        <Button onClick={() => setFormOpen(true)} className="gap-1.5">
-          <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Nova campanha
-        </Button>
-      )}
+  // Título e descrição vêm da aba de Configurações (TAB_META em SettingsPage):
+  // aqui só a ação. Campanhas virou aba em 17/09/2026, junto com a Biblioteca.
+  const header = canRunCampaigns ? (
+    <div className="flex justify-end">
+      <Button onClick={() => setFormOpen(true)} className="gap-1.5">
+        <Plus className="h-4 w-4" strokeWidth={1.5} />
+        Nova campanha
+      </Button>
     </div>
-  );
+  ) : null;
 
   if (loadingSetup) {
-    return <AppShell><PageSkeleton /></AppShell>;
+    return <PageSkeleton />;
   }
 
   // Evolution (ou sem provedor): campanhas em massa bloqueadas.
   if (!canRunCampaigns) {
     return (
-      <AppShell>
+      <>
         <div className="space-y-6">
           {header}
           {/* EmptyState em vez de card estreito (max-w-xl mx-auto): mesma
@@ -105,7 +95,7 @@ export default function CampaignsPage() {
           />
           </div>
         </div>
-      </AppShell>
+      </>
     );
   }
 
@@ -128,7 +118,7 @@ export default function CampaignsPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="space-y-6">
         {header}
 
@@ -217,6 +207,6 @@ export default function CampaignsPage() {
       </div>
 
       <CampaignFormDialog open={formOpen} onOpenChange={setFormOpen} activeProviders={activeProviders} />
-    </AppShell>
+    </>
   );
 }

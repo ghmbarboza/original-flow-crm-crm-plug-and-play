@@ -49,9 +49,10 @@ test.describe("Configurações", () => {
   });
 });
 
-test.describe("Marketing", () => {
+test.describe("Configurações > Campanhas", () => {
   test("campanhas: abre ou mostra o bloqueio do provedor", async ({ page }) => {
-    await gotoPage(page, "/campaigns", "Campanhas");
+    await gotoPage(page, "/settings/campaigns", "Configurações");
+    await expect(page.getByRole("heading", { name: "Campanhas", level: 2 })).toBeVisible();
 
     // A org pode ou não ter provedor oficial. Os dois desfechos são válidos —
     // o que não pode é a tela quebrar ou ficar ambígua.

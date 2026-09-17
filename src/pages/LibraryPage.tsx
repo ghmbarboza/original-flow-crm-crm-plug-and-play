@@ -5,7 +5,6 @@ import {
   ArrowRight, BookOpen, Bot, FileText, GitBranch, MessageCircle, Shield, User, Zap,
   type LucideIcon,
 } from "lucide-react";
-import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/EmptyState";
@@ -79,25 +78,11 @@ export default function LibraryPage() {
   };
 
   return (
-    // AppShell: a Biblioteca era a única tela autenticada renderizada FORA do
-    // shell — sem sidebar nem header, um beco cuja única saída era o botão
-    // voltar. É também por isso que o axe via o sino "em 19 telas", não 20.
-    <AppShell>
+    // Aba de Configurações desde 17/09/2026: título e descrição vêm de lá
+    // (TAB_META em SettingsPage), e a moldura (AppShell) é da página de
+    // Configurações.
+    <>
       <div className="space-y-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <BookOpen className="h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
-            <h1
-              className="font-display text-3xl font-medium tracking-tight"
-              style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}
-            >
-              Biblioteca de Modelos
-            </h1>
-          </div>
-          <p className="mt-1 text-sm" style={{ color: "var(--via-text-body)" }}>
-            Modelos validados em mercado, prontos para ativar e personalizar.
-          </p>
-        </div>
 
         {/* aria-pressed: o estado do filtro era só visual (variant), invisível
             para leitor de tela — e a varredura acusava "Todos" como botão sem
@@ -276,6 +261,6 @@ export default function LibraryPage() {
           ativando={ativar.isPending}
         />
       </div>
-    </AppShell>
+    </>
   );
 }

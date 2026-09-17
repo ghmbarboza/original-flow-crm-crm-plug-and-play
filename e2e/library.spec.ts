@@ -58,7 +58,8 @@ test.afterAll(async () => {
 });
 
 test("biblioteca lista os modelos e filtra por categoria", async ({ page }) => {
-  await gotoPage(page, "/library", "Biblioteca de Modelos");
+  await gotoPage(page, "/settings/library", "Configurações");
+  await expect(page.getByRole("heading", { name: "Biblioteca de Modelos", level: 2 })).toBeVisible();
 
   const cards = page.getByTestId("library-card");
   await expect(cards.first()).toBeVisible();
@@ -80,7 +81,8 @@ test("biblioteca lista os modelos e filtra por categoria", async ({ page }) => {
 });
 
 test("preview mostra o conteúdo do modelo antes de qualquer ação", async ({ page }) => {
-  await gotoPage(page, "/library", "Biblioteca de Modelos");
+  await gotoPage(page, "/settings/library", "Configurações");
+  await expect(page.getByRole("heading", { name: "Biblioteca de Modelos", level: 2 })).toBeVisible();
   await page.getByTestId("library-filtro-email_sequence").click();
 
   await page.getByTestId("library-ver-modelo").first().click();
@@ -93,7 +95,8 @@ test("preview mostra o conteúdo do modelo antes de qualquer ação", async ({ p
 });
 
 test("follow-up avisa que substitui a configuração da organização", async ({ page }) => {
-  await gotoPage(page, "/library", "Biblioteca de Modelos");
+  await gotoPage(page, "/settings/library", "Configurações");
+  await expect(page.getByRole("heading", { name: "Biblioteca de Modelos", level: 2 })).toBeVisible();
   await page.getByTestId("library-filtro-followup").click();
   await page.getByTestId("library-ver-modelo").first().click();
 
@@ -102,7 +105,8 @@ test("follow-up avisa que substitui a configuração da organização", async ({
 });
 
 test("usar um modelo cria a cópia com from_template_id e leva ao editor", async ({ page }) => {
-  await gotoPage(page, "/library", "Biblioteca de Modelos");
+  await gotoPage(page, "/settings/library", "Configurações");
+  await expect(page.getByRole("heading", { name: "Biblioteca de Modelos", level: 2 })).toBeVisible();
   await page.getByTestId("library-filtro-email_template").click();
 
   const primeiro = page.getByTestId("library-card").first();

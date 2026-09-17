@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,8 +25,6 @@ const DealDetailPage = lazy(() => import("./pages/DealDetailPage"));
 const TasksPage = lazy(() => import("./pages/TasksPage"));
 const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
-const CampaignsPage = lazy(() => import("./pages/CampaignsPage"));
-const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const InboxPage = lazy(() => import("./pages/InboxPage"));
 const EmailTemplatesPage = lazy(() => import("./pages/EmailTemplatesPage"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage"));
@@ -67,6 +65,12 @@ function TriggerHealthCheck() {
       .catch((err) => console.warn("[Auth Setup]", err));
   }, []);
   return null;
+}
+
+/** Redirect que mantém a query string (ex.: /library?categoria=followup). */
+function RedirecionarPreservandoBusca({ para }: { para: string }) {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: para, search }} replace />;
 }
 
 /** Toda página lazy entra por aqui: erro de render vira tela explicada, carregamento vira skeleton. */
@@ -170,9 +174,9 @@ const App = () => (
             <Route path="/whatsapp" element={
               <ProtectedRoute><Page name="WhatsApp"><WhatsAppPage /></Page></ProtectedRoute>
             } />
-            {/* Campanhas saiu de baixo de /whatsapp e virou item próprio em Marketing.
-                A rota antiga vira redirect para não quebrar link salvo. */}
-            <Route path="/whatsapp/campaigns" element={<Navigate to="/campaigns" replace />} />
+            {/* Campanhas: /whatsapp/campaigns (até 07/2026), /campaigns (até 17/09/2026)
+                e agora aba de Configurações. Os redirects preservam links salvos. */}
+            <Route path="/whatsapp/campaigns" element={<Navigate to="/settings/campaigns" replace />} />
             <Route path="/inbox" element={
               <ProtectedRoute><Page name="Email"><InboxPage /></Page></ProtectedRoute>
             } />
@@ -180,13 +184,10 @@ const App = () => (
               <ProtectedRoute><Page name="Templates de email"><EmailTemplatesPage /></Page></ProtectedRoute>
             } />
 
-            {/* Marketing */}
-            <Route path="/campaigns" element={
-              <ProtectedRoute><Page name="Campanhas"><CampaignsPage /></Page></ProtectedRoute>
-            } />
-            <Route path="/library" element={
-              <ProtectedRoute><Page name="Biblioteca de Modelos"><LibraryPage /></Page></ProtectedRoute>
-            } />
+            {/* Campanhas e Biblioteca viraram abas de Configurações (17/09/2026).
+                A Biblioteca preserva o ?categoria= dos atalhos dos empty states. */}
+            <Route path="/campaigns" element={<Navigate to="/settings/campaigns" replace />} />
+            <Route path="/library" element={<RedirecionarPreservandoBusca para="/settings/library" />} />
             {/* Reorganização final do sidebar (2026-07-31): automações, sequências
                 e equipe viraram abas de Configurações. Redirects preservam links. */}
             <Route path="/automations" element={<Navigate to="/settings/automations" replace />} />

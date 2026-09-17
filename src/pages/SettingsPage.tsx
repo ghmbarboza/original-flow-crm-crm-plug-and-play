@@ -12,9 +12,11 @@ import AISettings from "@/components/settings/AISettings";
 import NotificationPreferences from "@/components/settings/NotificationPreferences";
 import CaptureFormsSettings from "@/components/settings/CaptureFormsSettings";
 import AtendimentoSettings from "@/components/settings/AtendimentoSettings";
+import CampaignsPage from "@/pages/CampaignsPage";
+import LibraryPage from "@/pages/LibraryPage";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "notifications", "security", "atendimento", "integrations", "capture", "ia", "automations", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "notifications", "security", "atendimento", "integrations", "capture", "ia", "automations", "campaigns", "library", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -49,6 +51,14 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
   automations: {
     title: "Automações",
     description: "Tudo que roda sozinho no CRM: regras de gatilho, automações por etapa do funil e cadências de mensagens.",
+  },
+  campaigns: {
+    title: "Campanhas",
+    description: "Disparos em massa pelo WhatsApp oficial e os templates aprovados pela Meta.",
+  },
+  library: {
+    title: "Biblioteca de Modelos",
+    description: "Modelos validados em mercado, prontos para ativar e personalizar.",
   },
   team: {
     title: "Equipe",
@@ -118,6 +128,9 @@ export default function SettingsPage() {
             <TabsTrigger data-testid="settings-tab" value="atendimento">Atendimento</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="ia">IA</TabsTrigger>}
             <TabsTrigger data-testid="settings-tab" value="automations">Automações</TabsTrigger>
+            {/* Campanhas e Biblioteca saíram do menu lateral em 17/09/2026. */}
+            <TabsTrigger data-testid="settings-tab" value="campaigns">Campanhas</TabsTrigger>
+            <TabsTrigger data-testid="settings-tab" value="library">Biblioteca</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="onboarding">Onboarding</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="demonstration">Demonstração</TabsTrigger>}
           </TabsList>
@@ -137,6 +150,8 @@ export default function SettingsPage() {
           <TabsContent value="atendimento"><AtendimentoSettings /></TabsContent>
           {isAdmin && <TabsContent value="ia"><AISettings /></TabsContent>}
           <TabsContent value="automations"><AutomationsTab /></TabsContent>
+          <TabsContent value="campaigns"><CampaignsPage /></TabsContent>
+          <TabsContent value="library"><LibraryPage /></TabsContent>
           <TabsContent value="team"><EquipeSettings /></TabsContent>
           {isAdmin && <TabsContent value="demonstration"><DemonstrationSettings /></TabsContent>}
           {isAdmin && <TabsContent value="onboarding"><OnboardingSettings /></TabsContent>}

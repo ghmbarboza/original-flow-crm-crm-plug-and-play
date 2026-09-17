@@ -18,7 +18,7 @@ export function LinkBiblioteca({
   categoria?: LibraryCategory;
   rotulo?: string;
 }) {
-  const destino = categoria ? `/library?categoria=${categoria}` : "/library";
+  const destino = categoria ? `/settings/library?categoria=${categoria}` : "/settings/library";
   // Tamanho default, não sm: este botão aparece lado a lado com ações primárias
   // de tamanho default nos empty states, e o par desalinhado parecia defeito.
   return (

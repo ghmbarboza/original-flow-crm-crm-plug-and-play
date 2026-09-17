@@ -5,11 +5,9 @@ import {
   Building2,
   CheckSquare,
   HelpCircle,
-  BookOpen,
   LayoutDashboard,
   LogOut,
   Mail,
-  Megaphone,
   MessageCircle,
   Package,
   Settings,
@@ -61,20 +59,13 @@ export function AppSidebar() {
     },
     {
       // Reorganização final de 2026-07-31: o sidebar ficou só com o dia a dia
-      // (CRM, Atendimento, Marketing, Analytics). Equipe, Automações e
-      // Sequências viraram abas de Configurações — as rotas antigas
-      // redirecionam. Follow-up e Templates de Email já tinham saído antes.
+      // (CRM, Atendimento, Analytics). Equipe, Automações e Sequências viraram
+      // abas de Configurações, e em 17/09/2026 Campanhas e Biblioteca também.
+      // As rotas antigas redirecionam.
       label: "Atendimento",
       items: [
         { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
         { title: "Email", url: "/inbox", icon: Mail },
-      ],
-    },
-    {
-      label: "Marketing",
-      items: [
-        { title: "Campanhas", url: "/campaigns", icon: Megaphone },
-        { title: "Biblioteca", url: "/library", icon: BookOpen },
       ],
     },
     {
