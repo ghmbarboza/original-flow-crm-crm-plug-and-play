@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KnowledgePanel } from "@/components/settings/ai/KnowledgePanel";
+import { SourceProfilesPanel } from "@/components/settings/ai/SourceProfilesPanel";
 import { VoicePicker } from "@/components/settings/VoicePicker";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { PromptVersionsPanel } from "@/components/settings/ai/PromptVersionsPanel";
@@ -281,6 +282,7 @@ export default function AISettings() {
           <TabsTrigger value="personality">Personalidade</TabsTrigger>
           <TabsTrigger value="behavior">Comportamento</TabsTrigger>
           <TabsTrigger value="knowledge">Conhecimento</TabsTrigger>
+          <TabsTrigger value="origens" data-testid="ai-tab-origens">Por origem</TabsTrigger>
           <TabsTrigger value="versions">Versões</TabsTrigger>
         </TabsList>
 
@@ -861,6 +863,10 @@ export default function AISettings() {
         </TabsContent>
 
         {/* Base de conhecimento */}
+        <TabsContent value="origens" className="pt-4">
+          <SourceProfilesPanel />
+        </TabsContent>
+
         <TabsContent value="knowledge" className="pt-4">
           <Tabs defaultValue="faqs">
             <TabsList>

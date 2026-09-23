@@ -23,6 +23,7 @@ import {
 import { PREFIXO_SIMULADO } from "../_shared/demo.ts";
 import { chamadaInterna, naoAutorizado } from "../_shared/seguranca.ts";
 import { dentroDoHorario } from "../_shared/horario.ts";
+import { instrucaoDaOrigem, perfilDaOrigem } from "../_shared/perfilOrigem.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -375,6 +376,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Perfil por origem do lead (IA > Por origem): instrução extra e modo do funil.
+    let origemDoContato: string | null = null;
+    if (conversation.contact_id) {
+      const { data: ct } = await admin.from("contacts").select("source").eq("id", conversation.contact_id).maybeSingle();
+      origemDoContato = (ct?.source as string | null) ?? null;
+    }
+    const perfilOrigem = await perfilDaOrigem(admin, conversation.org_id as string, origemDoContato);
+
     // Regras de escalonamento para humano.
     const rules = (config.human_trigger_rules ?? {}) as TriggerRules;
     if (
@@ -585,7 +594,8 @@ Deno.serve(async (req) => {
     // Ações no funil: a IA enxerga as etapas e pode mover o negócio pela
     // ferramenta mover_etapa. A decisão é do modelo, com base na conversa; a
     // configuração diz se pode, para onde e se move ou só sugere.
-    const funnelActions = (config.funnel_actions ?? {}) as FunnelActions;
+    const funnelActions = { ...((config.funnel_actions ?? {}) as FunnelActions) };
+    if (perfilOrigem && perfilOrigem.funnel_mode !== "inherit") funnelActions.mode = perfilOrigem.funnel_mode;
     const funilLigado = funnelActions.enabled !== false;
     let negocioDaConversa: { id: string; stage_id: string | null } | null = null;
     let etapasDoFunil: EtapaDoFunil[] = [];
@@ -632,6 +642,7 @@ Deno.serve(async (req) => {
       "\nQuando o cliente perguntar sobre produtos, preços ou o que vendemos, use a ferramenta buscar_produtos para consultar o catálogo antes de responder. Não invente produtos nem preços. Respeite a disponibilidade devolvida pela ferramenta: nunca prometa entrega de item ESGOTADO — diga que está sem estoque, ofereça avisar quando repor e sugira alternativa disponível.",
       schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
       instrucaoFunil,
+      instrucaoDaOrigem(perfilOrigem),
       "",
       "Responda apenas com a mensagem final ao cliente, sem raciocínio nem meta-comentário.",
     ]

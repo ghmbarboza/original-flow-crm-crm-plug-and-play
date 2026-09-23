@@ -10,6 +10,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
   campoVisivel, normalizarTracking, origemDoTracking, parseCaptureFields, validarValores, type CaptureField,
 } from "../_shared/formRules.ts";
+import { perfilDaOrigem } from "../_shared/perfilOrigem.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,8 +128,10 @@ Deno.serve(async (req) => {
         .single();
       if (contactErr) return json({ error: contactErr.message }, 500);
 
-      // Etapa alvo: a configurada; senão a primeira do funil configurado ou do padrão.
-      let stageId: string | null = form.target_stage_id;
+      // Etapa alvo: a do perfil da origem; senão a configurada no formulário; senão
+      // a primeira do funil configurado ou do padrão.
+      const perfil = await perfilDaOrigem(admin, form.org_id as string, source);
+      let stageId: string | null = perfil?.initial_stage_id ?? form.target_stage_id;
       if (!stageId) {
         let pipelineId = form.target_pipeline_id;
         if (!pipelineId) {

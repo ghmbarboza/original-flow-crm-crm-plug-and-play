@@ -19,6 +19,7 @@ import { chamadaInterna, naoAutorizado } from "../_shared/seguranca.ts";
 import { dentroDoHorario, proximaAbertura } from "../_shared/horario.ts";
 import { obterOuCriarConversa } from "../_shared/conversa.ts";
 import { garantirNegocioAberto, registrarNotaIA } from "../_shared/negocio.ts";
+import { perfilDaOrigem } from "../_shared/perfilOrigem.ts";
 
 const ZERNIO_API = "https://zernio.com/api/v1";
 const GRAPH_VERSION = "v21.0";
@@ -209,7 +210,14 @@ Deno.serve(async (req) => {
       .select("is_active, agent_name, agent_tone, agent_objective, system_prompt, working_hours, outreach")
       .eq("org_id", orgId).maybeSingle();
     if (!config || !config.is_active) return json({ error: "Atendimento por IA desativado nesta organização" }, 422);
-    const outreach = (config.outreach ?? {}) as OutreachConfig;
+    const outreachBase = (config.outreach ?? {}) as OutreachConfig;
+    // Perfil da origem do lead vence o geral quando preenchido.
+    const perfilOrigem = await perfilDaOrigem(admin, orgId, contact.source as string | null);
+    const outreach: OutreachConfig = {
+      ...outreachBase,
+      instruction: perfilOrigem?.outreach_instruction?.trim() || outreachBase.instruction,
+      template_name: perfilOrigem?.outreach_template_name?.trim() || outreachBase.template_name,
+    };
 
     const canal = await resolverCanal(admin, orgId);
     if (!canal) return json({ error: "Nenhum canal de WhatsApp conectado" }, 422);

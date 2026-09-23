@@ -299,6 +299,51 @@ export type Database = {
           },
         ]
       }
+      ai_source_profiles: {
+        Row: {
+          created_at: string
+          funnel_mode: string
+          id: string
+          initial_stage_id: string | null
+          instruction: string
+          is_active: boolean
+          label: string | null
+          org_id: string
+          outreach_instruction: string
+          outreach_template_name: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          funnel_mode?: string
+          id?: string
+          initial_stage_id?: string | null
+          instruction?: string
+          is_active?: boolean
+          label?: string | null
+          org_id: string
+          outreach_instruction?: string
+          outreach_template_name?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          funnel_mode?: string
+          id?: string
+          initial_stage_id?: string | null
+          instruction?: string
+          is_active?: boolean
+          label?: string | null
+          org_id?: string
+          outreach_instruction?: string
+          outreach_template_name?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       api_keys: {
         Row: {
           created_at: string
