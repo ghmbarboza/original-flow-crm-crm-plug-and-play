@@ -2521,7 +2521,22 @@ export type Database = {
           row_number?: number
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       imports: {
         Row: {
@@ -2569,7 +2584,15 @@ export type Database = {
           status?: string
           undone_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "imports_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       integration_configs: {
         Row: {
@@ -4564,13 +4587,13 @@ export type Database = {
         Args: { new_description?: string; new_name: string; new_secret: string }
         Returns: string
       }
-      desfazer_importacao: { Args: { p_import: string }; Returns: Json }
       criar_chave_api: {
         Args: { p_name: string; p_rate_limit?: number; p_scopes: string[] }
         Returns: Json
       }
       criar_chave_webhook: { Args: { p_name: string }; Returns: Json }
       current_org_id: { Args: never; Returns: string }
+      desfazer_importacao: { Args: { p_import: string }; Returns: Json }
       enqueue_automations: {
         Args: { p_org: string; p_trigger_data: Json; p_trigger_type: string }
         Returns: undefined
