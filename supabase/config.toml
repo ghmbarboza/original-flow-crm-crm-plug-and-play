@@ -5,6 +5,10 @@ project_id = "tvwhiyojgtbuwtuohdes"
 [functions.submit-capture-form]
 verify_jwt = false
 
+[functions.capture-form-embed]
+verify_jwt = false
+
+
 # Dispatcher de automações: acionado por cron / Supabase Scheduled Function, não
 # por usuário. Sem verificação de JWT — a chamada usa a service-role key e a função
 # só lê a fila (automation_logs status='queued'), sempre escopada por org_id.
