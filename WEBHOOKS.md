@@ -177,3 +177,26 @@ Eventos de RH (candidato, colaborador) não fazem parte do CRM e são recusados 
 ## Testes
 
 `npm run test:hard` roda o hard smoke contra o backend, incluindo `e2e/hard/webhooks.spec.ts`: assinatura, novas tentativas, reenvio, teste, idempotência e os payloads reais das soluções acima.
+
+
+## API pública (leitura e escrita com escopos)
+
+Para uma solução operar o CRM (SDR de IA externo, TypeFlow, n8n, Make, sistema próprio) além do webhook de entrada, existe a API em `/functions/v1/api`. A chave nasce em Configurações > API (`fcrm_live_...`), com escopos por recurso e limite de chamadas por minuto; só o hash fica no banco. Cada chamada entra em `api_request_logs`.
+
+| Rota | Escopo | O que faz |
+|---|---|---|
+| `GET /pipelines` | pipelines:read | funis com etapas em ordem |
+| `GET /contacts?email=\|phone=\|q=` e `GET /contacts/:id` | contacts:read | busca e ficha (empresa, tags, negócios, atividades) |
+| `POST /contacts` | contacts:write | cria ou atualiza por e-mail ou telefone (empresa pelo nome, dono por e-mail, campos extras) |
+| `GET /deals?contact_id=\|status=` e `GET /deals/:id` | deals:read | negócios e ficha (etapa, produtos, histórico) |
+| `POST /deals` | deals:write | cria (etapa por id ou nome, dono, produtos) |
+| `PATCH /deals/:id` | deals:write | etapa (pelo `mover_negocio`, com motivo no histórico), status, valor, dono, campos |
+| `GET /conversations?phone=` e `GET /conversations/:id/messages` | conversations:read | conversas e mensagens |
+| `POST /conversations/:id/messages` | conversations:write | registra mensagem já enviada por fora (aparece na inbox) |
+| `POST /conversations/:id/send` | conversations:write | envia pelo canal da org (Evolution, Meta ou Zernio) |
+| `POST /conversations/:id/handoff`, `/pause-ai`, `/resume-ai` | conversations:write | transfere para humano, pausa ou reativa a IA interna |
+| `POST /activities` | activities:write | tarefa, ligação, reunião, nota ou e-mail |
+| `GET /products?q=` | products:read | catálogo ativo |
+| `GET /knowledge` | knowledge:read | perfil do agente, FAQs e objeções |
+
+Documentação legível por máquina em `GET /api/openapi.json` (sem chave). Eventos de saída novos para quem assina webhooks: `message.sent`, `conversation.started`, `conversation.handoff`, `deal.assigned`.

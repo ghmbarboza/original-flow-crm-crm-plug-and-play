@@ -25,6 +25,10 @@ export const WEBHOOK_EVENTOS_SAIDA = [
   { value: "deal.lost", label: "Negócio perdido" },
   { value: "activity.created", label: "Atividade criada" },
   { value: "message.received", label: "Mensagem recebida" },
+  { value: "message.sent", label: "Mensagem enviada (equipe, IA ou API)" },
+  { value: "conversation.started", label: "Conversa iniciada" },
+  { value: "conversation.handoff", label: "Conversa transferida para humano" },
+  { value: "deal.assigned", label: "Negócio atribuído" },
   { value: "nps.submitted", label: "NPS respondido" },
 ] as const;
 

@@ -369,7 +369,9 @@ export type Database = {
           last_used_at: string | null
           name: string
           org_id: string
+          rate_limit_per_minute: number
           revoked_at: string | null
+          scopes: string[]
         }
         Insert: {
           created_at?: string
@@ -380,7 +382,9 @@ export type Database = {
           last_used_at?: string | null
           name: string
           org_id: string
+          rate_limit_per_minute?: number
           revoked_at?: string | null
+          scopes?: string[]
         }
         Update: {
           created_at?: string
@@ -391,7 +395,9 @@ export type Database = {
           last_used_at?: string | null
           name?: string
           org_id?: string
+          rate_limit_per_minute?: number
           revoked_at?: string | null
+          scopes?: string[]
         }
         Relationships: [
           {
@@ -402,6 +408,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      api_request_logs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          id: string
+          key_id: string | null
+          method: string
+          org_id: string
+          path: string
+          status: number
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          key_id?: string | null
+          method: string
+          org_id: string
+          path: string
+          status: number
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          key_id?: string | null
+          method?: string
+          org_id?: string
+          path?: string
+          status?: number
+        }
+        Relationships: []
       }
       api_keys_registry: {
         Row: {
@@ -4283,6 +4325,8 @@ export type Database = {
         Returns: undefined
       }
       app_url: { Args: never; Returns: string }
+      consumir_cota_api: { Args: { p_key: string; p_limite: number }; Returns: boolean }
+      criar_chave_api: { Args: { p_name: string; p_scopes: string[]; p_rate_limit?: number }; Returns: Json }
       apply_lead_score: {
         Args: {
           p_channel?: string

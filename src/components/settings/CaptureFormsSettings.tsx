@@ -458,7 +458,7 @@ function CaptureFormBuilder({ open, onOpenChange, form }: BuilderProps) {
                     value={field.type}
                     onValueChange={(v) => setField(i, { type: v as CaptureFieldType })}
                   >
-                    <SelectTrigger className="h-8 w-36">
+                    <SelectTrigger className="h-8 w-36" aria-label={`Tipo do campo ${field.label || i + 1}`} data-testid={`campo-tipo-${i}`}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

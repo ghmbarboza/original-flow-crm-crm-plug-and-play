@@ -19,7 +19,7 @@ test("Formulários: campo condicional, origem por UTM e embed", async ({ page })
   const linhas = page.locator('[placeholder="Rótulo"]');
   await linhas.nth(2).fill("Interesse");
   await page.locator('[placeholder="chave"]').nth(2).fill("interesse");
-  await page.getByRole("combobox").filter({ hasText: "Texto" }).nth(2).click();
+  await page.getByTestId("campo-tipo-2").click();
   await page.getByRole("option", { name: "Lista de opções" }).click();
   await page.getByTestId("campo-opcoes-2").fill("Plano mensal, Plano anual");
 
