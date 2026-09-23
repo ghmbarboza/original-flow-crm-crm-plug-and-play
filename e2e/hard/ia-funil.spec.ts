@@ -177,12 +177,23 @@ test("lead quer fechar: a IA move o negócio de etapa e o histórico registra pe
   const conv = ok(await c.db.from("conversations").select("id, contact_id, deal_id").eq("phone_number", telefone).single(), "conversa");
   expect(conv.deal_id, "toda conversa nova abre negócio na 1ª etapa").toBeTruthy();
 
-  await esperar("resposta da IA gravada", async () => {
+  const respostasDaIA = async () => {
     const m = await c.db.from("conversation_messages").select("id").eq("conversation_id", conv.id).eq("is_from_ai", true);
-    return m.data?.[0] ?? null;
-  }, { timeout: 120_000, intervalo: 3_000 });
+    return m.data?.length ?? 0;
+  };
+  await esperar("resposta da IA gravada", async () => (await respostasDaIA()) >= 1, { timeout: 120_000, intervalo: 3_000 });
 
-  const deal = ok(await c.db.from("deals").select("stage_id").eq("id", conv.deal_id!).single(), "negócio");
+  // A decisão é do modelo: se a primeira mensagem não bastou, o lead insiste
+  // com o sinal mais forte possível antes de o teste cobrar o movimento.
+  let deal = ok(await c.db.from("deals").select("stage_id").eq("id", conv.deal_id!).single(), "negócio");
+  if (deal.stage_id === etapas[0].id) {
+    const r2 = await postFunction(c, `evolution-webhook?token=${webhookToken}`, mensagemTexto(
+      telefone, "Confirmo: quero fechar agora. Me manda o contrato que eu assino hoje.", `${MARCADOR} Fechamento`,
+    ));
+    expect(r2.status, r2.texto).toBe(200);
+    await esperar("segunda resposta da IA", async () => (await respostasDaIA()) >= 2, { timeout: 120_000, intervalo: 3_000 });
+    deal = ok(await c.db.from("deals").select("stage_id").eq("id", conv.deal_id!).single(), "negócio");
+  }
   expect(deal.stage_id, "a IA precisa ter avançado o negócio da 1ª etapa").not.toBe(etapas[0].id);
 
   const atividade = ok(await c.db.from("activities").select("title, body").eq("deal_id", conv.deal_id!).eq("type", "stage_change"), "histórico")[0];

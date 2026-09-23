@@ -613,9 +613,10 @@ Deno.serve(async (req) => {
         "",
         "Funil de vendas (etapas em ordem): " + etapasDoFunil.map((e, i) => `${i + 1}. ${e.name}`).join("; ") + ".",
         etapaAtual ? `O negócio deste cliente está na etapa "${etapaAtual.name}".` : "O cliente ainda não tem negócio em etapa definida.",
+        "REGRA DO FUNIL: antes de escrever a resposta, avalie se a última mensagem do cliente muda a etapa do negócio. Sinais de avanço: pediu proposta, orçamento ou contrato; disse que quer comprar, fechar ou assinar; marcou reunião; confirmou interesse. Sinais de recuo: desistiu, escolheu outro fornecedor, pediu para não falar mais. Havendo um desses sinais, chame a ferramenta mover_etapa com a etapa mais adequada (para 'quero fechar' ou 'manda o contrato', a etapa mais adiantada da lista) e um motivo curto, e só depois responda.",
         funnelActions.mode === "suggest"
-          ? "Quando a conversa mostrar que o negócio avançou ou recuou (interesse confirmado, reunião marcada, proposta pedida, desistência), chame a ferramenta mover_etapa com a etapa adequada e um motivo curto: a sugestão vai para a equipe decidir."
-          : "Quando a conversa mostrar que o negócio avançou ou recuou (interesse confirmado, reunião marcada, proposta pedida, desistência), chame a ferramenta mover_etapa com a etapa adequada e um motivo curto. Só mova com evidência clara na conversa e nunca mais de uma vez por mensagem.",
+          ? "A ferramenta só registra uma sugestão: a equipe decide. Nunca diga ao cliente que a etapa mudou."
+          : "Mova no máximo uma vez por mensagem e nunca comente a etapa com o cliente.",
         permitidas.size > 0 ? "Etapas que você pode usar: " + etapasPermitidas.map((e) => e.name).join(", ") + "." : "",
       ].join("\n")
       : "";
