@@ -1787,6 +1787,53 @@ export type Database = {
           },
         ]
       }
+      email_settings: {
+        Row: {
+          api_base: string | null
+          created_at: string
+          domain_verified: boolean
+          from_email: string | null
+          from_name: string | null
+          id: string
+          org_id: string
+          provider: string
+          reply_to: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_base?: string | null
+          created_at?: string
+          domain_verified?: boolean
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          org_id: string
+          provider?: string
+          reply_to?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_base?: string | null
+          created_at?: string
+          domain_verified?: boolean
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          org_id?: string
+          provider?: string
+          reply_to?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           body_html: string
@@ -1841,45 +1888,6 @@ export type Database = {
           },
         ]
       }
-      email_settings: {
-        Row: {
-          api_base: string | null
-          created_at: string
-          domain_verified: boolean
-          from_email: string | null
-          from_name: string | null
-          id: string
-          org_id: string
-          provider: string
-          reply_to: string | null
-          updated_at: string
-        }
-        Insert: {
-          api_base?: string | null
-          created_at?: string
-          domain_verified?: boolean
-          from_email?: string | null
-          from_name?: string | null
-          id?: string
-          org_id: string
-          provider?: string
-          reply_to?: string | null
-          updated_at?: string
-        }
-        Update: {
-          api_base?: string | null
-          created_at?: string
-          domain_verified?: boolean
-          from_email?: string | null
-          from_name?: string | null
-          id?: string
-          org_id?: string
-          provider?: string
-          reply_to?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       emails: {
         Row: {
           body_html: string | null
@@ -1891,8 +1899,8 @@ export type Database = {
           id: string
           is_demo: boolean
           open_count: number
-          provider: string
           org_id: string
+          provider: string
           sent_at: string | null
           status: string
           subject: string | null
@@ -1910,8 +1918,8 @@ export type Database = {
           id?: string
           is_demo?: boolean
           open_count?: number
-          provider?: string
           org_id: string
+          provider?: string
           sent_at?: string | null
           status?: string
           subject?: string | null
@@ -1929,8 +1937,8 @@ export type Database = {
           id?: string
           is_demo?: boolean
           open_count?: number
-          provider?: string
           org_id?: string
+          provider?: string
           sent_at?: string | null
           status?: string
           subject?: string | null
