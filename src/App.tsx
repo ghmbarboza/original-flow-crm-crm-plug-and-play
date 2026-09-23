@@ -23,6 +23,7 @@ const CompaniesPage = lazy(() => import("./pages/CompaniesPage"));
 const DealsPage = lazy(() => import("./pages/DealsPage"));
 const DealDetailPage = lazy(() => import("./pages/DealDetailPage"));
 const TasksPage = lazy(() => import("./pages/TasksPage"));
+const AgendaPage = lazy(() => import("./pages/AgendaPage"));
 const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const InboxPage = lazy(() => import("./pages/InboxPage"));
@@ -165,6 +166,9 @@ const App = () => (
             <Route path="/activities" element={<Navigate to="/tasks" replace />} />
             <Route path="/tasks" element={
               <ProtectedRoute><Page name="Tarefas"><TasksPage /></Page></ProtectedRoute>
+            } />
+            <Route path="/agenda" element={
+              <ProtectedRoute><Page name="Agenda"><AgendaPage /></Page></ProtectedRoute>
             } />
             <Route path="/products" element={
               <ProtectedRoute><Page name="Produtos"><ProductsPage /></Page></ProtectedRoute>

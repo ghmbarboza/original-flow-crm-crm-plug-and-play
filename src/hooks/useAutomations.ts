@@ -13,6 +13,8 @@ export const TRIGGERS = [
   { value: "form_submitted", label: "Formulário submetido" },
   { value: "tag_added", label: "Tag adicionada a um contato" },
   { value: "message_received", label: "Mensagem de WhatsApp recebida" },
+  { value: "appointment_scheduled", label: "Reunião agendada" },
+  { value: "appointment_no_show", label: "Cliente não compareceu à reunião" },
 ] as const;
 
 /** Ações disponíveis. */

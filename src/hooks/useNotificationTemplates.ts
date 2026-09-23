@@ -18,6 +18,8 @@ export const NOTIFICATION_EVENTS: { type: string; label: string; description: st
   { type: "conversa_sem_agente", label: "Conversa sem agente", description: "Uma conversa nova entrou e nenhum agente do canal estava disponível." },
   { type: "conversa_sem_resposta", label: "Conversa sem resposta", description: "Uma conversa passou do tempo tolerado sem resposta da equipe." },
   { type: "agente_no_limite", label: "Agente no limite", description: "Um agente atingiu o máximo de conversas do canal." },
+  { type: "reuniao_agendada", label: "Reunião agendada", description: "Uma reunião foi marcada para você (pela IA, à mão ou pelo Cal.com)." },
+  { type: "reuniao_no_show", label: "Cliente não compareceu", description: "Uma reunião sua passou do horário sem confirmação nem presença." },
   { type: "agendamento_confirmado", label: "Reunião agendada", description: "Um contato confirmou uma reunião pelo link de agendamento." },
   { type: "estoque_baixo", label: "Estoque baixo", description: "Um produto ficou abaixo do estoque mínimo após uma venda." },
   { type: "automacao", label: "Aviso de automação", description: "A ação 'Notificar agente' de uma automação." },
