@@ -214,17 +214,28 @@ Deno.serve(async (req) => {
     const canal = await resolverCanal(admin, orgId);
     if (!canal) return json({ error: "Nenhum canal de WhatsApp conectado" }, 422);
 
-    // 2. Quem já conversou não é abordado: a IA responde, não interrompe.
-    const { data: existente } = await admin
-      .from("conversations").select("id, status")
-      .eq("org_id", orgId).eq("phone_number", telefone).limit(1).maybeSingle();
-    if (existente) {
-      const { count } = await admin
-        .from("conversation_messages").select("id", { count: "exact", head: true })
-        .eq("conversation_id", existente.id).eq("is_internal_note", false);
-      if ((count ?? 0) > 0) return json({ skipped: "contato já tem conversa com mensagens", conversation_id: existente.id });
-      if (existente.status === "closed") return json({ skipped: "conversa encerrada", conversation_id: existente.id });
-    }
+    // 2. Quem já conversou não é abordado: a IA responde, não interrompe. Uma
+    //    abordagem agendada (fora do horário) também conta: duas automações
+    //    mirando o mesmo lead não podem gerar duas aberturas.
+    const jaAbordado = async (): Promise<string | null> => {
+      const { data: existente } = await admin
+        .from("conversations").select("id, status")
+        .eq("org_id", orgId).eq("phone_number", telefone).limit(1).maybeSingle();
+      if (existente) {
+        const { count } = await admin
+          .from("conversation_messages").select("id", { count: "exact", head: true })
+          .eq("conversation_id", existente.id).eq("is_internal_note", false);
+        if ((count ?? 0) > 0) return "contato já tem conversa com mensagens";
+        if (existente.status === "closed") return "conversa encerrada";
+      }
+      const { count: agendadas } = await admin
+        .from("scheduled_messages").select("id", { count: "exact", head: true })
+        .eq("org_id", orgId).eq("contact_id", contactId).eq("status", "pending");
+      if ((agendadas ?? 0) > 0) return "abordagem já agendada para este contato";
+      return null;
+    };
+    const motivoPular = await jaAbordado();
+    if (motivoPular) return json({ skipped: motivoPular });
 
     const { data: org } = await admin
       .from("organizations")
@@ -299,6 +310,10 @@ Deno.serve(async (req) => {
       },
     );
     if (!conversa) return json({ error: "Não foi possível abrir a conversa" }, 500);
+    // Reconfere depois de gerar o texto e abrir a conversa: estreita a janela em
+    // que duas chamadas simultâneas passariam pela guarda inicial.
+    const motivoPularAgora = await jaAbordado();
+    if (motivoPularAgora) return json({ skipped: motivoPularAgora, conversation_id: conversa.id });
 
     // 5. Fora do horário: texto livre espera a próxima abertura. Template da
     //    Meta é mensagem de negócio permitida a qualquer hora e sai agora.

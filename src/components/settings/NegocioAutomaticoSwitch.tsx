@@ -40,7 +40,8 @@ export function NegocioAutomaticoSwitch() {
         <p className="mt-0.5 max-w-xl text-xs" style={{ color: "var(--via-text-muted)" }}>
           Cada contato que chamar pela primeira vez entra no funil, na primeira etapa. Um
           contato nunca tem dois negócios abertos ao mesmo tempo. Desligado, o negócio é criado
-          à mão ou quando a IA detecta intenção de compra.
+          à mão, quando a IA detecta intenção de compra ou quando ela move o negócio de etapa
+          na conversa.
         </p>
       </div>
       <Switch

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { useOrganization, useUpdateOrganization } from "@/hooks/useSetup";
@@ -42,13 +43,20 @@ interface Linha {
 export function HistoricoSettings() {
   const { data: org } = useOrganization();
   const salvar = useUpdateOrganization();
-  const atual = lerHistorySettings((org as { history_settings?: unknown } | null)?.history_settings);
+  // O último valor gravado por esta tela vence o `org` do cache, que pode ainda
+  // não ter voltado do refetch quando o próximo switch é clicado; sem isso o
+  // segundo clique partiria do estado antigo e apagaria o primeiro.
+  const [gravado, setGravado] = useState<HistorySettings | null>(null);
+  const atual = gravado ?? lerHistorySettings((org as { history_settings?: unknown } | null)?.history_settings);
 
   const alternar = async (linha: Linha, valor: boolean) => {
+    const proximo = linha.aplicar(atual, valor);
     try {
-      await salvar.mutateAsync({ history_settings: linha.aplicar(atual, valor) as never });
+      setGravado(proximo);
+      await salvar.mutateAsync({ history_settings: proximo as never });
       toast.success(valor ? `${linha.titulo}: passa a ser registrado.` : `${linha.titulo}: deixa de ser registrado.`);
     } catch (e) {
+      setGravado(atual);
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
     }
   };
