@@ -189,11 +189,13 @@ export type Database = {
           context_window_size: number
           cooldown_ms: number
           fallback_message: string
+          funnel_actions: Json
           human_trigger_rules: Json
           id: string
           is_active: boolean
           max_ai_turns_before_human: number
           org_id: string
+          outreach: Json
           prompt_version: number
           response_delay_ms: number
           system_prompt: string
@@ -201,8 +203,6 @@ export type Database = {
           voice_enabled: boolean
           voice_id: string | null
           voice_response_mode: string
-          funnel_actions: Json
-          outreach: Json
           working_hours: Json
         }
         Insert: {
@@ -212,11 +212,13 @@ export type Database = {
           context_window_size?: number
           cooldown_ms?: number
           fallback_message?: string
+          funnel_actions?: Json
           human_trigger_rules?: Json
           id?: string
           is_active?: boolean
           max_ai_turns_before_human?: number
           org_id: string
+          outreach?: Json
           prompt_version?: number
           response_delay_ms?: number
           system_prompt?: string
@@ -224,8 +226,6 @@ export type Database = {
           voice_enabled?: boolean
           voice_id?: string | null
           voice_response_mode?: string
-          funnel_actions?: Json
-          outreach?: Json
           working_hours?: Json
         }
         Update: {
@@ -235,11 +235,13 @@ export type Database = {
           context_window_size?: number
           cooldown_ms?: number
           fallback_message?: string
+          funnel_actions?: Json
           human_trigger_rules?: Json
           id?: string
           is_active?: boolean
           max_ai_turns_before_human?: number
           org_id?: string
+          outreach?: Json
           prompt_version?: number
           response_delay_ms?: number
           system_prompt?: string
@@ -247,8 +249,6 @@ export type Database = {
           voice_enabled?: boolean
           voice_id?: string | null
           voice_response_mode?: string
-          funnel_actions?: Json
-          outreach?: Json
           working_hours?: Json
         }
         Relationships: [
@@ -2897,10 +2897,10 @@ export type Database = {
           business_description: string | null
           business_sector: string | null
           company_size: string | null
-          history_settings: Json
           created_at: string
           currency: string
           good_response_example: string | null
+          history_settings: Json
           id: string
           logo_url: string | null
           main_problem_solved: string | null
@@ -2918,10 +2918,10 @@ export type Database = {
           business_description?: string | null
           business_sector?: string | null
           company_size?: string | null
-          history_settings?: Json
           created_at?: string
           currency?: string
           good_response_example?: string | null
+          history_settings?: Json
           id?: string
           logo_url?: string | null
           main_problem_solved?: string | null
@@ -2939,10 +2939,10 @@ export type Database = {
           business_description?: string | null
           business_sector?: string | null
           company_size?: string | null
-          history_settings?: Json
           created_at?: string
           currency?: string
           good_response_example?: string | null
+          history_settings?: Json
           id?: string
           logo_url?: string | null
           main_problem_solved?: string | null
@@ -4109,7 +4109,12 @@ export type Database = {
       instancia_sem_usuarios: { Args: never; Returns: boolean }
       internal_cron_secret: { Args: never; Returns: string }
       mover_negocio: {
-        Args: { p_deal: string; p_stage: string; p_origem?: string; p_motivo?: string }
+        Args: {
+          p_deal: string
+          p_motivo?: string
+          p_origem?: string
+          p_stage: string
+        }
         Returns: boolean
       }
       notify_org_admins: {
@@ -4144,7 +4149,13 @@ export type Database = {
       webhook_negocio_json: { Args: { p_deal: string }; Returns: Json }
     }
     Enums: {
-      activity_type: "call" | "email" | "meeting" | "note" | "task" | "stage_change"
+      activity_type:
+        | "call"
+        | "email"
+        | "meeting"
+        | "note"
+        | "task"
+        | "stage_change"
       app_role: "admin" | "member"
       contact_status: "lead" | "prospect" | "customer" | "churned"
       conversation_status: "ai_active" | "human_takeover" | "closed"
@@ -4279,7 +4290,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      activity_type: ["call", "email", "meeting", "note", "task", "stage_change"],
+      activity_type: [
+        "call",
+        "email",
+        "meeting",
+        "note",
+        "task",
+        "stage_change",
+      ],
       app_role: ["admin", "member"],
       contact_status: ["lead", "prospect", "customer", "churned"],
       conversation_status: ["ai_active", "human_takeover", "closed"],
