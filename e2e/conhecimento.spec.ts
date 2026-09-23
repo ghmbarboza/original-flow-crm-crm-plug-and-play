@@ -11,12 +11,13 @@ test("IA > Conhecimento: envia TXT, cadastra fato e a busca encontra", async ({ 
   const codigo = `E2E${marca}`;
 
   await page.goto("/settings/ia");
+  await page.getByTestId("ai-tab-knowledge").click();
   await page.getByTestId("knowledge-tab-documentos").click();
   await page.getByTestId("doc-file").setInputFiles({
-    name: `manual-${marca}.txt`, mimeType: "text/plain",
+    name: `E2E-manual-${marca}.txt`, mimeType: "text/plain",
     buffer: Buffer.from(`Manual E2E ${codigo}.\n\nO frete para Florianópolis sai em 2 dias úteis no plano ${codigo}.`, "utf-8"),
   });
-  const item = page.getByTestId("doc-list").getByText(`manual-${marca}`);
+  const item = page.getByTestId("doc-list").getByText(`E2E-manual-${marca}`, { exact: true });
   await expect(item).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("doc-list")).toContainText("1 trecho");
   await expect(page.getByTestId("doc-list")).toContainText("Em uso");
@@ -39,6 +40,6 @@ test("IA > Conhecimento: envia TXT, cadastra fato e a busca encontra", async ({ 
   await page.getByRole("button", { name: `Apagar E2E Fato ${codigo}` }).click();
   await expect(page.getByTestId("fact-list").getByText(`E2E Fato ${codigo}`)).toHaveCount(0);
   await page.getByTestId("knowledge-tab-documentos").click();
-  await page.getByRole("button", { name: `Apagar manual-${marca}` }).click();
-  await expect(page.getByTestId("doc-list").getByText(`manual-${marca}`)).toHaveCount(0);
+  await page.getByRole("button", { name: `Apagar E2E-manual-${marca}` }).click();
+  await expect(page.getByTestId("doc-list").getByText(`E2E-manual-${marca}`, { exact: true })).toHaveCount(0);
 });

@@ -282,7 +282,7 @@ export default function AISettings() {
         <TabsList>
           <TabsTrigger value="personality">Personalidade</TabsTrigger>
           <TabsTrigger value="behavior">Comportamento</TabsTrigger>
-          <TabsTrigger value="knowledge">Conhecimento</TabsTrigger>
+          <TabsTrigger value="knowledge" data-testid="ai-tab-knowledge">Conhecimento</TabsTrigger>
           <TabsTrigger value="origens" data-testid="ai-tab-origens">Por origem</TabsTrigger>
           <TabsTrigger value="versions">Versões</TabsTrigger>
         </TabsList>
