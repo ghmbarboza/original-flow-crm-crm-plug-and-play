@@ -18,6 +18,9 @@ import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 import { useEmailSequences } from "@/hooks/useEmailSequences";
 import { useTags } from "@/hooks/useTags";
 import { useStages } from "@/hooks/useDeals";
+import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
+import { rotuloOrigem, useContactSources } from "@/hooks/useContactSources";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   open: boolean;
@@ -26,14 +29,43 @@ interface Props {
 }
 
 /** Renderiza o campo de parâmetro certo para cada tipo de ação. */
+/** Campos que as condições costumam usar; "Origem" é o que separa formulário, anúncio, indicação. */
+const CAMPOS_CONDICAO = [
+  { value: "source", label: "Origem" },
+  { value: "status", label: "Status" },
+  { value: "email", label: "E-mail" },
+  { value: "phone", label: "Telefone" },
+  { value: "title", label: "Título (negócio)" },
+  { value: "stage_id", label: "Etapa (id)" },
+] as const;
+
 function ActionParam({ action, onChange }: { action: AutomationAction; onChange: (params: Record<string, string>) => void }) {
   const { data: templates } = useEmailTemplates();
   const { data: sequences } = useEmailSequences();
   const { data: tags } = useTags();
   const { data: stages } = useStages();
+  const { data: canal } = useWhatsAppSetup();
   const meta = ACTIONS.find((a) => a.value === action.type)!;
   const value = action.params[meta.param] ?? "";
   const set = (v: string) => onChange({ [meta.param]: v });
+
+  if (action.type === "ai_outreach") {
+    const provider = canal?.configured ? canal.provider : null;
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs font-normal">{meta.paramLabel}</Label>
+        <Textarea rows={2} value={value} onChange={(e) => set(e.target.value)}
+          placeholder="Ex.: diga que viu o pedido pelo site e pergunte o melhor horário para uma ligação" />
+        <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+          {provider === "evolution"
+            ? "Canal: Evolution (não oficial). A IA escreve a mensagem com esta instrução. Abordar quem nunca falou com a empresa pode levar ao bloqueio do número; use com leads que deixaram o telefone e em volume baixo."
+            : provider === "meta_official" || provider === "zernio"
+              ? "Canal oficial: sai o template aprovado escolhido em IA > Abordagem ativa; a instrução vale quando o lead responder."
+              : "Nenhum canal de WhatsApp conectado: a ação vai falhar até conectar um em Integrações."}
+        </p>
+      </div>
+    );
+  }
 
   const options =
     action.type === "send_email" ? (templates ?? []).map((t) => ({ value: t.id, label: t.name }))
@@ -70,6 +102,7 @@ export function AutomationBuilderDialog({ open, onOpenChange, automation }: Prop
   const [trigger, setTrigger] = useState<TriggerType>("contact_created");
   const [conditions, setConditions] = useState<AutomationCondition[]>([]);
   const [actions, setActions] = useState<AutomationAction[]>([]);
+  const { data: origens } = useContactSources();
 
   useEffect(() => {
     if (!open) return;
@@ -162,8 +195,17 @@ export function AutomationBuilderDialog({ open, onOpenChange, automation }: Prop
             ) : (
               conditions.map((cond, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Input className="h-8 flex-1" placeholder="campo (ex.: status)" value={cond.field}
-                    onChange={(e) => setConditions(conditions.map((c, j) => j === i ? { ...c, field: e.target.value } : c))} />
+                  <Select value={cond.field || "__custom__"} onValueChange={(v) => setConditions(conditions.map((c, j) => j === i ? { ...c, field: v === "__custom__" ? "" : v } : c))}>
+                    <SelectTrigger className="h-8 w-40" aria-label="Campo da condição"><SelectValue placeholder="campo" /></SelectTrigger>
+                    <SelectContent>
+                      {CAMPOS_CONDICAO.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                      <SelectItem value="__custom__">Outro campo…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!CAMPOS_CONDICAO.some((f) => f.value === cond.field) && (
+                    <Input className="h-8 w-32" placeholder="campo" value={cond.field}
+                      onChange={(e) => setConditions(conditions.map((c, j) => j === i ? { ...c, field: e.target.value } : c))} />
+                  )}
                   <Select value={cond.op} onValueChange={(v) => setConditions(conditions.map((c, j) => j === i ? { ...c, op: v as AutomationCondition["op"] } : c))}>
                     <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -172,8 +214,14 @@ export function AutomationBuilderDialog({ open, onOpenChange, automation }: Prop
                       <SelectItem value="contains">contém</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input className="h-8 flex-1" placeholder="valor" value={cond.value}
+                  <Input className="h-8 flex-1" placeholder={cond.field === "source" ? "origem (ex.: capture_form)" : "valor"} value={cond.value}
+                    list={cond.field === "source" ? "origens-conhecidas" : undefined}
                     onChange={(e) => setConditions(conditions.map((c, j) => j === i ? { ...c, value: e.target.value } : c))} />
+                  {cond.field === "source" && (
+                    <datalist id="origens-conhecidas">
+                      {(origens ?? []).map((o) => <option key={o} value={o}>{rotuloOrigem(o)}</option>)}
+                    </datalist>
+                  )}
                   <Button size="icon" variant="ghost" onClick={() => setConditions(conditions.filter((_, j) => j !== i))} aria-label="Remover condição">
                     <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                   </Button>

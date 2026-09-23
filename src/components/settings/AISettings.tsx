@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { MelhorarComIA } from "@/components/ai/MelhorarComIA";
-import { Bot, Clock, KanbanSquare, MessageSquare, Send, ShoppingCart, Sliders, Sparkles } from "lucide-react";
+import { AlertTriangle, Bot, Clock, KanbanSquare, MessageSquare, Send, ShoppingCart, Sliders, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
+import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -127,6 +131,14 @@ export default function AISettings() {
   const [funnel, setFunnel] = useState<FunnelActions>(FUNNEL_ACTIONS_PADRAO);
   const [outreach, setOutreach] = useState<OutreachConfig>(OUTREACH_PADRAO);
   const { data: stages } = useStages();
+  // Canal conectado decide o que a abordagem ativa pode mandar: texto da IA
+  // (Evolution, com risco de bloqueio) ou template aprovado (Meta e Zernio).
+  const { data: canalSetup } = useWhatsAppSetup();
+  const canal = { provider: canalSetup?.configured ? canalSetup.provider : null };
+  const templateProvider = canal.provider === "meta_official" || canal.provider === "zernio";
+  const { data: templatesData, isLoading: carregandoTemplates } = useMessageTemplates(templateProvider);
+  const templatesAprovados = (templatesData?.templates ?? []).filter((t) => t.status === "APPROVED");
+  const templateEscolhido = templatesAprovados.find((t) => t.name === outreach.template_name) ?? null;
 
   useEffect(() => {
     if (!config) return;
@@ -682,63 +694,125 @@ export default function AISettings() {
             </Label>
             <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
               Usada pela ação "Abordar pelo WhatsApp com a IA" das automações (por exemplo, quando um lead
-              chega pelo formulário). No Evolution a IA escreve a primeira mensagem com a instrução abaixo.
-              Na API oficial da Meta e no Zernio a primeira mensagem tem que ser um template aprovado; a IA
-              assume a conversa quando o lead responde.
+              chega pelo formulário). O que a IA pode mandar depende de como o WhatsApp está conectado.
             </p>
-            <div className="space-y-2">
-              <Label htmlFor="outreach-instruction" className="text-xs font-normal">Instrução de abertura</Label>
-              <Textarea
-                id="outreach-instruction"
-                rows={3}
-                value={outreach.instruction}
-                onChange={(e) => setOutreach({ ...outreach, instruction: e.target.value })}
-                placeholder="Apresente-se, diga que recebeu o contato pelo site, mostre que sabe do que ele precisa e faça uma pergunta curta."
-                data-testid="outreach-instruction"
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="outreach-template" className="text-xs font-normal">Template aprovado (Meta e Zernio)</Label>
-                <Input
-                  id="outreach-template"
-                  value={outreach.template_name ?? ""}
-                  onChange={(e) => setOutreach({ ...outreach, template_name: e.target.value })}
-                  placeholder="primeiro_contato"
-                  data-testid="outreach-template"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="outreach-template-language" className="text-xs font-normal">Idioma do template</Label>
-                <Input
-                  id="outreach-template-language"
-                  value={outreach.template_language}
-                  onChange={(e) => setOutreach({ ...outreach, template_language: e.target.value })}
-                  placeholder="pt_BR"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-normal">Variáveis do template, na ordem em que aparecem</Label>
-              <div className="flex flex-wrap gap-3">
-                {(["nome", "empresa"] as const).map((v) => (
-                  <label key={v} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
-                    <Checkbox
-                      aria-label={`Template usa a variável ${v}`}
-                      checked={outreach.template_params.includes(v)}
-                      onCheckedChange={(on) =>
+
+            {canal.provider === null && (
+              <Alert>
+                <AlertDescription>
+                  Nenhum canal de WhatsApp conectado. Conecte em Integrações para a abordagem ativa funcionar.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {canal.provider === "evolution" && (
+              <>
+                <Alert data-testid="outreach-evolution-alert">
+                  <AlertTriangle className="h-4 w-4" strokeWidth={1.5} />
+                  <AlertTitle>Risco de bloqueio do número</AlertTitle>
+                  <AlertDescription>
+                    Seu WhatsApp está conectado pelo Evolution, que não é a API oficial. Mensagens ativas para
+                    quem nunca falou com a empresa são o principal motivo de bloqueio de número pelo WhatsApp.
+                    Use só com leads que deixaram o telefone por vontade própria, em volume baixo, e considere
+                    a API oficial da Meta para abordar em escala.
+                  </AlertDescription>
+                </Alert>
+                <div className="space-y-2">
+                  <Label htmlFor="outreach-instruction" className="text-xs font-normal">Instrução de abertura (a IA escreve a mensagem)</Label>
+                  <Textarea
+                    id="outreach-instruction"
+                    rows={3}
+                    value={outreach.instruction}
+                    onChange={(e) => setOutreach({ ...outreach, instruction: e.target.value })}
+                    placeholder="Apresente-se, diga que recebeu o contato pelo site, mostre que sabe do que ele precisa e faça uma pergunta curta."
+                    data-testid="outreach-instruction"
+                  />
+                </div>
+              </>
+            )}
+
+            {(canal.provider === "meta_official" || canal.provider === "zernio") && (
+              <>
+                <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                  Na API oficial a primeira mensagem para quem nunca falou com a empresa precisa ser um template
+                  aprovado pela Meta. A IA assume a conversa quando o lead responde.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-normal">Template aprovado</Label>
+                    <Select
+                      value={outreach.template_name ?? "__none__"}
+                      onValueChange={(v) => {
+                        const t = templatesAprovados.find((x) => x.name === v);
                         setOutreach({
                           ...outreach,
-                          template_params: on
-                            ? [...outreach.template_params.filter((p) => p !== v), v]
-                            : outreach.template_params.filter((p) => p !== v),
-                        })}
-                    />
-                    {v === "nome" ? "Primeiro nome do contato" : "Empresa do contato"}
-                  </label>
-                ))}
-              </div>
-            </div>
+                          template_name: v === "__none__" ? null : v,
+                          template_language: t?.language ?? outreach.template_language,
+                        });
+                      }}
+                    >
+                      <SelectTrigger aria-label="Template aprovado para a abordagem ativa" data-testid="outreach-template">
+                        <SelectValue placeholder={carregandoTemplates ? "Carregando…" : "Escolha um template"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Nenhum (abordagem desligada neste canal)</SelectItem>
+                        {templatesAprovados.map((t) => (
+                          <SelectItem key={t.name} value={t.name}>
+                            {t.name} ({t.language}{t.param_count > 0 ? `, ${t.param_count} variável${t.param_count > 1 ? "is" : ""}` : ""})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!carregandoTemplates && templatesAprovados.length === 0 && (
+                      <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+                        Nenhum template aprovado ainda. Crie um em Campanhas e aguarde a aprovação da Meta.
+                      </p>
+                    )}
+                    <Link to="/settings/campaigns?tab=templates" className="text-xs underline" style={{ color: "var(--via-text-body)" }}>
+                      Criar ou acompanhar templates
+                    </Link>
+                  </div>
+                  {templateEscolhido && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-normal">Texto do template</Label>
+                      <p className="whitespace-pre-wrap rounded-md border p-2 text-xs" style={{ color: "var(--via-text-body)", borderColor: "var(--via-border)" }}>
+                        {templateEscolhido.body_text}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                {templateEscolhido && templateEscolhido.param_count > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-normal">
+                      Variáveis do template, na ordem em que aparecem ({outreach.template_params.length} de {templateEscolhido.param_count})
+                    </Label>
+                    <div className="flex flex-wrap gap-3">
+                      {(["nome", "empresa"] as const).map((v) => (
+                        <label key={v} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
+                          <Checkbox
+                            aria-label={`Template usa a variável ${v}`}
+                            checked={outreach.template_params.includes(v)}
+                            onCheckedChange={(on) =>
+                              setOutreach({
+                                ...outreach,
+                                template_params: on
+                                  ? [...outreach.template_params.filter((p) => p !== v), v]
+                                  : outreach.template_params.filter((p) => p !== v),
+                              })}
+                          />
+                          {v === "nome" ? "Primeiro nome do contato" : "Empresa do contato"}
+                        </label>
+                      ))}
+                    </div>
+                    {outreach.template_params.length !== templateEscolhido.param_count && (
+                      <p className="text-xs" style={{ color: "var(--via-danger, #b42318)" }}>
+                        O template espera {templateEscolhido.param_count} variável{templateEscolhido.param_count > 1 ? "is" : ""}; a Meta recusa o envio se a contagem não bater.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <Separator />

@@ -14,26 +14,38 @@ test("IA: ações no funil e abordagem ativa salvam e voltam preenchidas", async
   await expect(page.getByTestId("funnel-enabled")).toBeVisible();
   await expect(page.getByTestId("outreach-settings")).toBeVisible();
 
+  // O que a abordagem mostra depende do canal conectado: instrução (Evolution,
+  // com o alerta de bloqueio), seletor de template (Meta/Zernio) ou aviso sem canal.
+  const instrucaoCampo = page.getByTestId("outreach-instruction");
+  const comEvolution = await instrucaoCampo.isVisible();
+  if (comEvolution) {
+    await expect(page.getByTestId("outreach-evolution-alert")).toContainText("Risco de bloqueio");
+  } else {
+    await expect(
+      page.getByTestId("outreach-template").or(page.getByText("Nenhum canal de WhatsApp conectado")),
+    ).toBeVisible();
+  }
+
   // Guarda o que estava para devolver no fim.
   const modoAntes = await page.getByTestId("funnel-mode").innerText();
-  const instrucaoAntes = await page.getByTestId("outreach-instruction").inputValue();
+  const instrucaoAntes = comEvolution ? await instrucaoCampo.inputValue() : null;
 
   await page.getByTestId("funnel-mode").click();
   await page.getByRole("option", { name: /Só sugerir/ }).click();
   const instrucao = `E2E abordagem ${Date.now()}`;
-  await page.getByTestId("outreach-instruction").fill(instrucao);
+  if (comEvolution) await instrucaoCampo.fill(instrucao);
   await page.getByRole("button", { name: "Salvar configuração" }).click();
   await expect(page.getByText("Configuração da IA salva.")).toBeVisible();
 
   await page.reload();
   await page.getByRole("tab", { name: "Comportamento" }).click();
   await expect(page.getByTestId("funnel-mode")).toContainText("Só sugerir");
-  await expect(page.getByTestId("outreach-instruction")).toHaveValue(instrucao);
+  if (comEvolution) await expect(page.getByTestId("outreach-instruction")).toHaveValue(instrucao);
 
   // Devolve.
   await page.getByTestId("funnel-mode").click();
   await page.getByRole("option", { name: modoAntes.includes("sugerir") ? /Só sugerir/ : /Mover sozinha/ }).click();
-  await page.getByTestId("outreach-instruction").fill(instrucaoAntes);
+  if (comEvolution && instrucaoAntes !== null) await page.getByTestId("outreach-instruction").fill(instrucaoAntes);
   await page.getByRole("button", { name: "Salvar configuração" }).click();
   await expect(page.getByText("Configuração da IA salva.")).toBeVisible();
 });

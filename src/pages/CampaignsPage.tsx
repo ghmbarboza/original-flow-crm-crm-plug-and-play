@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CampaignFormDialog } from "@/components/campaigns/CampaignFormDialog";
 import { TemplatesTab } from "@/components/campaigns/TemplatesTab";
@@ -34,6 +35,15 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function CampaignsPage() {
+  // Aba pela URL: IA > Abordagem ativa manda direto para os templates.
+  const [params, setParams] = useSearchParams();
+  const abaAtiva = params.get("tab") === "templates" ? "templates" : "campaigns";
+  const trocarAba = (valor: string) => {
+    const proximos = new URLSearchParams(params);
+    if (valor === "templates") proximos.set("tab", "templates");
+    else proximos.delete("tab");
+    setParams(proximos, { replace: true });
+  };
   const { data: setup, isLoading: loadingSetup } = useWhatsAppSetup();
   const { data: campaigns, isLoading } = useCampaigns();
   const sendCampaign = useSendCampaign();
@@ -122,7 +132,7 @@ export default function CampaignsPage() {
       <div className="space-y-6">
         {header}
 
-        <Tabs defaultValue="campaigns" className="space-y-4">
+        <Tabs value={abaAtiva} onValueChange={trocarAba} className="space-y-4">
           <TabsList>
             <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
             <TabsTrigger value="templates">Templates</TabsTrigger>
