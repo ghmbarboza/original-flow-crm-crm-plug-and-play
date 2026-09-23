@@ -26,6 +26,7 @@ import { dentroDoHorario } from "../_shared/horario.ts";
 import { instrucaoDaOrigem, perfilDaOrigem } from "../_shared/perfilOrigem.ts";
 import { FERRAMENTAS_CONHECIMENTO, blocoDeVerdade, buscarConhecimento, carregarFatosCanonicos, registrarDuvida } from "../_shared/conhecimento.ts";
 import { FERRAMENTAS_AGENDA, carregarPolitica, executarFerramentaAgenda, fusoDaOrg, instrucaoAgenda } from "../_shared/agenda.ts";
+import { blocoDoLead, lerMemoria } from "../_shared/leadState.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -584,12 +585,15 @@ Deno.serve(async (req) => {
     // Base de conhecimento (B10): só os fatos canônicos entram no prompt. FAQs,
     // objeções e documentos são recuperados sob demanda pela ferramenta
     // buscar_conhecimento (busca híbrida full-text + trigram).
-    const [fatos, calcom, politicaAgenda, fusoOrg] = await Promise.all([
+    const [fatos, calcom, politicaAgenda, fusoOrg, memoriaRow] = await Promise.all([
       carregarFatosCanonicos(admin, conversation.org_id),
       admin.from("integration_configs").select("config, is_active").eq("org_id", conversation.org_id).eq("provider", "calcom").maybeSingle(),
       carregarPolitica(admin, conversation.org_id),
       fusoDaOrg(admin, conversation.org_id),
+      conversation.contact_id ? admin.from("contacts").select("client_memory, first_name").eq("id", conversation.contact_id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
+    // Memória do lead (B12): o que a análise pós-conversa já extraiu entra como pista, nunca como fato.
+    const memoriaDoLead = blocoDoLead(lerMemoria(memoriaRow.data?.client_memory), conversation.channel_contact_name || memoriaRow.data?.first_name || null);
     // Agenda nativa (B11): quando ligada, a IA consulta horários e marca/remarca/cancela
     // com evidência literal; o link do Cal.com vira fallback quando a agenda está desligada.
     const agendaLigada = politicaAgenda.ai_enabled;
@@ -652,6 +656,7 @@ Deno.serve(async (req) => {
       agendaLigada ? instrucaoAgenda(politicaAgenda, fusoOrg) : schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
       instrucaoFunil,
       instrucaoDaOrigem(perfilOrigem),
+      memoriaDoLead,
       "",
       "Responda apenas com a mensagem final ao cliente, sem raciocínio nem meta-comentário.",
     ]
@@ -897,6 +902,16 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       })
       .eq("id", conversation_id);
+
+    // Análise pós-conversa (B12): roda depois de responder, sem segurar a resposta.
+    // A própria function decide se é a 1ª mensagem ou múltiplo de N.
+    const analise = fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/analyze-conversation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      body: JSON.stringify({ conversation_id: conversation.id }),
+    }).catch((e) => console.error("[ai-reply] analyze-conversation:", e instanceof Error ? e.message : e));
+    const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(analise); else await analise;
 
     return json({ ok: true, replied: reply, como_audio: comoAudio, purchase_intent: purchaseIntent, moved: movimentoFeito });
   } catch (err) {

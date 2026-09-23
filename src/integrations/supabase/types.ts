@@ -262,6 +262,7 @@ export type Database = {
           agent_name: string
           agent_objective: string
           agent_tone: string
+          analysis: Json
           context_window_size: number
           cooldown_ms: number
           fallback_message: string
@@ -285,6 +286,7 @@ export type Database = {
           agent_name?: string
           agent_objective?: string
           agent_tone?: string
+          analysis?: Json
           context_window_size?: number
           cooldown_ms?: number
           fallback_message?: string
@@ -308,6 +310,7 @@ export type Database = {
           agent_name?: string
           agent_objective?: string
           agent_tone?: string
+          analysis?: Json
           context_window_size?: number
           cooldown_ms?: number
           fallback_message?: string
@@ -1482,6 +1485,7 @@ export type Database = {
           avatar_synced_at: string | null
           avatar_url: string | null
           company_id: string | null
+          client_memory: Json
           created_at: string
           custom_fields: Json
           email: string | null
@@ -1505,6 +1509,7 @@ export type Database = {
           avatar_synced_at?: string | null
           avatar_url?: string | null
           company_id?: string | null
+          client_memory?: Json
           created_at?: string
           custom_fields?: Json
           email?: string | null
@@ -1528,6 +1533,7 @@ export type Database = {
           avatar_synced_at?: string | null
           avatar_url?: string | null
           company_id?: string | null
+          client_memory?: Json
           created_at?: string
           custom_fields?: Json
           email?: string | null
@@ -3996,6 +4002,7 @@ export type Database = {
           auto_message_delay_hours: number | null
           auto_message_template: string | null
           color: string
+          ai_trigger_criteria: string | null
           created_at: string
           id: string
           move_on_reply: boolean
@@ -4011,6 +4018,7 @@ export type Database = {
           auto_message_delay_hours?: number | null
           auto_message_template?: string | null
           color?: string
+          ai_trigger_criteria?: string | null
           created_at?: string
           id?: string
           move_on_reply?: boolean
@@ -4026,6 +4034,7 @@ export type Database = {
           auto_message_delay_hours?: number | null
           auto_message_template?: string | null
           color?: string
+          ai_trigger_criteria?: string | null
           created_at?: string
           id?: string
           move_on_reply?: boolean

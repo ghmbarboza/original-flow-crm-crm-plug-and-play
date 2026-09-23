@@ -14,6 +14,7 @@ import { ContactFormDialog } from "@/components/contacts/ContactFormDialog";
 import { ContactTimeline } from "@/components/contacts/ContactTimeline";
 import { ScheduleMessageDialog } from "@/components/contacts/ScheduleMessageDialog";
 import { ScheduledMessagesCard } from "@/components/contacts/ScheduledMessagesCard";
+import { ContactMemoryCard } from "@/components/contacts/ContactMemoryCard";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { DealFormDialog } from "@/components/deals/DealFormDialog";
 import { useContact } from "@/hooks/useContacts";
@@ -195,6 +196,7 @@ export default function ContactDetailPage() {
           </div>
         )}
 
+        <ContactMemoryCard contactId={contato.id} />
         <ScheduledMessagesCard contactId={contato.id} />
         <ContactTimeline contactId={contato.id} />
       </div>

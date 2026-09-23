@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrgId } from "@/hooks/useOrgId";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/hooks/useSetup";
 import { erroDeFunction } from "@/integrations/supabase/functionError";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -68,6 +69,7 @@ export interface EntradaReuniao {
 export function useSaveAppointment() {
   const orgId = useOrgId();
   const { user } = useAuth();
+  const { data: org } = useOrganization();
   const invalidar = useInvalidar();
   return useMutation({
     mutationFn: async (input: EntradaReuniao): Promise<Appointment> => {
@@ -78,7 +80,8 @@ export function useSaveAppointment() {
       const campos = {
         title: input.title.trim(), contact_id: input.contact_id, deal_id: input.deal_id ?? null, owner_id: input.owner_id,
         starts_at: inicio.toISOString(), ends_at: fim.toISOString(), description: input.description?.trim() || null, location: input.location?.trim() || null,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
+        // Fuso da organização (o mesmo da política da IA e dos lembretes), não o do navegador.
+        timezone: (org as { timezone?: string } | null | undefined)?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
         calendar_sync_status: input.owner_id ? "pending" : "none",
       };
       const q = input.id

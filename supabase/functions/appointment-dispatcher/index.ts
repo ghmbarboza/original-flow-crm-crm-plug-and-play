@@ -4,8 +4,8 @@
 //     e ainda não receberam lembrete → WhatsApp ao contato pelo canal da org
 //     (Evolution texto; Meta e Zernio pelo template configurado), ou e-mail
 //     quando o contato não tem WhatsApp. Marca reminder_sent_at.
-//  2. No-show: reuniões que começaram há mais de `no_show_after_minutes`,
-//     ainda 'scheduled' (não confirmadas nem realizadas) → status no_show.
+//  2. No-show: reuniões que começaram há mais de `no_show_after_minutes` e
+//     não foram marcadas como realizadas (marcadas ou confirmadas) → no_show.
 //     O trigger do banco avisa o dono e enfileira a automação
 //     appointment.no_show; aqui vai a mensagem ao contato oferecendo remarcar.
 //
@@ -18,13 +18,14 @@ import { enviarWhatsappOrg } from "../_shared/whatsappOrg.ts";
 import { carregarPolitica, formatarQuando, type PoliticaAgenda } from "../_shared/agenda.ts";
 
 const LOTE = 100;
+const MAX_TENTATIVAS_LEMBRETE = 3;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
 interface Reuniao {
-  id: string; org_id: string; contact_id: string | null; title: string; starts_at: string; timezone: string; status: string;
+  id: string; org_id: string; contact_id: string | null; title: string; starts_at: string; timezone: string; status: string; metadata: Record<string, unknown> | null;
   contacts: { first_name: string; last_name: string | null; whatsapp_phone: string | null; phone: string | null; email: string | null } | null;
 }
 
@@ -65,7 +66,7 @@ async function politicaDe(admin: SupabaseClient, orgId: string): Promise<Politic
 async function lembretes(admin: SupabaseClient, agora: Date) {
   // Janela ampla (7 dias); a política de cada org decide o momento exato.
   const { data } = await admin.from("appointments")
-    .select("id, org_id, contact_id, title, starts_at, timezone, status, contacts(first_name, last_name, whatsapp_phone, phone, email)")
+    .select("id, org_id, contact_id, title, starts_at, timezone, status, metadata, contacts(first_name, last_name, whatsapp_phone, phone, email)")
     .in("status", ["scheduled", "confirmed"]).is("reminder_sent_at", null)
     .gt("starts_at", agora.toISOString()).lt("starts_at", new Date(agora.getTime() + 7 * 86_400_000).toISOString())
     .order("starts_at").limit(LOTE);
@@ -75,10 +76,18 @@ async function lembretes(admin: SupabaseClient, agora: Date) {
     const p = await politicaDe(admin, r.org_id);
     if (p.reminder_minutes_before <= 0) continue;
     if (new Date(r.starts_at).getTime() - agora.getTime() > p.reminder_minutes_before * 60_000) continue;
+    // Trava: só quem ainda não marcou o lembrete ganha a vez (dois ticks sobrepostos não mandam duas vezes).
+    const anterior = ((r.metadata?.reminder as { attempts?: number } | undefined)?.attempts ?? 0);
+    const { data: reservada } = await admin.from("appointments").update({ metadata: { ...(r.metadata ?? {}), reminder: { attempts: anterior + 1, started_at: agora.toISOString() } } })
+      .eq("id", r.id).is("reminder_sent_at", null).select("id").maybeSingle();
+    if (!reservada) continue;
     const resultado = await avisarContato(admin, r, render(p.reminder_text, r), p.reminder_template_name, `Lembrete: ${r.title}`);
+    const tentativas = anterior + 1;
+    // Falhou por falta de canal ou depois de 3 tentativas: encerra; falha transitória tenta no próximo tick.
+    const encerrar = resultado.ok || resultado.canal === "nenhum" || tentativas >= MAX_TENTATIVAS_LEMBRETE;
     await admin.from("appointments").update({
-      reminder_sent_at: agora.toISOString(),
-      metadata: { reminder: { ok: resultado.ok, canal: resultado.canal, motivo: resultado.motivo ?? null, at: agora.toISOString() } },
+      ...(encerrar ? { reminder_sent_at: agora.toISOString() } : {}),
+      metadata: { ...(r.metadata ?? {}), reminder: { ok: resultado.ok, canal: resultado.canal, motivo: resultado.motivo ?? null, at: agora.toISOString(), attempts: tentativas } },
     }).eq("id", r.id);
     if (resultado.ok) enviados++;
     else erros.push(`${r.id}: ${resultado.motivo}`);
@@ -88,8 +97,8 @@ async function lembretes(admin: SupabaseClient, agora: Date) {
 
 async function noShows(admin: SupabaseClient, agora: Date) {
   const { data } = await admin.from("appointments")
-    .select("id, org_id, contact_id, title, starts_at, timezone, status, contacts(first_name, last_name, whatsapp_phone, phone, email)")
-    .eq("status", "scheduled").is("no_show_marked_at", null)
+    .select("id, org_id, contact_id, title, starts_at, timezone, status, metadata, contacts(first_name, last_name, whatsapp_phone, phone, email)")
+    .in("status", ["scheduled", "confirmed"]).is("no_show_marked_at", null)
     .lt("starts_at", new Date(agora.getTime() - 5 * 60_000).toISOString()).gt("starts_at", new Date(agora.getTime() - 2 * 86_400_000).toISOString())
     .order("starts_at").limit(LOTE);
   let marcados = 0;
@@ -97,7 +106,7 @@ async function noShows(admin: SupabaseClient, agora: Date) {
   for (const r of (data ?? []) as unknown as Reuniao[]) {
     const p = await politicaDe(admin, r.org_id);
     if (agora.getTime() - new Date(r.starts_at).getTime() < p.no_show_after_minutes * 60_000) continue;
-    const { error } = await admin.from("appointments").update({ status: "no_show", no_show_marked_at: agora.toISOString() }).eq("id", r.id).eq("status", "scheduled");
+    const { error } = await admin.from("appointments").update({ status: "no_show", no_show_marked_at: agora.toISOString() }).eq("id", r.id).in("status", ["scheduled", "confirmed"]).is("no_show_marked_at", null);
     if (error) { erros.push(`${r.id}: ${error.message}`); continue; }
     marcados++;
     const resultado = await avisarContato(admin, r, render(p.no_show_text, r), p.reminder_template_name, `Sobre a reunião ${r.title}`);

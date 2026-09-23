@@ -41,7 +41,11 @@ CREATE TABLE IF NOT EXISTS public.appointments (
   -- O mesmo dono não tem duas reuniões vivas no mesmo horário.
   CONSTRAINT appointments_sem_sobreposicao EXCLUDE USING gist (
     owner_id WITH =, tstzrange(starts_at, ends_at) WITH &&
-  ) WHERE (status IN ('scheduled', 'confirmed') AND owner_id IS NOT NULL)
+  ) WHERE (status IN ('scheduled', 'confirmed') AND owner_id IS NOT NULL),
+  -- Reuniões sem dono ("agenda da empresa") também não se sobrepõem entre si.
+  CONSTRAINT appointments_sem_sobreposicao_org EXCLUDE USING gist (
+    org_id WITH =, tstzrange(starts_at, ends_at) WITH &&
+  ) WHERE (status IN ('scheduled', 'confirmed') AND owner_id IS NULL)
 );
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "appointments_org" ON public.appointments;
@@ -74,8 +78,9 @@ CREATE TABLE IF NOT EXISTS public.calendar_integrations (
 ALTER TABLE public.calendar_integrations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "calendar_integrations_read" ON public.calendar_integrations;
 DROP POLICY IF EXISTS "calendar_integrations_own" ON public.calendar_integrations;
+-- Cada um lê só a própria conexão (grant, e-mail); admin enxerga as da org.
 CREATE POLICY "calendar_integrations_read" ON public.calendar_integrations
-  FOR SELECT USING (user_belongs_to_org(org_id));
+  FOR SELECT USING (user_id = auth.uid() OR (user_belongs_to_org(org_id) AND has_role(auth.uid(), 'admin'::app_role)));
 CREATE POLICY "calendar_integrations_own" ON public.calendar_integrations
   FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 

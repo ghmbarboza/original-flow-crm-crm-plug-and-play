@@ -34,7 +34,11 @@ export const POLITICA_PADRAO: PoliticaAgenda = {
   no_show_text: "Oi {{contact.first_name}}, não conseguimos nos falar em {{appointment.when}}. Quer remarcar? Me diga um dia e horário que funcionem para você.",
 };
 
-const MIN_EVIDENCIA = 4;
+const MIN_EVIDENCIA = 6;
+const MAX_TITULO = 120;
+/** Palavras que mostram intenção na frase citada: confirmar horário ou cancelar. */
+const INTENCAO_CONFIRMAR = /(confirm|pode marcar|pode agendar|fechad|combinad|marca(r|do)? (pra|para|no|na|às|as|dia)|t[aá] bom|tudo bem|beleza|perfeito|ok|sim|isso|serve|funciona|agend|\d{1,2}[:h]\d{0,2}|\d{1,2}\/\d{1,2})/;
+const INTENCAO_CANCELAR = /(cancel|desmarc|n[aã]o vou|n[aã]o consigo|n[aã]o d[aá]|desist|deixa pra|deixa para|remarc|adiar|outro dia)/;
 const MENSAGENS_EVIDENCIA = 6;
 const DURACAO_MIN = 15;
 const DURACAO_MAX = 240;
@@ -76,8 +80,9 @@ export function instanteNoFuso(data: string, hora: string, fuso: string): Date |
     if (diff === 0) break;
     palpite -= diff;
   }
+  // Horário que não existe (salto do horário de verão) não converge: recusa em vez de devolver 1h errada.
   const conf = partesNoFuso(new Date(palpite), fuso);
-  if (conf.ano !== ano || conf.mes !== mes || conf.dia !== dia) return null;
+  if (conf.ano !== ano || conf.mes !== mes || conf.dia !== dia || conf.hora !== hh || conf.minuto !== mm) return null;
   return new Date(palpite);
 }
 
@@ -127,11 +132,23 @@ function normalizar(t: string): string {
   return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-/** A citação precisa estar, literalmente, numa das últimas mensagens do lead. */
-export function evidenciaConfere(evidencia: unknown, mensagensDoLead: string[]): boolean {
+/**
+ * A citação precisa estar, literalmente, numa das últimas mensagens do lead E
+ * carregar a intenção da ação (confirmar um horário ou cancelar). Só substring
+ * deixava o modelo citar qualquer trecho de 4 letras como "confirmação".
+ */
+export function evidenciaConfere(evidencia: unknown, mensagensDoLead: string[], acao: "confirmar" | "cancelar" = "confirmar"): boolean {
   const e = normalizar(String(evidencia ?? ""));
   if (e.length < MIN_EVIDENCIA) return false;
+  const intencao = acao === "cancelar" ? INTENCAO_CANCELAR : INTENCAO_CONFIRMAR;
+  if (!intencao.test(e)) return false;
   return mensagensDoLead.slice(-MENSAGENS_EVIDENCIA).some((m) => normalizar(m).includes(e));
+}
+
+/** Título vindo da conversa: sem controle, sem quebra de linha, tamanho limitado. */
+export function tituloSeguro(bruto: unknown, padrao: string): string {
+  const t = String(bruto ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, MAX_TITULO);
+  return t || padrao;
 }
 
 // --- Disponibilidade ----------------------------------------------------------------
@@ -142,26 +159,50 @@ async function integracaoDoDono(admin: SupabaseClient, ownerId: string | null): 
   return (data as IntegracaoCalendario | null) ?? null;
 }
 
-/** Conflito com reuniões vivas do dono (tabela) ou com o calendário externo, com o buffer da política. */
-export async function conflito(
-  admin: SupabaseClient, orgId: string, ownerId: string | null, inicio: Date, fim: Date, bufferMin: number, ignorarId: string | null = null,
-): Promise<string | null> {
-  const ini = new Date(inicio.getTime() - bufferMin * 60_000).toISOString();
-  const fi = new Date(fim.getTime() + bufferMin * 60_000).toISOString();
-  let q = admin.from("appointments").select("id, title").eq("org_id", orgId).in("status", ["scheduled", "confirmed"]).lt("starts_at", fi).gt("ends_at", ini).limit(1);
+export interface Ocupacao { inicio: number; fim: number; origem: "tabela" | "calendario" }
+
+/**
+ * Carrega de uma vez tudo que ocupa a agenda do dono (ou da org, sem dono) na
+ * janela: reuniões vivas da tabela e free/busy do calendário externo. Uma
+ * consulta e uma chamada ao Nylas por janela, não por horário testado.
+ */
+export async function carregarOcupacao(
+  admin: SupabaseClient, orgId: string, ownerId: string | null, janelaInicio: Date, janelaFim: Date, ignorarId: string | null = null,
+): Promise<Ocupacao[]> {
+  let q = admin.from("appointments").select("id, starts_at, ends_at").eq("org_id", orgId).in("status", ["scheduled", "confirmed"])
+    .lt("starts_at", janelaFim.toISOString()).gt("ends_at", janelaInicio.toISOString()).limit(500);
   if (ownerId) q = q.eq("owner_id", ownerId);
+  else q = q.is("owner_id", null);
   if (ignorarId) q = q.neq("id", ignorarId);
   const { data } = await q;
-  if (data?.length) return "já existe uma reunião nesse horário";
+  const ocupacao: Ocupacao[] = (data ?? []).map((a) => ({ inicio: new Date(a.starts_at).getTime(), fim: new Date(a.ends_at).getTime(), origem: "tabela" }));
   const integracao = await integracaoDoDono(admin, ownerId);
   if (integracao) {
     const cred = await credenciaisNylas(admin, orgId);
     if (cred) {
-      const ocupado = await ocupacoes(cred, integracao, new Date(ini), new Date(fi));
-      if (ocupado.length) return "o calendário do responsável está ocupado nesse horário";
+      for (const o of await ocupacoes(cred, integracao, janelaInicio, janelaFim)) {
+        ocupacao.push({ inicio: new Date(o.start).getTime(), fim: new Date(o.end).getTime(), origem: "calendario" });
+      }
     }
   }
-  return null;
+  return ocupacao;
+}
+
+/** Motivo do conflito de um horário contra a ocupação carregada, com o buffer da política. */
+export function motivoConflito(ocupacao: Ocupacao[], inicio: Date, fim: Date, bufferMin: number): string | null {
+  const ini = inicio.getTime() - bufferMin * 60_000;
+  const fi = fim.getTime() + bufferMin * 60_000;
+  const bate = ocupacao.find((o) => o.inicio < fi && o.fim > ini);
+  if (!bate) return null;
+  return bate.origem === "tabela" ? "já existe uma reunião nesse horário" : "o calendário do responsável está ocupado nesse horário";
+}
+
+/** Conflito de um único horário (carrega só a janela dele). */
+export async function conflito(
+  admin: SupabaseClient, orgId: string, ownerId: string | null, inicio: Date, fim: Date, bufferMin: number, ignorarId: string | null = null,
+): Promise<string | null> {
+  const ocupacao = await carregarOcupacao(admin, orgId, ownerId, new Date(inicio.getTime() - bufferMin * 60_000), new Date(fim.getTime() + bufferMin * 60_000), ignorarId);
+  return motivoConflito(ocupacao, inicio, fim, bufferMin);
 }
 
 /** Sugere até `quantos` horários livres no mesmo dia (ou nos próximos), dentro da política. */
@@ -171,7 +212,9 @@ export async function sugerirHorarios(
   const sugestoes: Date[] = [];
   const [ih, im] = politica.start_time.split(":").map(Number);
   const passo = 30 * 60_000;
-  for (let dia = 0; dia < 14 && sugestoes.length < quantos; dia++) {
+  const DIAS = 14;
+  const ocupacao = await carregarOcupacao(admin, orgId, ownerId, aPartirDe, new Date(aPartirDe.getTime() + DIAS * 86_400_000));
+  for (let dia = 0; dia < DIAS && sugestoes.length < quantos; dia++) {
     const base = new Date(aPartirDe.getTime() + dia * 86_400_000);
     const p = partesNoFuso(base, fuso);
     const dataStr = `${p.ano}-${String(p.mes).padStart(2, "0")}-${String(p.dia).padStart(2, "0")}`;
@@ -181,7 +224,7 @@ export async function sugerirHorarios(
       const pc = partesNoFuso(cursor, fuso);
       const v = validarPedido(politica, fuso, dataStr, `${String(pc.hora).padStart(2, "0")}:${String(pc.minuto).padStart(2, "0")}`, duracao);
       if (!v.ok) { if (v.codigo === "outside_business_hours") break; continue; }
-      if (await conflito(admin, orgId, ownerId, v.inicio, v.fim, politica.buffer_minutes)) continue;
+      if (motivoConflito(ocupacao, v.inicio, v.fim, politica.buffer_minutes)) continue;
       sugestoes.push(v.inicio);
     }
   }
@@ -374,7 +417,7 @@ export async function executarFerramentaAgenda(admin: SupabaseClient, amb: Ambie
   }
 
   const exigeEvidencia = politica.require_literal_confirmation;
-  if (exigeEvidencia && !evidenciaConfere(args.evidencia, amb.mensagensDoLead)) {
+  if (exigeEvidencia && !evidenciaConfere(args.evidencia, amb.mensagensDoLead, nome === "cancelar_reuniao" ? "cancelar" : "confirmar")) {
     return JSON.stringify({ ok: false, codigo: "explicit_confirmation_required", instrucao: "Antes de agir, peça ao cliente para confirmar claramente (dia, horário ou o cancelamento) e use a frase exata dele em `evidencia`." });
   }
 
@@ -387,13 +430,16 @@ export async function executarFerramentaAgenda(admin: SupabaseClient, amb: Ambie
         const alternativas = (await sugerirHorarios(admin, amb.orgId, donoId, politica, fuso, v.inicio, v.duracao)).map((d) => formatarQuando(d, fuso));
         return { ok: false, codigo: "slot_taken", resultado: { ok: false, motivo, alternativas } };
       }
-      const titulo = str(args.titulo) || `Reunião com ${amb.nomeContato}`;
+      const titulo = tituloSeguro(args.titulo, `Reunião com ${tituloSeguro(amb.nomeContato, "cliente")}`);
       const { data: ap, error } = await admin.from("appointments").insert({
         org_id: amb.orgId, contact_id: amb.contactId, deal_id: amb.dealId, owner_id: donoId, conversation_id: amb.conversationId,
         title: titulo, starts_at: v.inicio.toISOString(), ends_at: v.fim.toISOString(), timezone: fuso, source: "ia",
         calendar_sync_status: donoId ? "pending" : "none", metadata: { evidencia: str(args.evidencia) },
       }).select("id").single();
-      if (error || !ap) return { ok: false, codigo: "insert_failed", resultado: { ok: false, motivo: error?.message ?? "falha ao gravar" } };
+      if (error || !ap) {
+        const ocupado = error?.code === "23P01";
+        return { ok: false, codigo: ocupado ? "slot_taken" : "insert_failed", resultado: { ok: false, motivo: ocupado ? "esse horário acabou de ser ocupado; ofereça outro" : (error?.message ?? "falha ao gravar") } };
+      }
       await sincronizarComCalendario(admin, ap.id);
       const { data: salvo } = await admin.from("appointments").select("meeting_url").eq("id", ap.id).maybeSingle();
       return { ok: true, resultado: { ok: true, reuniao_id: ap.id, quando: formatarQuando(v.inicio, fuso), duracao_minutos: v.duracao, ...(salvo?.meeting_url ? { link: salvo.meeting_url } : {}), instrucao: "Confirme ao cliente o dia e horário exatamente como agendado." } };
