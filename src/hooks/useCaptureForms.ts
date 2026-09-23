@@ -5,27 +5,8 @@ import type { Database } from "@/integrations/supabase/types";
 
 export type CaptureForm = Database["public"]["Tables"]["capture_forms"]["Row"];
 
-/** Tipos de campo suportados pelo formulário público de captura. */
-export type CaptureFieldType = "text" | "email" | "phone" | "textarea";
-
-/**
- * Um campo do formulário de captura. É o formato guardado (como array) na
- * coluna `capture_forms.fields` (JSONB).
- *
- * - `key`: identificador estável do campo. Chaves reservadas mapeiam para
- *   colunas reais de `contacts` no submit: `name` → first_name/last_name,
- *   `email` → email, `phone` → phone. Qualquer outra chave vai para
- *   `contacts.custom_fields`.
- * - `label`: rótulo exibido ao visitante.
- * - `type`: controla o input renderizado e a validação.
- * - `required`: se o servidor exige valor não-vazio.
- */
-export interface CaptureField {
-  key: string;
-  label: string;
-  type: CaptureFieldType;
-  required: boolean;
-}
+export type { CaptureField, CaptureFieldType } from "@/lib/formRules";
+import { parseCaptureFields, type CaptureField } from "@/lib/formRules";
 
 /**
  * Campos mínimos de todo formulário: nome e e-mail. O builder parte destes e o
@@ -38,14 +19,7 @@ export const DEFAULT_CAPTURE_FIELDS: CaptureField[] = [
 
 /** Lê o array de campos de um form, com fallback tolerante a dados legados. */
 export function parseFields(fields: CaptureForm["fields"]): CaptureField[] {
-  if (!Array.isArray(fields)) return [];
-  return (fields as unknown[]).filter(
-    (f): f is CaptureField =>
-      !!f &&
-      typeof f === "object" &&
-      typeof (f as CaptureField).key === "string" &&
-      typeof (f as CaptureField).label === "string",
-  );
+  return parseCaptureFields(fields);
 }
 
 /** Normaliza um texto em slug: minúsculas, sem acento, hífens, sem bordas. */
@@ -119,6 +93,11 @@ export interface SaveCaptureFormInput {
   target_pipeline_id: string | null;
   target_stage_id: string | null;
   automation_id: string | null;
+  source_default?: string;
+  success_message?: string | null;
+  redirect_url?: string | null;
+  consent_text?: string | null;
+  theme?: { primary?: string; background?: string };
 }
 
 export function useSaveCaptureForm() {
@@ -159,6 +138,11 @@ export function useSaveCaptureForm() {
         target_pipeline_id: input.target_pipeline_id,
         target_stage_id: input.target_stage_id,
         automation_id: input.automation_id,
+        source_default: (input.source_default ?? "").trim() || "capture_form",
+        success_message: input.success_message?.trim() || null,
+        redirect_url: input.redirect_url?.trim() || null,
+        consent_text: input.consent_text?.trim() || null,
+        theme: (input.theme ?? {}) as Database["public"]["Tables"]["capture_forms"]["Insert"]["theme"],
       };
 
       if (input.id) {

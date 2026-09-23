@@ -42,8 +42,8 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
     description: "Conecte serviços externos cadastrando chaves de API utilizadas pela plataforma.",
   },
   capture: {
-    title: "Captura de Leads",
-    description: "Crie formulários públicos que capturam leads e os direcionam para um funil e uma automação.",
+    title: "Formulários",
+    description: "Formulários de captura: página própria ou embed no site, com origem por UTM, campos condicionais e destino no funil.",
   },
   atendimento: {
     title: "Atendimento",
@@ -130,7 +130,7 @@ export default function SettingsPage() {
             <TabsTrigger data-testid="settings-tab" value="notifications">Notificações</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="integrations">Integrações</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="email">E-mail</TabsTrigger>}
-            {isAdmin && <TabsTrigger data-testid="settings-tab" value="capture">Captura de Leads</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="capture">Formulários</TabsTrigger>}
             <TabsTrigger data-testid="settings-tab" value="atendimento">Atendimento</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="ia">IA</TabsTrigger>}
             <TabsTrigger data-testid="settings-tab" value="automations">Automações</TabsTrigger>

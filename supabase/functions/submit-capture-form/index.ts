@@ -1,13 +1,15 @@
-// Formulário público de captura de leads (SEM JWT).
+// Formulário público de captura: schema (`get`) e envio (`submit`).
 //
-// Duas responsabilidades, escolhidas pelo campo `action` do body:
-//   - action: "get"    → { slug }          → retorna { name, fields } do form ativo
-//   - action: "submit" → { slug, values }  → cria contato + deal e retorna { ok: true }
-//
-// Usa o service-role client porque é público: o visitante não tem sessão. Todo
-// dado sensível (org_id, ids de pipeline, automação) fica no servidor — nunca
-// vem do cliente. verify_jwt = false está declarado em supabase/config.toml.
+// Pública (verify_jwt = false) e com service role: o visitante não tem sessão.
+// O envio cria o contato no org do formulário, abre o negócio na etapa alvo,
+// grava o rastreamento (UTM, referrer, página) e enfileira a automação ligada.
+// Regras dos campos (visibilidade condicional e validação) em _shared/formRules.ts,
+// espelho de src/lib/formRules.ts.
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import {
+  campoVisivel, normalizarTracking, origemDoTracking, parseCaptureFields, validarValores, type CaptureField,
+} from "../_shared/formRules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,23 +24,16 @@ function json(body: unknown, status = 200) {
   });
 }
 
-type FieldType = "text" | "email" | "phone" | "textarea";
-interface CaptureField {
-  key: string;
-  label: string;
-  type: FieldType;
-  required: boolean;
-}
-
-/** Só os campos válidos, no formato esperado. Tolera dados legados. */
-function parseFields(raw: unknown): CaptureField[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(
-    (f): f is CaptureField =>
-      !!f && typeof f === "object" &&
-      typeof (f as CaptureField).key === "string" &&
-      typeof (f as CaptureField).label === "string",
-  );
+/** Schema público: sem chaves internas do formulário. */
+function schemaPublico(form: Record<string, unknown>, fields: CaptureField[]) {
+  return {
+    name: form.name,
+    fields,
+    success_message: form.success_message ?? null,
+    redirect_url: form.redirect_url ?? null,
+    consent_text: form.consent_text ?? null,
+    theme: form.theme ?? {},
+  };
 }
 
 Deno.serve(async (req) => {
@@ -55,10 +50,9 @@ Deno.serve(async (req) => {
     const slug = typeof body?.slug === "string" ? body.slug.trim() : "";
     if (!slug) return json({ error: "Slug do formulário não informado." }, 400);
 
-    // Carrega o form ativo. Só as colunas necessárias — nada sensível para o público.
     const { data: form, error: formErr } = await admin
       .from("capture_forms")
-      .select("id, org_id, name, fields, is_active, target_pipeline_id, target_stage_id, automation_id")
+      .select("id, org_id, name, fields, is_active, target_pipeline_id, target_stage_id, automation_id, source_default, success_message, redirect_url, consent_text, theme")
       .eq("slug", slug)
       .maybeSingle();
     if (formErr) return json({ error: formErr.message }, 500);
@@ -66,29 +60,22 @@ Deno.serve(async (req) => {
       return json({ error: "Formulário não encontrado ou inativo." }, 404);
     }
 
-    const fields = parseFields(form.fields);
+    const fields = parseCaptureFields(form.fields);
 
-    // --- Buscar o schema público ---
     if (action === "get") {
-      return json({ name: form.name, fields });
+      return json(schemaPublico(form as Record<string, unknown>, fields));
     }
 
-    // --- Submeter ---
     if (action === "submit") {
       const values = (body?.values ?? {}) as Record<string, unknown>;
+      const tracking = normalizarTracking(body?.tracking);
 
-      // Validação server-side dos obrigatórios.
-      for (const field of fields) {
-        if (field.required) {
-          const v = values[field.key];
-          if (v === undefined || v === null || String(v).trim() === "") {
-            return json({ error: `Campo obrigatório não preenchido: ${field.label}.` }, 400);
-          }
-        }
-      }
+      // Campos ocultos gravam o valor fixo, ignorando o que o navegador mandou.
+      for (const f of fields) if (f.type === "hidden") values[f.key] = f.value ?? "";
 
-      // Mapeia os campos para as colunas reais de contacts. Chaves/tipos
-      // reservados viram colunas; o resto vai para custom_fields.
+      const erro = validarValores(fields, values);
+      if (erro) return json({ error: erro }, 400);
+
       const strOf = (key: string): string => {
         const v = values[key];
         return v === undefined || v === null ? "" : String(v).trim();
@@ -96,93 +83,87 @@ Deno.serve(async (req) => {
 
       const emailField = fields.find((f) => f.type === "email" || f.key === "email");
       const phoneField = fields.find((f) => f.type === "phone" || f.key === "phone");
-      const nameField =
-        fields.find((f) => f.key === "name") ?? fields.find((f) => f.type === "text");
+      const nameField = fields.find((f) => f.key === "name") ?? fields.find((f) => f.type === "text");
 
       const email = emailField ? strOf(emailField.key) : "";
       const phone = phoneField ? strOf(phoneField.key) : "";
       const fullName = nameField ? strOf(nameField.key) : "";
-
       if (!fullName) return json({ error: "Informe o nome." }, 400);
-      if (!email) return json({ error: "Informe o e-mail." }, 400);
+      if (!email && !phone) return json({ error: "Informe o e-mail ou o telefone." }, 400);
 
       const [firstName, ...rest] = fullName.split(/\s+/);
       const lastName = rest.join(" ") || null;
 
-      // Campos extras (não mapeados a colunas) viram custom_fields.
-      const reservedKeys = new Set(
-        [emailField?.key, phoneField?.key, nameField?.key].filter(Boolean) as string[],
-      );
+      // Campos extras viram custom_fields (só os visíveis; checkbox vira booleano).
+      const reservedKeys = new Set([emailField?.key, phoneField?.key, nameField?.key].filter(Boolean) as string[]);
       const customFields: Record<string, unknown> = {};
       for (const field of fields) {
-        if (!reservedKeys.has(field.key)) customFields[field.key] = strOf(field.key);
+        if (reservedKeys.has(field.key)) continue;
+        if (!campoVisivel(field, values) && field.type !== "hidden") continue;
+        const v = strOf(field.key);
+        if (field.type === "checkbox") customFields[field.key] = v === "true";
+        else if (field.type === "number" && v) customFields[field.key] = Number(v.replace(",", "."));
+        else customFields[field.key] = v;
+      }
+      for (const [k, v] of Object.entries(tracking)) {
+        if (k === "page_url") customFields.landing_page = v;
+        else customFields[k] = v;
       }
 
-      // Cria o contato no org_id do form (nunca do cliente). Selecionamos a linha
-      // inteira para usá-la como trigger_data da automação (mesmo formato que os
-      // triggers de banco produzem com to_jsonb(new)).
+      const source = origemDoTracking(tracking, form.source_default as string | null);
+
       const { data: contact, error: contactErr } = await admin
         .from("contacts")
         .insert({
           org_id: form.org_id,
           first_name: firstName || fullName,
           last_name: lastName,
-          email,
+          email: email || null,
           phone: phone || null,
-          source: "capture_form",
+          source,
           custom_fields: customFields,
         })
         .select("*")
         .single();
       if (contactErr) return json({ error: contactErr.message }, 500);
 
-      // Resolve a etapa de destino do deal. Prioridade:
-      //   1. target_stage_id do form
-      //   2. primeira etapa do target_pipeline_id do form
-      //   3. primeira etapa do pipeline default (ou primeiro) da org
+      // Etapa alvo: a configurada; senão a primeira do funil configurado ou do padrão.
       let stageId: string | null = form.target_stage_id;
       if (!stageId) {
         let pipelineId = form.target_pipeline_id;
         if (!pipelineId) {
           const { data: pipeline } = await admin
-            .from("pipelines")
-            .select("id")
-            .eq("org_id", form.org_id)
-            .order("is_default", { ascending: false })
-            .order("created_at", { ascending: true })
-            .limit(1)
-            .maybeSingle();
+            .from("pipelines").select("id").eq("org_id", form.org_id)
+            .order("is_default", { ascending: false }).order("created_at", { ascending: true })
+            .limit(1).maybeSingle();
           pipelineId = pipeline?.id ?? null;
         }
         if (pipelineId) {
           const { data: stage } = await admin
-            .from("pipeline_stages")
-            .select("id")
-            .eq("pipeline_id", pipelineId)
-            .order("order", { ascending: true })
-            .limit(1)
-            .maybeSingle();
+            .from("pipeline_stages").select("id").eq("pipeline_id", pipelineId)
+            .order("order", { ascending: true }).limit(1).maybeSingle();
           stageId = stage?.id ?? null;
         }
       }
 
       const { data: deal, error: dealErr } = await admin
         .from("deals")
-        .insert({
-          org_id: form.org_id,
-          contact_id: contact.id,
-          title: fullName,
-          stage_id: stageId,
-        })
+        .insert({ org_id: form.org_id, contact_id: contact.id, title: fullName, stage_id: stageId })
         .select("id")
         .single();
       if (dealErr) return json({ error: dealErr.message }, 500);
 
-      // Automação vinculada (gatilho form_submitted): enfileira em automation_logs
-      // com status "queued", no MESMO formato que a edge function
-      // `automation-dispatcher` espera. O trigger_data carrega a linha completa do
-      // contato criado (para as condições poderem avaliar campos do contato) mais
-      // o deal_id e o form_id. A execução efetiva das ações é feita pelo dispatcher.
+      // Rastreamento do envio (relatório por formulário e por origem).
+      await admin.from("tracking_events").insert({
+        org_id: form.org_id,
+        contact_id: contact.id,
+        visitor_id: typeof body?.visitor_id === "string" ? body.visitor_id.slice(0, 80) : null,
+        event_type: "form_submitted",
+        page_url: tracking.page_url ?? null,
+        meta: { form_id: form.id, form_slug: slug, deal_id: deal.id, source, ...tracking },
+      });
+      await admin.rpc("registrar_envio_formulario", { p_form: form.id });
+
       if (form.automation_id) {
         await admin.from("automation_logs").insert({
           org_id: form.org_id,
@@ -194,11 +175,12 @@ Deno.serve(async (req) => {
             deal_id: deal.id,
             form_id: form.id,
             source_event: "capture_form",
+            tracking,
           },
         });
       }
 
-      return json({ ok: true });
+      return json({ ok: true, redirect_url: form.redirect_url ?? null, success_message: form.success_message ?? null });
     }
 
     return json({ error: "Ação inválida. Use 'get' ou 'submit'." }, 400);
