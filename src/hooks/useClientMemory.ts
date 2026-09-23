@@ -22,10 +22,10 @@ export function useConfirmMemoryField(contactId: string | undefined) {
   return useMutation({
     mutationFn: async (input: { memoria: MemoriaDoLead; chave: ChaveCampo; valor: string }) => {
       if (!contactId) throw new Error("Contato não carregado.");
-      const nova = confirmarCampo(input.memoria, input.chave, input.valor);
-      const { error } = await supabase.from("contacts").update({ client_memory: nova as unknown as Json }).eq("id", contactId);
-      if (error) throw error;
-      return nova;
+      // Só o campo muda no banco (jsonb_set): não sobrescreve o que a IA gravou enquanto a ficha estava aberta.
+      const { data, error } = await supabase.rpc("confirmar_campo_memoria", { p_contact: contactId, p_campo: input.chave, p_valor: input.valor });
+      if (error) throw new Error(error.message);
+      return data ? lerMemoria(data) : confirmarCampo(input.memoria, input.chave, input.valor);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["client-memory", contactId] }),
   });
@@ -53,8 +53,9 @@ export function useSaveAnalysisConfig() {
   return useMutation({
     mutationFn: async (input: AnalysisConfig) => {
       if (!orgId) throw new Error("Organização não carregada.");
-      const { error } = await supabase.from("ai_messaging_config").update({ analysis: input as unknown as Json }).eq("org_id", orgId);
+      const { data, error } = await supabase.from("ai_messaging_config").update({ analysis: input as unknown as Json }).eq("org_id", orgId).select("org_id");
       if (error) throw error;
+      if (!data?.length) throw new Error("Configure a IA (aba Personalidade) antes de ajustar a análise.");
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ai-analysis-config", orgId] }),
   });

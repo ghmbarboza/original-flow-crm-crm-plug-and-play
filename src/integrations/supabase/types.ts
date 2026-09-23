@@ -5304,6 +5304,10 @@ export type Database = {
         }
         Returns: number
       }
+      confirmar_campo_memoria: {
+        Args: { p_contact: string; p_campo: string; p_valor: string }
+        Returns: Json
+      }
       buscar_conhecimento: {
         Args: { p_consulta: string; p_limite?: number; p_org: string }
         Returns: {
