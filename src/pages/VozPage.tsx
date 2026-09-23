@@ -321,6 +321,7 @@ function Ligacoes({ status }: { status: VoiceStatus }) {
 }
 
 function Campanhas({ status }: { status: VoiceStatus }) {
+  const { isAdmin } = useAuth();
   const { data: campanhas, isLoading } = useVoiceCampaigns();
   const criar = useCreateVoiceCampaign();
   const mudar = useSetCampaignStatus();
@@ -338,7 +339,8 @@ function Campanhas({ status }: { status: VoiceStatus }) {
 
   return (
     <div className="space-y-5" data-testid="voz-campanhas">
-      <div className="via-card space-y-3 p-5">
+      {!isAdmin && <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>Campanhas de ligação são criadas por administradores. Você acompanha o andamento abaixo.</p>}
+      {isAdmin && <div className="via-card space-y-3 p-5">
         <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Nova campanha de ligações</h3>
         <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>A IA liga para cada contato da lista, no máximo {form.max_concurrent} por vez, e registra o resultado na ficha.</p>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -371,7 +373,7 @@ function Campanhas({ status }: { status: VoiceStatus }) {
           </ul>
         </div>
         <Button size="sm" onClick={gravar} disabled={criar.isPending || !form.name.trim() || form.selecionados.length === 0} data-testid="voz-campanha-criar">Iniciar campanha</Button>
-      </div>
+      </div>}
       <div className="via-card space-y-3 p-5">
         <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Campanhas</h3>
         {isLoading ? <Skeleton className="h-12 w-full" /> : (campanhas ?? []).length === 0 ? <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>Nenhuma campanha ainda.</p> : (
@@ -383,9 +385,9 @@ function Campanhas({ status }: { status: VoiceStatus }) {
                   <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>{c.total} contatos · {c.placed} ligadas · {c.completed} concluídas · {c.failed} falhas · {formatDateTime(c.created_at)}</p>
                 </div>
                 <Badge variant={c.status === "running" ? "default" : "secondary"}>{c.status}</Badge>
-                {c.status === "running" && <Button size="sm" variant="ghost" onClick={() => mudar.mutateAsync({ id: c.id, status: "paused" }).catch((e) => erro(e, "Falhou"))}>Pausar</Button>}
-                {c.status === "paused" && <Button size="sm" variant="ghost" onClick={() => mudar.mutateAsync({ id: c.id, status: "running" }).catch((e) => erro(e, "Falhou"))}>Retomar</Button>}
-                {["running", "paused"].includes(c.status) && <Button size="sm" variant="ghost" onClick={() => mudar.mutateAsync({ id: c.id, status: "canceled" }).catch((e) => erro(e, "Falhou"))}>Cancelar</Button>}
+                {isAdmin && c.status === "running" && <Button size="sm" variant="ghost" onClick={() => mudar.mutateAsync({ id: c.id, status: "paused" }).catch((e) => erro(e, "Falhou"))}>Pausar</Button>}
+                {isAdmin && c.status === "paused" && <Button size="sm" variant="ghost" onClick={() => mudar.mutateAsync({ id: c.id, status: "running" }).catch((e) => erro(e, "Falhou"))}>Retomar</Button>}
+                {isAdmin && ["running", "paused"].includes(c.status) && <Button size="sm" variant="ghost" onClick={() => mudar.mutateAsync({ id: c.id, status: "canceled" }).catch((e) => erro(e, "Falhou"))}>Cancelar</Button>}
               </li>
             ))}
           </ul>

@@ -24,11 +24,11 @@ let callId = "";
 let conversationId = "";
 
 async function garantirChave(servico: string, valor: string) {
-  const existente = ok(await c.db.from("org_api_keys").select("id").eq("org_id", c.orgId).eq("service_name", servico).maybeSingle(), `chave ${servico}`);
+  const existente = ok(await c.db.from("api_keys_registry").select("service_name").eq("org_id", c.orgId).eq("service_name", servico).limit(1).maybeSingle(), `chave ${servico}`);
   if (existente) return;
   const s = await invocar(c, "store-api-key", { service_name: servico, api_key: valor, label: servico });
   expect(s.status, s.texto).toBe(200);
-  limpeza.add(`chave ${servico}`, async () => ok(await c.db.from("org_api_keys").delete().eq("org_id", c.orgId).eq("service_name", servico), `apagar chave ${servico}`));
+  limpeza.add(`chave ${servico}`, async () => ok(await c.db.from("api_keys_registry").delete().eq("org_id", c.orgId).eq("service_name", servico), `apagar chave ${servico}`));
 }
 
 async function limparContato(id: string) {
@@ -145,11 +145,11 @@ test("pós-ligação assinado finaliza: transcrição, resumo, classificação, 
   const fim = await postFunction(c, `voice-webhook?org=${c.orgId}&tipo=fim`, corpo, { "elevenlabs-signature": assinatura });
   expect(fim.status, fim.texto).toBe(200);
 
-  const call = await esperar(async () => {
+  const call = await esperar("ligação concluída", async () => {
     const r = ok(await c.db.from("calls").select("*").eq("id", callId).single(), "ligação");
     if (r.status !== "completed") throw new Error(`status ${r.status}`);
     return r;
-  }, "ligação concluída", 90_000, 3_000);
+  }, { timeout: 90_000, intervalo: 3_000 });
   expect((call.transcript as unknown[]).length).toBe(5);
   expect(call.duration_seconds).toBe(31);
   expect(call.summary).toBeTruthy();
@@ -173,26 +173,35 @@ test("campanha de ligações coloca a ligação pelo dispatcher e conta a coloca
   const telefone = telefoneUnico();
   const contato = ok(await c.db.from("contacts").insert({ org_id: c.orgId, first_name: `${MARCADOR} Campanha`, last_name: marca, whatsapp_phone: telefone }).select("id").single(), "contato");
   limpeza.add("contato da campanha", () => limparContato(contato.id));
-  const campanha = ok(await c.db.from("voice_campaigns").insert({ org_id: c.orgId, name: `${MARCADOR} Campanha ${marca}`, instruction: "convidar para o evento", status: "running", total: 1, max_concurrent: 2, created_by: c.userId }).select("id").single(), "campanha");
+  // Segundo contato sem telefone: tem que contar como falha da campanha.
+  const semTelefone = ok(await c.db.from("contacts").insert({ org_id: c.orgId, first_name: `${MARCADOR} SemFone`, last_name: marca }).select("id").single(), "contato sem fone");
+  limpeza.add("contato sem telefone", () => limparContato(semTelefone.id));
+  const campanha = ok(await c.db.from("voice_campaigns").insert({ org_id: c.orgId, name: `${MARCADOR} Campanha ${marca}`, instruction: "convidar para o evento", status: "running", total: 2, max_concurrent: 2, created_by: c.userId }).select("id").single(), "campanha");
   limpeza.add("campanha", async () => ok(await c.db.from("voice_campaigns").delete().eq("id", campanha.id), "apagar campanha"));
-  ok(await c.db.from("voice_campaign_contacts").insert({ campaign_id: campanha.id, org_id: c.orgId, contact_id: contato.id }), "fila");
+  ok(await c.db.from("voice_campaign_contacts").insert([
+    { campaign_id: campanha.id, org_id: c.orgId, contact_id: contato.id },
+    { campaign_id: campanha.id, org_id: c.orgId, contact_id: semTelefone.id },
+  ]), "fila");
 
   await rodarDispatcher(c, "voice-campaign-dispatcher");
-  const call = await esperar(async () => {
+  const call = await esperar("ligação da campanha", async () => {
     const r = ok(await c.db.from("calls").select("*").eq("campaign_id", campanha.id).maybeSingle(), "ligação da campanha");
     if (!r) throw new Error("ainda sem ligação");
     return r;
-  }, "ligação da campanha", 60_000, 3_000);
+  }, { timeout: 60_000, intervalo: 3_000 });
   expect(call.status).toBe("ringing");
   expect(call.purpose).toBe("campaign");
   expect(call.elevenlabs_conversation_id).toMatch(/^conv_e2e_/);
-  const fila = ok(await c.db.from("voice_campaign_contacts").select("status, call_id, attempts").eq("campaign_id", campanha.id).single(), "fila");
+  const fila = ok(await c.db.from("voice_campaign_contacts").select("status, call_id, attempts").eq("campaign_id", campanha.id).eq("contact_id", contato.id).single(), "fila");
   expect(fila.status).toBe("placed");
   expect(fila.call_id).toBe(call.id);
-  const camp = await esperar(async () => {
-    const r = ok(await c.db.from("voice_campaigns").select("placed").eq("id", campanha.id).single(), "campanha");
-    if (r.placed < 1) throw new Error("placed ainda 0");
+  const falhou = ok(await c.db.from("voice_campaign_contacts").select("status, last_error").eq("campaign_id", campanha.id).eq("contact_id", semTelefone.id).single(), "fila sem fone");
+  expect(falhou.status).toBe("failed");
+  const camp = await esperar("contadores da campanha", async () => {
+    const r = ok(await c.db.from("voice_campaigns").select("placed, failed").eq("id", campanha.id).single(), "campanha");
+    if (r.placed < 1 || r.failed < 1) throw new Error(`placed ${r.placed} failed ${r.failed}`);
     return r;
-  }, "contador da campanha", 30_000, 2_000);
+  }, { timeout: 30_000, intervalo: 2_000 });
   expect(camp.placed).toBe(1);
+  expect(camp.failed).toBe(1);
 });

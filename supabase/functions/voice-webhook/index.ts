@@ -45,7 +45,8 @@ Deno.serve(async (req) => {
   if (!/^[0-9a-f-]{36}$/.test(orgId)) return json({ error: "org inválida" }, 400);
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: agenteRow } = await admin.from("voice_agents").select("*").eq("org_id", orgId).maybeSingle();
-  if (!agenteRow) return json({ error: "agente de voz não configurado" }, 404);
+  // Mesma resposta de credencial inválida: não revela se a org tem voz configurada.
+  if (!agenteRow) return json({ error: "não autorizado" }, 401);
   const agente = agenteRow as AgenteVoz;
   const raw = await req.text();
   let corpo: Record<string, unknown> = {};

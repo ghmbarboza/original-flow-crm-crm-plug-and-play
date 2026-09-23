@@ -10,6 +10,10 @@ import { type AgenteVoz, compilarPromptDeVoz, credenciaisVoz, e164, elevenFetch 
 const LOTE = 20;
 const MAX_TENTATIVAS = 2;
 const RETENTATIVA_MIN = 120;
+// Teto de ligações de campanha por org por hora, contra fila gigante ou conta comprometida.
+const MAX_CAMPANHA_ORG_HORA = 120;
+// Ligação sem fim reportado pelo provedor depois disso é dada como perdida e libera a vaga.
+const PRESA_APOS_MIN = 30;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -30,6 +34,18 @@ async function processarCampanha(admin: SupabaseClient, campanha: Record<string,
   if (!numero) {
     await admin.from("voice_campaigns").update({ status: "paused", updated_at: new Date().toISOString() }).eq("id", campanha.id as string);
     return { colocadas: 0, erros: ["nenhum número pronto"] };
+  }
+  const { count: naHora } = await admin.from("calls").select("id", { count: "exact", head: true }).eq("org_id", orgId).eq("purpose", "campaign").gte("created_at", new Date(Date.now() - 3_600_000).toISOString());
+  if ((naHora ?? 0) >= MAX_CAMPANHA_ORG_HORA) return { colocadas: 0, erros: [`teto de ${MAX_CAMPANHA_ORG_HORA} ligações por hora atingido; a campanha continua na próxima hora`] };
+  // Ligações presas (webhook de fim nunca chegou) não podem segurar as vagas para sempre.
+  const limiteViva = new Date(Date.now() - PRESA_APOS_MIN * 60_000).toISOString();
+  const { data: presas } = await admin.from("calls").select("id").eq("campaign_id", campanha.id as string).in("status", ["queued", "ringing", "in_progress"]).lt("created_at", limiteViva);
+  for (const presa of presas ?? []) {
+    const { data: fechada } = await admin.from("calls").update({ status: "failed", ended_at: new Date().toISOString(), metadata: { error: `sem retorno do provedor em ${PRESA_APOS_MIN} min` } })
+      .eq("id", presa.id).in("status", ["queued", "ringing", "in_progress"]).select("id").maybeSingle();
+    if (!fechada) continue;
+    await admin.from("voice_campaign_contacts").update({ status: "failed", last_error: "sem retorno do provedor" }).eq("call_id", presa.id);
+    await admin.rpc("incrementar_campanha_voz", { p_campaign: campanha.id, p_campo: "failed" });
   }
   const { count: emAndamento } = await admin.from("calls").select("id", { count: "exact", head: true }).eq("campaign_id", campanha.id as string).in("status", ["queued", "ringing", "in_progress"]);
   const vagas = Math.max(0, Number(campanha.max_concurrent ?? 2) - (emAndamento ?? 0));
@@ -52,6 +68,7 @@ async function processarCampanha(admin: SupabaseClient, campanha: Record<string,
     const destino = e164(contato?.whatsapp_phone) ?? e164(contato?.phone);
     if (!contato || !destino) {
       await admin.from("voice_campaign_contacts").update({ status: "failed", last_error: "contato sem telefone válido" }).eq("id", item.id);
+      await admin.rpc("incrementar_campanha_voz", { p_campaign: campanha.id, p_campo: "failed" });
       continue;
     }
     const { data: deal } = await admin.from("deals").select("id").eq("org_id", orgId).eq("contact_id", contato.id).eq("status", "open").order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -79,10 +96,12 @@ async function processarCampanha(admin: SupabaseClient, campanha: Record<string,
       const msg = e instanceof Error ? e.message : String(e);
       await admin.from("calls").update({ status: "failed", ended_at: new Date().toISOString(), metadata: { error: msg } }).eq("id", call.id);
       const tentativas = (item.attempts ?? 0) + 1;
+      const esgotou = tentativas >= MAX_TENTATIVAS;
       await admin.from("voice_campaign_contacts").update({
-        status: tentativas >= MAX_TENTATIVAS ? "failed" : "queued", last_error: msg, call_id: call.id,
+        status: esgotou ? "failed" : "queued", last_error: msg, call_id: call.id,
         dispatch_after: new Date(Date.now() + RETENTATIVA_MIN * 60_000).toISOString(),
       }).eq("id", item.id);
+      if (esgotou) await admin.rpc("incrementar_campanha_voz", { p_campaign: campanha.id, p_campo: "failed" });
       erros.push(`${contato.id}: ${msg}`);
     }
   }

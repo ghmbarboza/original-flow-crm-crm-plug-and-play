@@ -26,6 +26,23 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Limites contra abuso (revisão de segurança): sem ligação repetida para quem já está
+// sendo chamado e teto de ligações avulsas por usuário e por org numa janela curta.
+const JANELA_MIN = 10;
+const MAX_LIGACOES_USUARIO = 10;
+const MAX_LIGACOES_ORG = 40;
+
+async function limiteDeLigacoes(admin: SupabaseClient, orgId: string, userId: string, contactId: string): Promise<string | null> {
+  const desde = new Date(Date.now() - JANELA_MIN * 60_000).toISOString();
+  const { count: ativa } = await admin.from("calls").select("id", { count: "exact", head: true }).eq("org_id", orgId).eq("contact_id", contactId).in("status", ["queued", "ringing", "in_progress"]);
+  if ((ativa ?? 0) > 0) return "Já existe uma ligação em andamento para este contato.";
+  const { count: doUsuario } = await admin.from("calls").select("id", { count: "exact", head: true }).eq("org_id", orgId).eq("created_by", userId).gte("created_at", desde);
+  if ((doUsuario ?? 0) >= MAX_LIGACOES_USUARIO) return `Limite de ${MAX_LIGACOES_USUARIO} ligações por pessoa a cada ${JANELA_MIN} minutos.`;
+  const { count: daOrg } = await admin.from("calls").select("id", { count: "exact", head: true }).eq("org_id", orgId).eq("direction", "outbound").gte("created_at", desde);
+  if ((daOrg ?? 0) >= MAX_LIGACOES_ORG) return `Limite de ${MAX_LIGACOES_ORG} ligações da empresa a cada ${JANELA_MIN} minutos. Use uma campanha.`;
+  return null;
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
@@ -127,6 +144,8 @@ Deno.serve(async (req) => {
       if (!contato) return json({ error: "Contato não encontrado." }, 404);
       const destino = e164(contato.whatsapp_phone) ?? e164(contato.phone);
       if (!destino) return json({ error: "O contato não tem telefone válido." }, 400);
+      const bloqueio = await limiteDeLigacoes(admin, orgId, user.id, contato.id);
+      if (bloqueio) return json({ error: bloqueio }, 429);
       let q = admin.from("phone_numbers").select("*").eq("org_id", orgId).eq("status", "active").eq("outbound_enabled", true).not("elevenlabs_phone_number_id", "is", null);
       if (typeof body.phone_number_id === "string") q = q.eq("id", body.phone_number_id);
       const { data: numero } = await q.order("created_at").limit(1).maybeSingle();

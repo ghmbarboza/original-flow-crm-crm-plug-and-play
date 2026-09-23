@@ -70,8 +70,13 @@ export function useSaveVoiceAgent() {
   return useMutation({
     mutationFn: async (input: { voice_id: string | null; first_message: string; max_duration_seconds: number; prompt_extra: string | null }) => {
       if (!orgId) throw new Error("Organização não carregada.");
-      const { error } = await supabase.from("voice_agents").upsert({ org_id: orgId, ...input, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
+      // Grants de coluna: o usuário atualiza só os campos públicos (nunca org_id, segredo ou api_base)
+      // e, se a linha ainda não existe, insere só o que pode.
+      const { data: atualizado, error } = await supabase.from("voice_agents").update({ ...input, updated_at: new Date().toISOString() }).eq("org_id", orgId).select("org_id");
       if (error) throw error;
+      if (atualizado?.length) return;
+      const { error: erroInsert } = await supabase.from("voice_agents").insert({ org_id: orgId, ...input });
+      if (erroInsert) throw erroInsert;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["voice-status", orgId] }),
   });
@@ -129,13 +134,20 @@ export function useCreateVoiceCampaign() {
     mutationFn: async (input: { name: string; instruction: string; phone_number_id: string | null; contact_ids: string[]; max_concurrent: number }) => {
       if (!orgId) throw new Error("Organização não carregada.");
       if (!input.contact_ids.length) throw new Error("Escolha pelo menos um contato.");
+      const ids = Array.from(new Set(input.contact_ids));
+      // Nasce pausada: o dispatcher só a vê depois que a fila inteira foi gravada.
       const { data: campanha, error } = await supabase.from("voice_campaigns").insert({
         org_id: orgId, name: input.name.trim(), instruction: input.instruction.trim() || null, phone_number_id: input.phone_number_id, max_concurrent: input.max_concurrent,
-        status: "running", total: input.contact_ids.length, created_by: user?.id ?? null,
+        status: "paused", total: ids.length, created_by: user?.id ?? null,
       }).select("id").single();
       if (error || !campanha) throw error ?? new Error("Falha ao criar a campanha.");
-      const { error: e2 } = await supabase.from("voice_campaign_contacts").insert(input.contact_ids.map((contact_id) => ({ campaign_id: campanha.id, org_id: orgId, contact_id })));
-      if (e2) throw e2;
+      const { error: e2 } = await supabase.from("voice_campaign_contacts").insert(ids.map((contact_id) => ({ campaign_id: campanha.id, org_id: orgId, contact_id })));
+      if (e2) {
+        await supabase.from("voice_campaigns").delete().eq("id", campanha.id);
+        throw e2;
+      }
+      const { error: e3 } = await supabase.from("voice_campaigns").update({ status: "running" }).eq("id", campanha.id);
+      if (e3) throw e3;
       return campanha.id;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["voice-campaigns", orgId] }),

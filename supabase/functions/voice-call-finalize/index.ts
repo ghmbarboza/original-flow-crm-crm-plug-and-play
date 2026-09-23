@@ -49,6 +49,10 @@ Deno.serve(async (req) => {
     const { data: call } = await admin.from("calls").select("*").eq("id", callId).maybeSingle();
     if (!call) return json({ error: "ligação não encontrada" }, 404);
     if (call.status === "completed" && call.summary) return json({ ok: true, skipped: "já finalizada" });
+    // Reserva atômica: só uma execução finaliza cada ligação (o provedor pode reentregar o evento).
+    const { data: reservada } = await admin.from("calls").update({ metadata: { ...((call.metadata as Record<string, unknown>) ?? {}), finalizing_at: new Date().toISOString() } })
+      .eq("id", call.id).is("metadata->>finalizing_at", null).select("id").maybeSingle();
+    if (!reservada) return json({ ok: true, skipped: "finalização em andamento" });
     const { data: agenteRow } = await admin.from("voice_agents").select("*").eq("org_id", call.org_id).maybeSingle();
     const agente = agenteRow as AgenteVoz | null;
     if (!agente) return json({ error: "agente de voz não configurado" }, 404);
@@ -90,15 +94,22 @@ Deno.serve(async (req) => {
 
     // Memória do lead e BANT, com as mesmas regras da análise pós-conversa.
     if (call.contact_id && falou) {
-      const { data: contato } = await admin.from("contacts").select("client_memory").eq("id", call.contact_id).maybeSingle();
-      const memoria = lerMemoria(contato?.client_memory);
-      const nova = fundirAnalise(memoria, {
-        company: classificacao.company, role: classificacao.role, primary_pain: classificacao.primary_pain, budget: classificacao.budget,
-        decision_timeline: classificacao.decision_timeline, desired_outcome: classificacao.desired_outcome, interests: classificacao.interests,
-        objections: classificacao.objections, score: classificacao.score, summary: classificacao.summary, next_best_action: "",
-      });
-      await admin.from("contacts").update({ client_memory: nova }).eq("id", call.contact_id).eq("org_id", call.org_id)
-        .filter("client_memory->interaction_summary->>analyses", memoria.interaction_summary.analyses ? "eq" : "is", memoria.interaction_summary.analyses ? String(memoria.interaction_summary.analyses) : null);
+      // CAS pelo contador de análises, com nova tentativa se outra escrita (análise da conversa por texto) chegou antes.
+      let gravou = false;
+      for (let tentativa = 0; tentativa < 3 && !gravou; tentativa++) {
+        const { data: contato } = await admin.from("contacts").select("client_memory").eq("id", call.contact_id).maybeSingle();
+        const memoria = lerMemoria(contato?.client_memory);
+        const nova = fundirAnalise(memoria, {
+          company: classificacao.company, role: classificacao.role, primary_pain: classificacao.primary_pain, budget: classificacao.budget,
+          decision_timeline: classificacao.decision_timeline, desired_outcome: classificacao.desired_outcome, interests: classificacao.interests,
+          objections: classificacao.objections, score: classificacao.score, summary: classificacao.summary, next_best_action: "",
+        });
+        const antes = memoria.interaction_summary.analyses;
+        const { data: ok } = await admin.from("contacts").update({ client_memory: nova }).eq("id", call.contact_id).eq("org_id", call.org_id)
+          .filter("client_memory->interaction_summary->>analyses", antes ? "eq" : "is", antes ? String(antes) : null).select("id").maybeSingle();
+        gravou = !!ok;
+      }
+      if (!gravou) console.error("[voice-call-finalize] memória do lead não gravada após 3 tentativas", call.id);
       if (call.deal_id) await preencherBant(admin, call.org_id, call.deal_id, classificacao);
     }
 
