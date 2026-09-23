@@ -409,42 +409,6 @@ export type Database = {
           },
         ]
       }
-      api_request_logs: {
-        Row: {
-          created_at: string
-          duration_ms: number | null
-          error: string | null
-          id: string
-          key_id: string | null
-          method: string
-          org_id: string
-          path: string
-          status: number
-        }
-        Insert: {
-          created_at?: string
-          duration_ms?: number | null
-          error?: string | null
-          id?: string
-          key_id?: string | null
-          method: string
-          org_id: string
-          path: string
-          status: number
-        }
-        Update: {
-          created_at?: string
-          duration_ms?: number | null
-          error?: string | null
-          id?: string
-          key_id?: string | null
-          method?: string
-          org_id?: string
-          path?: string
-          status?: number
-        }
-        Relationships: []
-      }
       api_keys_registry: {
         Row: {
           created_at: string | null
@@ -482,6 +446,83 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "api_keys_registry_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_rate_limits: {
+        Row: {
+          count: number
+          key_id: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          key_id: string
+          window_start: string
+        }
+        Update: {
+          count?: number
+          key_id?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_rate_limits_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_request_logs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          id: string
+          key_id: string | null
+          method: string
+          org_id: string
+          path: string
+          status: number
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          key_id?: string | null
+          method: string
+          org_id: string
+          path: string
+          status: number
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          key_id?: string | null
+          method?: string
+          org_id?: string
+          path?: string
+          status?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_request_logs_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_request_logs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -4325,8 +4366,6 @@ export type Database = {
         Returns: undefined
       }
       app_url: { Args: never; Returns: string }
-      consumir_cota_api: { Args: { p_key: string; p_limite: number }; Returns: boolean }
-      criar_chave_api: { Args: { p_name: string; p_scopes: string[]; p_rate_limit?: number }; Returns: Json }
       apply_lead_score: {
         Args: {
           p_channel?: string
@@ -4340,6 +4379,10 @@ export type Database = {
       chamar_function: {
         Args: { p_function: string; p_timeout_ms?: number }
         Returns: number
+      }
+      consumir_cota_api: {
+        Args: { p_key: string; p_limite: number }
+        Returns: boolean
       }
       create_notification: {
         Args: {
@@ -4356,6 +4399,10 @@ export type Database = {
       create_secret: {
         Args: { new_description?: string; new_name: string; new_secret: string }
         Returns: string
+      }
+      criar_chave_api: {
+        Args: { p_name: string; p_rate_limit?: number; p_scopes: string[] }
+        Returns: Json
       }
       criar_chave_webhook: { Args: { p_name: string }; Returns: Json }
       current_org_id: { Args: never; Returns: string }
