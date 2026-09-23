@@ -44,6 +44,7 @@ const TABELAS: { tabela: string; coluna: string }[] = [
   { tabela: "products", coluna: "name" },
   { tabela: "knowledge_documents", coluna: "title" },
   { tabela: "knowledge_facts", coluna: "title" },
+  { tabela: "appointments", coluna: "title" },
 ];
 
 async function limpar(client: SupabaseClient, orgId: string) {

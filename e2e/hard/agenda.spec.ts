@@ -84,6 +84,14 @@ test.beforeAll(async () => {
     start_time: "08:00", end_time: "20:00", reminder_minutes_before: 1440, no_show_after_minutes: 5, require_literal_confirmation: true,
   }, { onConflict: "org_id" }), "política e2e");
   limpeza.add("reuniões E2E", async () => ok(await c.db.from("appointments").delete().eq("org_id", c.orgId).like("title", `${MARCADOR}%`), "apagar reuniões"));
+
+  // Canal de WhatsApp da org na sandbox: a IA responde por ele e o lembrete sai por ele.
+  const r = await invocar(c, "evolution-connect", {
+    server_url: sandbox.base, api_key: "chave-sandbox", instance_name: instancia, display_name: `${MARCADOR} Agenda`, mode: "create",
+  });
+  expect(r.status, r.texto).toBe(200);
+  limpeza.add("instância evolution", async () => ok(await c.db.from("evolution_configs").delete().eq("instance_name", instancia), "apagar instância"));
+  webhookToken = ok(await c.db.from("evolution_configs").select("webhook_token").eq("instance_name", instancia).single(), "instância").webhook_token as string;
 });
 
 test.afterAll(async () => {
@@ -143,12 +151,6 @@ test("reunião criada à mão vai para o calendário: a sandbox recebe o evento 
 
 test("IA na conversa: recusa sem confirmação literal e agenda quando o lead confirma", async () => {
   test.setTimeout(300_000);
-  const r = await invocar(c, "evolution-connect", {
-    server_url: sandbox.base, api_key: "chave-sandbox", instance_name: instancia, display_name: `${MARCADOR} Agenda`, mode: "create",
-  });
-  expect(r.status, r.texto).toBe(200);
-  limpeza.add("instância evolution", async () => ok(await c.db.from("evolution_configs").delete().eq("instance_name", instancia), "apagar instância"));
-  webhookToken = ok(await c.db.from("evolution_configs").select("webhook_token").eq("instance_name", instancia).single(), "instância").webhook_token as string;
 
   const original = ok(await c.db.from("ai_messaging_config").select("id, is_active, working_hours").eq("org_id", c.orgId).single(), "config da IA");
   limpeza.add("restaurar IA", async () => ok(await c.db.from("ai_messaging_config").update({ is_active: original.is_active, working_hours: original.working_hours }).eq("id", original.id), "restaurar"));
@@ -238,7 +240,7 @@ test("dispatcher: lembrete perto do início e no-show depois do início sem conf
     return r.data?.status === "no_show" ? r.data : null;
   }, { timeout: 90_000, intervalo: 3_000 });
   expect(perdida.no_show_marked_at).toBeTruthy();
-  const aviso = ok(await c.db.from("notifications").select("id, event_type").eq("user_id", c.userId).eq("event_type", "reuniao_no_show").eq("entity_id", atrasada.id), "notificação");
+  const aviso = ok(await c.db.from("notifications").select("id, type").eq("user_id", c.userId).eq("type", "reuniao_no_show").eq("entity_id", atrasada.id), "notificação");
   expect(aviso.length).toBeGreaterThanOrEqual(1);
   limpeza.add("notificações", async () => ok(await c.db.from("notifications").delete().eq("entity_id", atrasada.id), "apagar avisos"));
   const fila = ok(await c.db.from("automation_logs").select("status, trigger_data").eq("automation_id", automacao.id), "fila da automação");

@@ -89,7 +89,8 @@ export function useSaveAppointment() {
         if (error.code === "23P01") throw new Error("O responsável já tem uma reunião nesse horário.");
         throw error;
       }
-      if (data.owner_id) await supabase.functions.invoke("calendar", { body: { action: "sync_event", appointment_id: data.id } }).catch(() => null);
+      // Espelhar no calendário não segura a tela: roda em segundo plano.
+      if (data.owner_id) void supabase.functions.invoke("calendar", { body: { action: "sync_event", appointment_id: data.id } }).catch(() => null);
       return data as Appointment;
     },
     onSuccess: invalidar,
@@ -106,7 +107,7 @@ export function useSetAppointmentStatus() {
       if (input.status === "no_show") campos.no_show_marked_at = new Date().toISOString();
       const { data, error } = await supabase.from("appointments").update(campos).eq("id", input.id).select("id, owner_id").single();
       if (error) throw error;
-      if (data.owner_id && input.status === "cancelled") await supabase.functions.invoke("calendar", { body: { action: "sync_event", appointment_id: data.id } }).catch(() => null);
+      if (data.owner_id && input.status === "cancelled") void supabase.functions.invoke("calendar", { body: { action: "sync_event", appointment_id: data.id } }).catch(() => null);
     },
     onSuccess: invalidar,
   });
