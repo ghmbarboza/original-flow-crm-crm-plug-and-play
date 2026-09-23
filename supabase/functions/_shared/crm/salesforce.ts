@@ -2,7 +2,7 @@
 // renovado pelo refresh_token; a conexão guarda o instance_url em `domain`.
 import {
   type AdaptadorCrm, type CredencialCrm, type EntidadeCrm, type EstruturaCrm, type PaginaCrm,
-  chamar, limpar, str,
+  chamar, etapaPorId, limpar, str,
 } from "./tipos.ts";
 
 export const SALESFORCE_LOGIN = "https://login.salesforce.com";
@@ -95,8 +95,10 @@ export const salesforce: AdaptadorCrm = {
           owner_email: rel(r, "Owner", "Email"), created_at: r.CreatedDate, ...extras(estrutura, entidade, r),
         });
       }
+      // StageName é o valor interno da picklist; o de/para usa o rótulo lido na estrutura.
+      const etapa = etapaPorId(estrutura, r.StageName);
       return limpar({
-        external_id: r.Id, title: r.Name, value: r.Amount, stage: r.StageName, pipeline: "Oportunidades",
+        external_id: r.Id, title: r.Name, value: r.Amount, stage: etapa?.name ?? r.StageName, pipeline: "Oportunidades",
         status: r.IsWon === true ? "won" : r.IsClosed === true ? "lost" : "open", close_date: r.CloseDate,
         company: rel(r, "Account", "Name"), company_external_id: r.AccountId, owner_email: rel(r, "Owner", "Email"), created_at: r.CreatedDate,
         ...extras(estrutura, entidade, r),
