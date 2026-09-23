@@ -91,6 +91,76 @@ export type Database = {
           },
         ]
       }
+      agent_action_runs: {
+        Row: {
+          action_key: string
+          contact_id: string | null
+          conversation_id: string | null
+          error_code: string | null
+          finished_at: string | null
+          id: string
+          idempotency_key: string
+          input: Json
+          org_id: string
+          output: Json | null
+          source_message_id: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          action_key: string
+          contact_id?: string | null
+          conversation_id?: string | null
+          error_code?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key: string
+          input?: Json
+          org_id: string
+          output?: Json | null
+          source_message_id?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          action_key?: string
+          contact_id?: string | null
+          conversation_id?: string | null
+          error_code?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string
+          input?: Json
+          org_id?: string
+          output?: Json | null
+          source_message_id?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_action_runs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_action_runs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_action_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_knowledge_faqs: {
         Row: {
           answer: string
@@ -365,144 +435,6 @@ export type Database = {
           },
         ]
       }
-      agent_action_runs: {
-        Row: {
-          action_key: string
-          contact_id: string | null
-          conversation_id: string | null
-          error_code: string | null
-          finished_at: string | null
-          id: string
-          idempotency_key: string
-          input: Json
-          org_id: string
-          output: Json | null
-          source_message_id: string | null
-          started_at: string
-          status: string
-        }
-        Insert: {
-          action_key: string
-          contact_id?: string | null
-          conversation_id?: string | null
-          error_code?: string | null
-          finished_at?: string | null
-          id?: string
-          idempotency_key: string
-          input?: Json
-          org_id: string
-          output?: Json | null
-          source_message_id?: string | null
-          started_at?: string
-          status?: string
-        }
-        Update: {
-          action_key?: string
-          contact_id?: string | null
-          conversation_id?: string | null
-          error_code?: string | null
-          finished_at?: string | null
-          id?: string
-          idempotency_key?: string
-          input?: Json
-          org_id?: string
-          output?: Json | null
-          source_message_id?: string | null
-          started_at?: string
-          status?: string
-        }
-        Relationships: []
-      }
-      appointments: {
-        Row: {
-          activity_id: string | null
-          cancel_reason: string | null
-          calendar_sync_error: string | null
-          calendar_sync_status: string
-          confirmed_at: string | null
-          contact_id: string | null
-          conversation_id: string | null
-          created_at: string
-          created_by: string | null
-          deal_id: string | null
-          description: string | null
-          ends_at: string
-          external_event_id: string | null
-          id: string
-          location: string | null
-          meeting_url: string | null
-          metadata: Json
-          no_show_marked_at: string | null
-          org_id: string
-          owner_id: string | null
-          reminder_sent_at: string | null
-          source: string
-          starts_at: string
-          status: string
-          timezone: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          activity_id?: string | null
-          cancel_reason?: string | null
-          calendar_sync_error?: string | null
-          calendar_sync_status?: string
-          confirmed_at?: string | null
-          contact_id?: string | null
-          conversation_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          deal_id?: string | null
-          description?: string | null
-          ends_at: string
-          external_event_id?: string | null
-          id?: string
-          location?: string | null
-          meeting_url?: string | null
-          metadata?: Json
-          no_show_marked_at?: string | null
-          org_id: string
-          owner_id?: string | null
-          reminder_sent_at?: string | null
-          source?: string
-          starts_at: string
-          status?: string
-          timezone?: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          activity_id?: string | null
-          cancel_reason?: string | null
-          calendar_sync_error?: string | null
-          calendar_sync_status?: string
-          confirmed_at?: string | null
-          contact_id?: string | null
-          conversation_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          deal_id?: string | null
-          description?: string | null
-          ends_at?: string
-          external_event_id?: string | null
-          id?: string
-          location?: string | null
-          meeting_url?: string | null
-          metadata?: Json
-          no_show_marked_at?: string | null
-          org_id?: string
-          owner_id?: string | null
-          reminder_sent_at?: string | null
-          source?: string
-          starts_at?: string
-          status?: string
-          timezone?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       api_keys: {
         Row: {
           created_at: string
@@ -667,6 +599,132 @@ export type Database = {
           },
           {
             foreignKeyName: "api_request_logs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointments: {
+        Row: {
+          activity_id: string | null
+          calendar_sync_error: string | null
+          calendar_sync_status: string
+          cancel_reason: string | null
+          confirmed_at: string | null
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          deal_id: string | null
+          description: string | null
+          ends_at: string
+          external_event_id: string | null
+          id: string
+          location: string | null
+          meeting_url: string | null
+          metadata: Json
+          no_show_marked_at: string | null
+          org_id: string
+          owner_id: string | null
+          reminder_sent_at: string | null
+          source: string
+          starts_at: string
+          status: string
+          timezone: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id?: string | null
+          calendar_sync_error?: string | null
+          calendar_sync_status?: string
+          cancel_reason?: string | null
+          confirmed_at?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          description?: string | null
+          ends_at: string
+          external_event_id?: string | null
+          id?: string
+          location?: string | null
+          meeting_url?: string | null
+          metadata?: Json
+          no_show_marked_at?: string | null
+          org_id: string
+          owner_id?: string | null
+          reminder_sent_at?: string | null
+          source?: string
+          starts_at: string
+          status?: string
+          timezone?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string | null
+          calendar_sync_error?: string | null
+          calendar_sync_status?: string
+          cancel_reason?: string | null
+          confirmed_at?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          description?: string | null
+          ends_at?: string
+          external_event_id?: string | null
+          id?: string
+          location?: string | null
+          meeting_url?: string | null
+          metadata?: Json
+          no_show_marked_at?: string | null
+          org_id?: string
+          owner_id?: string | null
+          reminder_sent_at?: string | null
+          source?: string
+          starts_at?: string
+          status?: string
+          timezone?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -841,6 +899,106 @@ export type Database = {
           },
         ]
       }
+      calendar_integrations: {
+        Row: {
+          account_email: string | null
+          api_base: string | null
+          calendar_id: string
+          create_meet: boolean
+          created_at: string
+          grant_id: string
+          grant_provider: string | null
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          org_id: string
+          provider: string
+          status: string
+          sync_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_email?: string | null
+          api_base?: string | null
+          calendar_id?: string
+          create_meet?: boolean
+          created_at?: string
+          grant_id: string
+          grant_provider?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          org_id: string
+          provider?: string
+          status?: string
+          sync_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_email?: string | null
+          api_base?: string | null
+          calendar_id?: string
+          create_meet?: boolean
+          created_at?: string
+          grant_id?: string
+          grant_provider?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          org_id?: string
+          provider?: string
+          status?: string
+          sync_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_integrations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_oauth_states: {
+        Row: {
+          api_base: string | null
+          app_origin: string | null
+          created_at: string
+          org_id: string
+          state: string
+          user_id: string
+        }
+        Insert: {
+          api_base?: string | null
+          app_origin?: string | null
+          created_at?: string
+          org_id: string
+          state: string
+          user_id: string
+        }
+        Update: {
+          api_base?: string | null
+          app_origin?: string | null
+          created_at?: string
+          org_id?: string
+          state?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_oauth_states_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_recipients: {
         Row: {
           campaign_id: string
@@ -898,90 +1056,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      calendar_integrations: {
-        Row: {
-          account_email: string | null
-          api_base: string | null
-          calendar_id: string
-          create_meet: boolean
-          created_at: string
-          grant_id: string
-          grant_provider: string | null
-          id: string
-          last_error: string | null
-          last_synced_at: string | null
-          org_id: string
-          provider: string
-          status: string
-          sync_enabled: boolean
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          account_email?: string | null
-          api_base?: string | null
-          calendar_id?: string
-          create_meet?: boolean
-          created_at?: string
-          grant_id: string
-          grant_provider?: string | null
-          id?: string
-          last_error?: string | null
-          last_synced_at?: string | null
-          org_id: string
-          provider?: string
-          status?: string
-          sync_enabled?: boolean
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          account_email?: string | null
-          api_base?: string | null
-          calendar_id?: string
-          create_meet?: boolean
-          created_at?: string
-          grant_id?: string
-          grant_provider?: string | null
-          id?: string
-          last_error?: string | null
-          last_synced_at?: string | null
-          org_id?: string
-          provider?: string
-          status?: string
-          sync_enabled?: boolean
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      calendar_oauth_states: {
-        Row: {
-          api_base: string | null
-          app_origin: string | null
-          created_at: string
-          org_id: string
-          state: string
-          user_id: string
-        }
-        Insert: {
-          api_base?: string | null
-          app_origin?: string | null
-          created_at?: string
-          org_id: string
-          state: string
-          user_id: string
-        }
-        Update: {
-          api_base?: string | null
-          app_origin?: string | null
-          created_at?: string
-          org_id?: string
-          state?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       campaigns: {
         Row: {
@@ -4444,7 +4518,15 @@ export type Database = {
           updated_at?: string
           weekdays?: number[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "scheduling_policies_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       setup_progress: {
         Row: {
