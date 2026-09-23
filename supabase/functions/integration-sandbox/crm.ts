@@ -163,8 +163,8 @@ function salesforce(caminho: string, metodo: string, query: URLSearchParams, bas
     if (q.includes("FROM Account")) return { status: 200, body: { totalSize: 1, done: true, records: [{ Id: "001A", Name: EMPRESA, Website: "https://e2e-conector.com.br", Industry: "Tecnologia", NumberOfEmployees: 25, Owner: { Email: DONO } }] } };
     if (q.includes("FROM Opportunity")) {
       return { status: 200, body: { totalSize: 2, done: true, records: [
-        { Id: "006A", Name: NEGOCIO_1.title, Amount: NEGOCIO_1.value, StageName: "Proposal/Price Quote", CloseDate: "2026-12-31", IsWon: false, IsClosed: false, Account: { Name: EMPRESA }, AccountId: "001A", Owner: { Email: DONO } },
-        { Id: "006B", Name: NEGOCIO_2.title, Amount: NEGOCIO_2.value, StageName: "Closed Won", CloseDate: "2026-03-01", IsWon: true, IsClosed: true, Account: { Name: EMPRESA }, AccountId: "001A", Owner: { Email: OUTRO } },
+        { Id: "006A", Name: NEGOCIO_1.title, Amount: NEGOCIO_1.value, StageName: "Proposal/Price Quote", CloseDate: "2026-12-31", IsWon: false, IsClosed: false, Account: { Name: EMPRESA }, AccountId: "001A", Owner: { Email: DONO }, OpportunityContactRoles: { records: [{ ContactId: "003A", IsPrimary: true }] } },
+        { Id: "006B", Name: NEGOCIO_2.title, Amount: NEGOCIO_2.value, StageName: "Closed Won", CloseDate: "2026-03-01", IsWon: true, IsClosed: true, Account: { Name: EMPRESA }, AccountId: "001A", Owner: { Email: OUTRO }, OpportunityContactRoles: { records: [{ ContactId: "003B", IsPrimary: true }] } },
       ] } };
     }
   }

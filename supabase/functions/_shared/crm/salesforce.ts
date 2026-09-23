@@ -13,7 +13,7 @@ const MAX_CUSTOM = 40;
 const SOQL: Record<EntidadeCrm, string> = {
   contacts: "SELECT Id, FirstName, LastName, Email, Phone, MobilePhone, Title, Account.Name, Owner.Email, LeadSource, CreatedDate{custom} FROM Contact ORDER BY CreatedDate",
   companies: "SELECT Id, Name, Website, Phone, Industry, NumberOfEmployees, Owner.Email, CreatedDate{custom} FROM Account ORDER BY CreatedDate",
-  deals: "SELECT Id, Name, Amount, StageName, CloseDate, IsWon, IsClosed, Account.Name, AccountId, Owner.Email, CreatedDate{custom} FROM Opportunity ORDER BY CreatedDate",
+  deals: "SELECT Id, Name, Amount, StageName, CloseDate, IsWon, IsClosed, Account.Name, AccountId, Owner.Email, CreatedDate, (SELECT ContactId, IsPrimary FROM OpportunityContactRoles){custom} FROM Opportunity ORDER BY CreatedDate",
 };
 const OBJETO: Record<EntidadeCrm, string> = { contacts: "Contact", companies: "Account", deals: "Opportunity" };
 
@@ -97,10 +97,13 @@ export const salesforce: AdaptadorCrm = {
       }
       // StageName é o valor interno da picklist; o de/para usa o rótulo lido na estrutura.
       const etapa = etapaPorId(estrutura, r.StageName);
+      // Contato da oportunidade vem de OpportunityContactRole (o principal, senão o primeiro).
+      const papeis = ((r.OpportunityContactRoles as { records?: { ContactId?: string; IsPrimary?: boolean }[] } | null)?.records) ?? [];
+      const contato = papeis.find((p) => p.IsPrimary) ?? papeis[0];
       return limpar({
         external_id: r.Id, title: r.Name, value: r.Amount, stage: etapa?.name ?? r.StageName, pipeline: "Oportunidades",
         status: r.IsWon === true ? "won" : r.IsClosed === true ? "lost" : "open", close_date: r.CloseDate,
-        company: rel(r, "Account", "Name"), company_external_id: r.AccountId, owner_email: rel(r, "Owner", "Email"), created_at: r.CreatedDate,
+        company: rel(r, "Account", "Name"), company_external_id: r.AccountId, contact_external_id: contato?.ContactId, owner_email: rel(r, "Owner", "Email"), created_at: r.CreatedDate,
         ...extras(estrutura, entidade, r),
       });
     });
