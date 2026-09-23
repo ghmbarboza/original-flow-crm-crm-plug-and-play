@@ -137,14 +137,16 @@ Deno.serve(async (req) => {
       const loginBase = apiBaseAceita(body.api_base) ?? SALESFORCE_LOGIN;
       const state = crypto.randomUUID().replace(/-/g, "");
       await admin.from("crm_oauth_states").delete().lt("created_at", new Date(Date.now() - VALIDADE_ESTADO_MS).toISOString());
-      const { error } = await admin.from("crm_oauth_states").insert({ state, org_id: orgId, provider: "salesforce", user_id: user.id, app_origin: origem });
+      const { error } = await admin.from("crm_oauth_states").insert({
+        state, org_id: orgId, provider: "salesforce", user_id: user.id, app_origin: origem, login_base: loginBase === SALESFORCE_LOGIN ? null : loginBase,
+      });
       if (error) return json({ error: error.message }, 500);
       const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/crm-oauth-callback`;
       const url = new URL(`${loginBase}/services/oauth2/authorize`);
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", cred.clientId);
       url.searchParams.set("redirect_uri", redirectUri);
-      url.searchParams.set("state", loginBase === SALESFORCE_LOGIN ? state : `${state}.${btoa(loginBase)}`);
+      url.searchParams.set("state", state);
       url.searchParams.set("scope", "api refresh_token");
       return json({ ok: true, url: url.toString(), state });
     }

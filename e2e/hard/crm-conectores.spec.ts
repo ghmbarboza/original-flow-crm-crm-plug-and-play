@@ -16,6 +16,10 @@ const TOKEN_PROVEDORES = ["hubspot", "pipedrive", "rdstation", "agendor", "kommo
 const EMAIL_ANA = "e2e.ana.conector@exemplo.com.br";
 const TITULO_PROPOSTA = "E2E Proposta conector";
 const TITULO_FECHADO = "E2E Fechado conector";
+/** IDs dos dois negócios em cada fixture da sandbox (integration-sandbox/crm.ts). */
+const IDS_NEGOCIOS: Record<string, [string, string]> = {
+  hubspot: ["hs-d1", "hs-d2"], pipedrive: ["301", "302"], rdstation: ["d1", "d2"], agendor: ["311", "312"], kommo: ["321", "322"], salesforce: ["006A", "006B"],
+};
 
 let c: Ctx;
 let sandbox: Sessao;
@@ -58,13 +62,16 @@ async function conferirRegistros(provider: string) {
   expect(ana.title).toBe("Diretora");
   expect(ana.company_id).toBe(empresa.id);
   expect(ana.owner_id, "dono pelo e-mail do usuário").toBe(c.userId);
-  const proposta = ok(await c.db.from("deals").select("id, value, status, stage_id, contact_id, company_id").eq("org_id", c.orgId).eq("title", TITULO_PROPOSTA).single(), `proposta ${provider}`);
+  const [idProposta, idFechado] = IDS_NEGOCIOS[provider];
+  const proposta = ok(await c.db.from("deals").select("id, title, value, status, stage_id, contact_id, company_id").eq("org_id", c.orgId).eq("custom_fields->>external_id", idProposta).single(), `proposta ${provider}`);
+  expect(proposta.title).toBe(TITULO_PROPOSTA);
   expect(Number(proposta.value)).toBe(4900);
   expect(proposta.status).toBe("open");
   expect(proposta.stage_id, "etapa pelo de/para").toBe(etapaProposta);
   expect(proposta.contact_id, "contato vinculado").toBe(ana.id);
   expect(proposta.company_id, "empresa vinculada").toBe(empresa.id);
-  const fechado = ok(await c.db.from("deals").select("status, probability").eq("org_id", c.orgId).eq("title", TITULO_FECHADO).single(), "fechado");
+  const fechado = ok(await c.db.from("deals").select("title, status, probability").eq("org_id", c.orgId).eq("custom_fields->>external_id", idFechado).single(), `fechado ${provider}`);
+  expect(fechado.title).toBe(TITULO_FECHADO);
   expect(fechado.status).toBe("won");
   expect(fechado.probability).toBe(100);
 }
@@ -129,9 +136,11 @@ test("salesforce: OAuth completo (oauth_start → callback), sincroniza pelo ref
   expect(location).toContain("http://localhost:5199/settings/importacao?secao=crm");
   expect(location).toContain("crm_connected=salesforce");
 
-  // State é de uso único.
+  // State é de uso único: sem registro não há nem para onde voltar (400, sem redirect).
   const repetida = await fetch(`${c.functions}/crm-oauth-callback?code=code-e2e&state=${encodeURIComponent(state)}`, { redirect: "manual" });
-  expect(repetida.headers.get("location") ?? "").toContain("crm_error=estado_invalido");
+  expect(repetida.status).toBe(400);
+  expect(repetida.headers.get("location")).toBeNull();
+  expect(url.searchParams.get("state")).not.toContain(".");
 
   const conexao = ok(await c.db.from("crm_connections").select("id, auth_type, structure").eq("org_id", c.orgId).eq("provider", "salesforce").single(), "conexão salesforce");
   expect(conexao.auth_type).toBe("oauth");

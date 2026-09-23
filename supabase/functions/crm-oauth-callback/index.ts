@@ -24,12 +24,11 @@ function voltar(appUrl: string | null, query: string) {
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const stateRaw = url.searchParams.get("state") ?? "";
-  const [state, loginBaseB64] = stateRaw.split(".");
+  const state = url.searchParams.get("state") ?? "";
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   const { data: estado } = state
-    ? await admin.from("crm_oauth_states").select("state, org_id, user_id, app_origin, created_at").eq("state", state).maybeSingle()
+    ? await admin.from("crm_oauth_states").select("state, org_id, user_id, app_origin, login_base, created_at").eq("state", state).maybeSingle()
     : { data: null };
   if (estado) await admin.from("crm_oauth_states").delete().eq("state", state);
   const appUrl = (estado?.app_origin as string | null) ?? null;
@@ -46,10 +45,11 @@ Deno.serve(async (req) => {
     const clientSecret = await ler("salesforce_client_secret");
     if (!clientId || !clientSecret) return voltar(appUrl, "crm_error=sem_credencial");
 
-    let loginBase = SALESFORCE_LOGIN;
-    if (loginBaseB64) {
-      try { loginBase = atob(loginBaseB64); } catch { loginBase = SALESFORCE_LOGIN; }
-    }
+    // A base do login só pode vir do registro gravado pela crm-connect (que já a
+    // restringiu à integration-sandbox), nunca da URL de volta.
+    const sandboxPrefixo = `${Deno.env.get("SUPABASE_URL")}/functions/v1/integration-sandbox/`;
+    const loginBaseGravada = typeof estado.login_base === "string" ? estado.login_base : "";
+    const loginBase = loginBaseGravada.startsWith(sandboxPrefixo) ? loginBaseGravada : SALESFORCE_LOGIN;
     const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/crm-oauth-callback`;
     const tokens = await tokenSalesforce(loginBase, { grant_type: "authorization_code", code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri });
     if (!tokens.refresh_token) return voltar(appUrl, "crm_error=sem_refresh_token");

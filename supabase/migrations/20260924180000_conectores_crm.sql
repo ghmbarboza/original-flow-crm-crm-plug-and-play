@@ -24,9 +24,21 @@ CREATE TABLE IF NOT EXISTS public.crm_connections (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.crm_connections ENABLE ROW LEVEL SECURITY;
+-- Leitura para a org; escrita só pelas functions (service role) ou por admin.
 DROP POLICY IF EXISTS "crm_connections_org" ON public.crm_connections;
-CREATE POLICY "crm_connections_org" ON public.crm_connections
-  FOR ALL USING (user_belongs_to_org(org_id)) WITH CHECK (user_belongs_to_org(org_id));
+DROP POLICY IF EXISTS "crm_connections_read" ON public.crm_connections;
+DROP POLICY IF EXISTS "crm_connections_admin_insert" ON public.crm_connections;
+DROP POLICY IF EXISTS "crm_connections_admin_update" ON public.crm_connections;
+DROP POLICY IF EXISTS "crm_connections_admin_delete" ON public.crm_connections;
+CREATE POLICY "crm_connections_read" ON public.crm_connections
+  FOR SELECT USING (user_belongs_to_org(org_id));
+CREATE POLICY "crm_connections_admin_insert" ON public.crm_connections
+  FOR INSERT WITH CHECK (user_belongs_to_org(org_id) AND has_role(auth.uid(), 'admin'::app_role));
+CREATE POLICY "crm_connections_admin_update" ON public.crm_connections
+  FOR UPDATE USING (user_belongs_to_org(org_id) AND has_role(auth.uid(), 'admin'::app_role))
+  WITH CHECK (user_belongs_to_org(org_id) AND has_role(auth.uid(), 'admin'::app_role));
+CREATE POLICY "crm_connections_admin_delete" ON public.crm_connections
+  FOR DELETE USING (user_belongs_to_org(org_id) AND has_role(auth.uid(), 'admin'::app_role));
 
 -- Segredo da conexão, só para as functions (service role).
 CREATE OR REPLACE FUNCTION public.segredo_conexao_crm(p_connection UUID)
@@ -70,9 +82,12 @@ CREATE TABLE IF NOT EXISTS public.crm_oauth_states (
   provider TEXT NOT NULL,
   user_id UUID,
   app_origin TEXT,
+  -- Base do login (só a integration-sandbox no hard smoke); nunca vem da URL de volta.
+  login_base TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE public.crm_oauth_states ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crm_oauth_states ADD COLUMN IF NOT EXISTS login_base TEXT;
 
 -- imports.source aceita o provedor e a conexão de origem.
 ALTER TABLE public.imports ADD COLUMN IF NOT EXISTS connection_id UUID REFERENCES public.crm_connections(id) ON DELETE SET NULL;

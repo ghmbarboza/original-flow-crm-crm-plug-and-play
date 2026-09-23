@@ -1590,6 +1590,7 @@ export type Database = {
         Row: {
           app_origin: string | null
           created_at: string
+          login_base: string | null
           org_id: string
           provider: string
           state: string
@@ -1598,6 +1599,7 @@ export type Database = {
         Insert: {
           app_origin?: string | null
           created_at?: string
+          login_base?: string | null
           org_id: string
           provider: string
           state: string
@@ -1606,6 +1608,7 @@ export type Database = {
         Update: {
           app_origin?: string | null
           created_at?: string
+          login_base?: string | null
           org_id?: string
           provider?: string
           state?: string

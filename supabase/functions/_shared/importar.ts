@@ -260,9 +260,12 @@ async function importarNegocio(ctx: Ctx, d: Dados): Promise<Resultado> {
   let contato = await contatoPorReferencia(ctx, d);
   if (!contato && texto(d.contact_name)) {
     const nome = texto(d.contact_name)!;
-    const { data } = await ctx.admin.from("contacts").select("id, custom_fields").eq("org_id", ctx.orgId).is("merged_into_id", null)
-      .or(`first_name.ilike.${nome.split(/\s+/)[0]}%`).limit(20);
-    contato = (data ?? []).find((c) => c) ?? null;
+    // Nome vem do CRM de origem: filtro parametrizado (ilike), sem montar string de filtro.
+    const primeiroNome = nome.split(/\s+/)[0].replace(/[%_,()]/g, "");
+    const { data } = primeiroNome
+      ? await ctx.admin.from("contacts").select("id, custom_fields").eq("org_id", ctx.orgId).is("merged_into_id", null).ilike("first_name", `${primeiroNome}%`).limit(20)
+      : { data: [] as { id: string; custom_fields: unknown }[] };
+    contato = (data ?? [])[0] ?? null;
     if (!contato) {
       const [first, ...rest] = nome.split(/\s+/);
       const { data: novo } = await ctx.admin.from("contacts").insert({
