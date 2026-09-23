@@ -24,6 +24,7 @@ const DealsPage = lazy(() => import("./pages/DealsPage"));
 const DealDetailPage = lazy(() => import("./pages/DealDetailPage"));
 const TasksPage = lazy(() => import("./pages/TasksPage"));
 const AgendaPage = lazy(() => import("./pages/AgendaPage"));
+const VozPage = lazy(() => import("./pages/VozPage"));
 const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const InboxPage = lazy(() => import("./pages/InboxPage"));
@@ -169,6 +170,9 @@ const App = () => (
             } />
             <Route path="/agenda" element={
               <ProtectedRoute><Page name="Agenda"><AgendaPage /></Page></ProtectedRoute>
+            } />
+            <Route path="/voz" element={
+              <ProtectedRoute><Page name="Voz"><VozPage /></Page></ProtectedRoute>
             } />
             <Route path="/products" element={
               <ProtectedRoute><Page name="Produtos"><ProductsPage /></Page></ProtectedRoute>

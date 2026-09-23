@@ -16,6 +16,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { respostaCrm } from "./crm.ts";
 import { respostaNylas } from "./nylas.ts";
+import { respostaVoz } from "./voice.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -139,9 +140,11 @@ Deno.serve(async (req) => {
     : respostaEvolution(caminho, corpo, sessao as Sessao)
       ?? respostaResend(caminho, req.method, corpo)
       ?? respostaCrm(caminho, req.method, url.searchParams, `${SUPABASE_URL}/functions/v1/integration-sandbox/${token}`)
-      ?? respostaNylas(caminho, req.method, corpo);
+      ?? respostaNylas(caminho, req.method, corpo)
+      ?? respostaVoz(caminho, req.method, corpo, url.searchParams);
   const status = evolution?.status ?? (sessao.response_status as number);
   const body = evolution?.body ?? (status < 300 ? { ok: true } : { error: "sandbox configurada para falhar" });
+  const bruto = (evolution as { raw?: Uint8Array } | null)?.raw ?? null;
 
   await admin.from("integration_sandbox_captures").insert({
     session_id: sessao.id,
@@ -155,5 +158,6 @@ Deno.serve(async (req) => {
     response_status: status,
   });
 
+  if (bruto) return new Response(bruto as unknown as BodyInit, { status, headers: { "Content-Type": "audio/mpeg" } });
   return json(body, status);
 });

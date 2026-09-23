@@ -1060,6 +1060,90 @@ export type Database = {
           },
         ]
       }
+      calls: {
+        Row: {
+          activity_id: string | null
+          campaign_id: string | null
+          classification: Json | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          deal_id: string | null
+          direction: string
+          duration_seconds: number | null
+          elevenlabs_conversation_id: string | null
+          ended_at: string | null
+          from_number: string | null
+          id: string
+          metadata: Json
+          org_id: string
+          phone_number_id: string | null
+          provider_call_sid: string | null
+          purpose: string
+          recording_path: string | null
+          started_at: string | null
+          status: string
+          summary: string | null
+          to_number: string | null
+          transcript: Json
+          updated_at: string
+        }
+        Insert: {
+          activity_id?: string | null
+          campaign_id?: string | null
+          classification?: Json | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          direction: string
+          duration_seconds?: number | null
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          from_number?: string | null
+          id?: string
+          metadata?: Json
+          org_id: string
+          phone_number_id?: string | null
+          provider_call_sid?: string | null
+          purpose?: string
+          recording_path?: string | null
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          to_number?: string | null
+          transcript?: Json
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string | null
+          campaign_id?: string | null
+          classification?: Json | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          from_number?: string | null
+          id?: string
+          metadata?: Json
+          org_id?: string
+          phone_number_id?: string | null
+          provider_call_sid?: string | null
+          purpose?: string
+          recording_path?: string | null
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          to_number?: string | null
+          transcript?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           audience_config: Json
@@ -3997,6 +4081,60 @@ export type Database = {
         }
         Relationships: []
       }
+      phone_numbers: {
+        Row: {
+          capabilities: Json
+          created_at: string
+          e164: string
+          elevenlabs_phone_number_id: string | null
+          forward_to: string | null
+          id: string
+          inbound_behavior: string
+          label: string | null
+          metadata: Json
+          org_id: string
+          outbound_enabled: boolean
+          provider: string
+          status: string
+          twilio_sid: string | null
+          updated_at: string
+        }
+        Insert: {
+          capabilities?: Json
+          created_at?: string
+          e164: string
+          elevenlabs_phone_number_id?: string | null
+          forward_to?: string | null
+          id?: string
+          inbound_behavior?: string
+          label?: string | null
+          metadata?: Json
+          org_id: string
+          outbound_enabled?: boolean
+          provider?: string
+          status?: string
+          twilio_sid?: string | null
+          updated_at?: string
+        }
+        Update: {
+          capabilities?: Json
+          created_at?: string
+          e164?: string
+          elevenlabs_phone_number_id?: string | null
+          forward_to?: string | null
+          id?: string
+          inbound_behavior?: string
+          label?: string | null
+          metadata?: Json
+          org_id?: string
+          outbound_enabled?: boolean
+          provider?: string
+          status?: string
+          twilio_sid?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pipeline_stages: {
         Row: {
           ai_trigger_criteria: string | null
@@ -4847,6 +4985,141 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_agents: {
+        Row: {
+          api_base: string | null
+          elevenlabs_agent_id: string | null
+          first_message: string
+          language: string
+          last_error: string | null
+          max_duration_seconds: number
+          org_id: string
+          prompt_extra: string | null
+          synced_at: string | null
+          updated_at: string
+          voice_id: string | null
+          webhook_secret: string
+        }
+        Insert: {
+          api_base?: string | null
+          elevenlabs_agent_id?: string | null
+          first_message?: string
+          language?: string
+          last_error?: string | null
+          max_duration_seconds?: number
+          org_id: string
+          prompt_extra?: string | null
+          synced_at?: string | null
+          updated_at?: string
+          voice_id?: string | null
+          webhook_secret?: string
+        }
+        Update: {
+          api_base?: string | null
+          elevenlabs_agent_id?: string | null
+          first_message?: string
+          language?: string
+          last_error?: string | null
+          max_duration_seconds?: number
+          org_id?: string
+          prompt_extra?: string | null
+          synced_at?: string | null
+          updated_at?: string
+          voice_id?: string | null
+          webhook_secret?: string
+        }
+        Relationships: []
+      }
+      voice_campaign_contacts: {
+        Row: {
+          attempts: number
+          call_id: string | null
+          campaign_id: string
+          contact_id: string
+          dispatch_after: string
+          id: string
+          last_error: string | null
+          org_id: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          call_id?: string | null
+          campaign_id: string
+          contact_id: string
+          dispatch_after?: string
+          id?: string
+          last_error?: string | null
+          org_id: string
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          call_id?: string | null
+          campaign_id?: string
+          contact_id?: string
+          dispatch_after?: string
+          id?: string
+          last_error?: string | null
+          org_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      voice_campaigns: {
+        Row: {
+          completed: number
+          created_at: string
+          created_by: string | null
+          failed: number
+          id: string
+          instruction: string | null
+          max_concurrent: number
+          name: string
+          org_id: string
+          phone_number_id: string | null
+          placed: number
+          purpose: string
+          status: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          completed?: number
+          created_at?: string
+          created_by?: string | null
+          failed?: number
+          id?: string
+          instruction?: string | null
+          max_concurrent?: number
+          name: string
+          org_id: string
+          phone_number_id?: string | null
+          placed?: number
+          purpose?: string
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          completed?: number
+          created_at?: string
+          created_by?: string | null
+          failed?: number
+          id?: string
+          instruction?: string | null
+          max_concurrent?: number
+          name?: string
+          org_id?: string
+          phone_number_id?: string | null
+          placed?: number
+          purpose?: string
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       webhook_deliveries: {
         Row: {
           attempts: number
@@ -5304,6 +5577,14 @@ export type Database = {
         }
         Returns: number
       }
+      incrementar_campanha_voz: {
+        Args: { p_campaign: string; p_campo: string; p_quanto?: number }
+        Returns: undefined
+      }
+      confirmar_campo_memoria: {
+        Args: { p_contact: string; p_campo: string; p_valor: string }
+        Returns: Json
+      }
       buscar_conhecimento: {
         Args: { p_consulta: string; p_limite?: number; p_org: string }
         Returns: {
@@ -5317,10 +5598,6 @@ export type Database = {
       chamar_function: {
         Args: { p_function: string; p_timeout_ms?: number }
         Returns: number
-      }
-      confirmar_campo_memoria: {
-        Args: { p_campo: string; p_contact: string; p_valor: string }
-        Returns: Json
       }
       consumir_cota_api: {
         Args: { p_key: string; p_limite: number }

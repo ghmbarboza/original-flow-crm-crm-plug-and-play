@@ -10,6 +10,7 @@ import {
   LogOut,
   Mail,
   MessageCircle,
+  Mic,
   Package,
   Settings,
   Target,
@@ -68,6 +69,7 @@ export function AppSidebar() {
       items: [
         { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
         { title: "Email", url: "/inbox", icon: Mail },
+        { title: "Voz", url: "/voz", icon: Mic },
       ],
     },
     {
