@@ -113,7 +113,12 @@ CREATE POLICY "unanswered_questions_org" ON public.unanswered_questions
   FOR ALL USING (user_belongs_to_org(org_id)) WITH CHECK (user_belongs_to_org(org_id));
 CREATE INDEX IF NOT EXISTS unanswered_questions_org_status_idx ON public.unanswered_questions (org_id, status, kind, created_at DESC);
 
--- Busca híbrida (full-text pt-BR + trigram) em fatos, chunks, FAQs e objeções.
+-- Busca híbrida em fatos, chunks, FAQs e objeções:
+--  * full-text pt-BR com todas as palavras (peso maior) e com qualquer palavra
+--    (tolera pergunta longa em que só parte aparece no texto);
+--  * word_similarity da consulta contra o melhor pedaço do texto (tolera erro
+--    de digitação e acento; similarity simples ficava baixa para pergunta curta
+--    contra trecho longo).
 -- Chamada pelas functions (service role) e pela tela de teste (usuário da org).
 CREATE OR REPLACE FUNCTION public.buscar_conhecimento(p_org UUID, p_consulta TEXT, p_limite INTEGER DEFAULT 6)
 RETURNS TABLE(source_type TEXT, source_id UUID, title TEXT, content TEXT, rank REAL)
@@ -122,39 +127,49 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_texto TEXT := left(coalesce(p_consulta, ''), 300);
+  v_and TSQUERY;
+  v_or TSQUERY;
 BEGIN
   IF auth.uid() IS NOT NULL AND p_org IS DISTINCT FROM public.current_org_id() THEN
     RAISE EXCEPTION 'Sem permissão para buscar nesta organização' USING ERRCODE = '42501';
   END IF;
+  v_and := websearch_to_tsquery('portuguese', v_texto);
+  SELECT to_tsquery('portuguese', string_agg(w, ' | '))
+    INTO v_or
+    FROM regexp_split_to_table(regexp_replace(v_texto, '[^[:alnum:][:space:]]', ' ', 'g'), '\s+') AS w
+   WHERE length(w) > 2;
+  IF v_or IS NULL THEN v_or := v_and; END IF;
+
   RETURN QUERY
-  WITH q AS (SELECT websearch_to_tsquery('portuguese', coalesce(p_consulta, '')) AS tsq, coalesce(p_consulta, '') AS texto),
-  fatos AS (
+  WITH fatos AS (
     SELECT 'fact'::TEXT, f.id, f.title, f.fact,
-           (coalesce(ts_rank(f.fts, q.tsq), 0) * 2.0 + similarity(coalesce(f.question, '') || ' ' || f.fact, q.texto))::REAL
-    FROM public.knowledge_facts f CROSS JOIN q
+           (coalesce(ts_rank(f.fts, v_and), 0) * 3.0 + coalesce(ts_rank(f.fts, v_or), 0) * 1.5
+            + word_similarity(v_texto, coalesce(f.title, '') || ' ' || coalesce(f.question, '') || ' ' || f.fact) * 1.5)::REAL
+    FROM public.knowledge_facts f
     WHERE f.org_id = p_org AND f.status = 'confirmed' AND f.is_active
       AND f.valid_from <= now() AND (f.expires_at IS NULL OR f.expires_at > now())
-      AND (f.fts @@ q.tsq OR similarity(coalesce(f.question, '') || ' ' || f.fact, q.texto) > 0.12)
+      AND (f.fts @@ v_or OR word_similarity(v_texto, coalesce(f.title, '') || ' ' || coalesce(f.question, '') || ' ' || f.fact) > 0.3)
   ),
   chunks AS (
     SELECT 'chunk'::TEXT, c.id, d.title, c.content,
-           (coalesce(ts_rank(c.fts, q.tsq), 0) + similarity(c.content, q.texto) * 0.5)::REAL
+           (coalesce(ts_rank(c.fts, v_and), 0) * 2.0 + coalesce(ts_rank(c.fts, v_or), 0) + word_similarity(v_texto, c.content))::REAL
     FROM public.knowledge_chunks c
     JOIN public.knowledge_documents d ON d.id = c.document_id AND d.status = 'approved' AND d.is_active
-    CROSS JOIN q
-    WHERE c.org_id = p_org AND (c.fts @@ q.tsq OR similarity(c.content, q.texto) > 0.12)
+    WHERE c.org_id = p_org AND (c.fts @@ v_or OR word_similarity(v_texto, c.content) > 0.3)
   ),
   faqs AS (
     SELECT 'faq'::TEXT, f.id, f.question, f.answer,
-           (coalesce(ts_rank(f.fts, q.tsq), 0) * 1.5 + similarity(f.question, q.texto))::REAL
-    FROM public.ai_knowledge_faqs f CROSS JOIN q
-    WHERE f.org_id = p_org AND (f.fts @@ q.tsq OR similarity(f.question, q.texto) > 0.12)
+           (coalesce(ts_rank(f.fts, v_and), 0) * 2.5 + coalesce(ts_rank(f.fts, v_or), 0) * 1.2 + word_similarity(v_texto, f.question || ' ' || f.answer) * 1.2)::REAL
+    FROM public.ai_knowledge_faqs f
+    WHERE f.org_id = p_org AND (f.fts @@ v_or OR word_similarity(v_texto, f.question || ' ' || f.answer) > 0.3)
   ),
   objecoes AS (
     SELECT 'objection'::TEXT, o.id, o.objection, o.response,
-           (coalesce(ts_rank(o.fts, q.tsq), 0) * 1.5 + similarity(o.objection, q.texto))::REAL
-    FROM public.ai_knowledge_objections o CROSS JOIN q
-    WHERE o.org_id = p_org AND (o.fts @@ q.tsq OR similarity(o.objection, q.texto) > 0.12)
+           (coalesce(ts_rank(o.fts, v_and), 0) * 2.5 + coalesce(ts_rank(o.fts, v_or), 0) * 1.2 + word_similarity(v_texto, o.objection || ' ' || o.response) * 1.2)::REAL
+    FROM public.ai_knowledge_objections o
+    WHERE o.org_id = p_org AND (o.fts @@ v_or OR word_similarity(v_texto, o.objection || ' ' || o.response) > 0.3)
   )
   SELECT * FROM (
     SELECT * FROM fatos UNION ALL SELECT * FROM chunks UNION ALL SELECT * FROM faqs UNION ALL SELECT * FROM objecoes

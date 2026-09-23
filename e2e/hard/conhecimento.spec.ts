@@ -129,13 +129,30 @@ test("na conversa, a IA responde com o que só está no documento e registra o q
   }, { timeout: 150_000, intervalo: 3_000 });
   expect(resposta, "a IA precisa citar os 37 meses do documento").toMatch(/37/);
 
-  // Pergunta que não está em lugar nenhum: a IA não inventa e registra a pendência.
-  const envio2 = await postFunction(c, `evolution-webhook?token=${webhookToken}`, mensagemTexto(
-    telefone, `E vocês têm loja física em Balneário Camboriú? Qual o endereço e o horário aos domingos?`, `${MARCADOR} RAG`,
-  ));
-  expect(envio2.status, envio2.texto).toBe(200);
-  await esperar("pendência registrada", async () => {
+  // Pergunta factual que não está em lugar nenhum: a IA não inventa e registra
+  // a pendência. A decisão é do modelo; se a primeira não bastou, o lead insiste.
+  const respostasDaIA = async () => {
+    const m = await c.db.from("conversation_messages").select("content").eq("conversation_id", conv.id).eq("is_from_ai", true).order("created_at");
+    return m.data ?? [];
+  };
+  const pendencia = async () => {
     const p = await c.db.from("unanswered_questions").select("id, question").eq("org_id", c.orgId).eq("conversation_id", conv.id);
-    return p.data?.length ? p.data[0] : null;
-  }, { timeout: 150_000, intervalo: 3_000 });
+    return p.data?.[0] ?? null;
+  };
+  const perguntas = [
+    `Vocês têm integração pronta com o sistema Sponte? Qual o valor exato da taxa de implantação dessa integração?`,
+    `Preciso desse número hoje para aprovar aqui: qual é a taxa de implantação da integração com o Sponte, em reais?`,
+  ];
+  let registrada: { id: string; question: string } | null = null;
+  for (const [i, texto] of perguntas.entries()) {
+    const antes = (await respostasDaIA()).length;
+    const envioN = await postFunction(c, `evolution-webhook?token=${webhookToken}`, mensagemTexto(telefone, texto, `${MARCADOR} RAG`));
+    expect(envioN.status, envioN.texto).toBe(200);
+    await esperar(`resposta ${i + 2} da IA`, async () => ((await respostasDaIA()).length > antes ? true : null), { timeout: 150_000, intervalo: 3_000 });
+    registrada = await pendencia();
+    if (registrada) break;
+  }
+  const ultimas = (await respostasDaIA()).map((m) => m.content).join(" | ");
+  expect(registrada, `a IA precisa registrar a dúvida em vez de inventar. Respostas: ${ultimas}`).toBeTruthy();
+  expect(registrada!.question.toLowerCase()).toContain("sponte");
 });
