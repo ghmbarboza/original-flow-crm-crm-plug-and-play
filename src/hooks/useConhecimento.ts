@@ -65,7 +65,7 @@ export function useSaveKnowledgeDocument() {
         p_doc_type: input.docType,
         p_source_url: input.sourceUrl ?? null,
         p_file_name: input.fileName ?? null,
-        p_fingerprint: await impressaoDigital(input.docType, input.sourceUrl ?? null, conteudo),
+        p_fingerprint: await impressaoDigital(input.docType, input.sourceUrl ?? null, conteudo, input.title),
         p_status: status,
         p_ingestion_report: relatorioDe(trechos, conteudo, input.partesIlegiveis ?? [], input.fileName ?? undefined) as unknown as Json,
         p_error_message: semTexto ? "Não foi possível extrair texto deste material." : null,

@@ -36,8 +36,10 @@ describe("base de conhecimento: trechos e impressão digital", () => {
     const a = await impressaoDigital("texto", null, "Política de troca em 7 dias.");
     const b = await impressaoDigital("texto", null, "Política de troca em 7 dias.");
     const c = await impressaoDigital("texto", null, "Política de troca em 30 dias.");
+    const d = await impressaoDigital("texto", null, "Política de troca em 7 dias.", "Outro título");
     expect(a).toBe(b);
     expect(a).not.toBe(c);
+    expect(a).not.toBe(d);
     expect(a).toMatch(/^[0-9a-f]{64}$/);
   });
 });

@@ -220,6 +220,8 @@ BEGIN
     RAISE EXCEPTION 'Tipo ou status de material inválido' USING ERRCODE = '22023';
   END IF;
 
+  -- Duas chamadas simultâneas com o mesmo conteúdo (duplo clique, duas abas) esperam uma pela outra.
+  PERFORM pg_advisory_xact_lock(hashtextextended(v_org::text || coalesce(p_fingerprint, ''), 0));
   IF p_document_id IS NULL THEN
     IF p_fingerprint IS NOT NULL THEN
       SELECT * INTO v_doc FROM public.knowledge_documents d WHERE d.org_id = v_org AND d.fingerprint = p_fingerprint LIMIT 1;

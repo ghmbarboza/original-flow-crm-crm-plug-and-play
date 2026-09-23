@@ -78,8 +78,9 @@ export function dividirEmTrechos(conteudo: string, max = TAMANHO_TRECHO): string
 }
 
 /** sha256 em hex do conteúdo normalizado; identifica o documento na org. */
-export async function impressaoDigital(docType: TipoDocumento, sourceUrl: string | null, conteudo: string): Promise<string> {
-  const base = `${docType}\n${sourceUrl ?? ""}\n${conteudo}`.normalize("NFKC").trim();
+export async function impressaoDigital(docType: TipoDocumento, sourceUrl: string | null, conteudo: string, titulo = ""): Promise<string> {
+  // O título entra no hash: o mesmo texto com outro título é outro material (não some em silêncio).
+  const base = `${docType}\n${sourceUrl ?? ""}\n${titulo.trim().toLowerCase()}\n${conteudo}`.normalize("NFKC").trim();
   const bytes = new TextEncoder().encode(base);
   const hash = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
