@@ -51,8 +51,8 @@ test("contatos: cria o novo, atualiza o existente pelo e-mail, liga empresa e ta
   expect(r.status, r.texto).toBe(200);
   expect(r.json).toMatchObject({ created: 1, updated: 1, error: 1 });
 
-  const novo = ok(await c.db.from("contacts").select("id, first_name, company_id, custom_fields, source").eq("org_id", c.orgId).eq("email", emailNovo).single(), "novo");
-  expect(novo.first_name).toBe(MARCADOR);
+  const novo = ok(await c.db.from("contacts").select("id, first_name, last_name, company_id, custom_fields, source").eq("org_id", c.orgId).eq("email", emailNovo).single(), "novo");
+  expect(`${novo.first_name} ${novo.last_name}`).toBe(`${MARCADOR} Novo Import`);
   expect(novo.company_id).toBeTruthy();
   expect(novo.custom_fields).toMatchObject({ plano: "anual" });
   const atualizado = ok(await c.db.from("contacts").select("title, status").eq("email", emailExistente).single(), "atualizado");

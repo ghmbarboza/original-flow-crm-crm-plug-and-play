@@ -6,13 +6,15 @@
 //  1. Servidor Evolution falso. O teste grava esta URL como server_url de uma
 //     instância, e o CRM chama /instance/create, /webhook/set, /message/sendText
 //     etc. sem saber que não é o servidor real. As respostas imitam a v2.3.
-//  2. Destino de webhook de saída. Qualquer outro caminho responde com o
+//  2. CRMs de origem falsos em /crm/<provedor>/... (ver crm.ts) e o Resend.
+//  3. Destino de webhook de saída. Qualquer outro caminho responde com o
 //     response_status da sessão (200 por padrão; o teste muda para 500).
 //
 // Toda chamada fica em integration_sandbox_captures para o teste conferir
 // método, caminho, headers e corpo. Sessão inexistente ou vencida: 404 e nada
 // é gravado. Ver migration 20260914110000.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { respostaCrm } from "./crm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -133,7 +135,9 @@ Deno.serve(async (req) => {
 
   const evolution = caminho.startsWith("/webhook/set/")
     ? { status: 201, body: { webhook: corpo?.webhook ?? corpo } }
-    : respostaEvolution(caminho, corpo, sessao as Sessao) ?? respostaResend(caminho, req.method, corpo);
+    : respostaEvolution(caminho, corpo, sessao as Sessao)
+      ?? respostaResend(caminho, req.method, corpo)
+      ?? respostaCrm(caminho, req.method, url.searchParams, `${SUPABASE_URL}/functions/v1/integration-sandbox/${token}`);
   const status = evolution?.status ?? (sessao.response_status as number);
   const body = evolution?.body ?? (status < 300 ? { ok: true } : { error: "sandbox configurada para falhar" });
 

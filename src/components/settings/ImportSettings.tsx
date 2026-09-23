@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Download, FileSpreadsheet, Undo2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CrmConnectPanel from "@/components/settings/CrmConnectPanel";
 import { ErrorState } from "@/components/ErrorState";
 import { downloadCsv, parseCsv } from "@/lib/csv";
 import { formatDateTime } from "@/lib/format";
@@ -18,11 +21,23 @@ import {
 const NAO_MAPEAR = "__none__";
 const STATUS_LABEL: Record<string, string> = { pending: "Pendente", processing: "Em andamento", completed: "Concluída", failed: "Falhou", undone: "Desfeita" };
 
+const SECOES = ["arquivo", "crm", "historico"] as const;
+type Secao = (typeof SECOES)[number];
+
 /**
- * Configurações > Importação: assistente em quatro passos (arquivo, de/para,
- * prévia, resultado) e histórico com desfazer e relatório de erros.
+ * Configurações > Importação, em três sub-abas: Arquivo CSV (assistente em
+ * quatro passos), Conectar CRM (HubSpot, Pipedrive, RD Station, Agendor,
+ * Kommo, Salesforce) e Histórico (desfazer e relatório de erros).
  */
 export default function ImportSettings() {
+  const [params, setParams] = useSearchParams();
+  const secaoParam = params.get("secao");
+  const secao: Secao = (SECOES as readonly string[]).includes(secaoParam ?? "") ? (secaoParam as Secao) : "arquivo";
+  const trocar = (valor: string) => {
+    const proximos = new URLSearchParams(params);
+    proximos.set("secao", valor);
+    setParams(proximos, { replace: true });
+  };
   const { data: importacoes, isLoading, error } = useImports();
   const desfazer = useUndoImport();
   const rodar = useRunImport();
@@ -119,7 +134,16 @@ export default function ImportSettings() {
   if (error) return <ErrorState title="Não foi possível carregar as importações" error={error} />;
 
   return (
-    <div className="space-y-6" data-testid="import-settings">
+    <Tabs value={secao} onValueChange={trocar} className="space-y-4" data-testid="import-settings">
+      <TabsList>
+        <TabsTrigger data-testid="import-section" value="arquivo">Arquivo CSV</TabsTrigger>
+        <TabsTrigger data-testid="import-section" value="crm">Conectar CRM</TabsTrigger>
+        <TabsTrigger data-testid="import-section" value="historico">Histórico</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="crm"><CrmConnectPanel /></TabsContent>
+
+      <TabsContent value="arquivo">
       <div className="via-card space-y-4 p-5">
         <div className="flex items-center gap-2">
           <FileSpreadsheet className="h-5 w-5" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
@@ -249,7 +273,9 @@ export default function ImportSettings() {
           </div>
         )}
       </div>
+      </TabsContent>
 
+      <TabsContent value="historico">
       <div className="via-card space-y-3 p-5" data-testid="import-history">
         <h2 className="text-base font-medium" style={{ color: "var(--via-text-primary)" }}>Importações feitas</h2>
         {isLoading ? <Skeleton className="h-12 w-full" /> : (importacoes ?? []).length === 0 ? (
@@ -262,7 +288,7 @@ export default function ImportSettings() {
                 <li key={imp.id} className="flex flex-wrap items-center gap-3 py-3" data-testid={`import-${imp.id}`}>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
-                      {IMPORT_KIND_LABELS[imp.kind as ImportKind]} · {IMPORT_SOURCE_LABELS[imp.source as ImportSource] ?? imp.source} · {imp.file_name ?? "sem nome"}
+                      {IMPORT_KIND_LABELS[imp.kind as ImportKind]} · {IMPORT_SOURCE_LABELS[imp.source as ImportSource] ?? imp.source} · {imp.connection_id ? "sincronização" : imp.file_name ?? "sem nome"}
                     </p>
                     <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
                       {formatDateTime(imp.created_at)} · {STATUS_LABEL[imp.status] ?? imp.status} · {stats.total ?? 0} linhas, {stats.created ?? 0} criados, {stats.updated ?? 0} atualizados, {stats.error ?? 0} erros
@@ -284,6 +310,7 @@ export default function ImportSettings() {
           </ul>
         )}
       </div>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

@@ -26,7 +26,7 @@ test("Configurações > Importação: CSV de contatos com de/para automático, r
   await page.getByPlaceholder(/buscar/i).first().fill(`e2e-import-um-${marca}`);
   await expect(page.getByText(`E2E Import Um ${marca}`)).toBeVisible();
 
-  await page.goto("/settings/importacao");
+  await page.goto("/settings/importacao?secao=historico");
   await page.getByTestId("import-undo").first().click();
   await expect(page.getByText(/Desfeito: 2 contatos/)).toBeVisible();
 });
