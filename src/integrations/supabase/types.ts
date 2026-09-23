@@ -3219,11 +3219,9 @@ export type Database = {
           auto_create_deal_on_conversation: boolean
           brand_tone: string | null
           business_description: string | null
+          business_model: string
           business_sector: string | null
           company_size: string | null
-          business_model: string
-          sells: string
-          starter_kit_applied_at: string | null
           created_at: string
           currency: string
           good_response_example: string | null
@@ -3232,8 +3230,10 @@ export type Database = {
           logo_url: string | null
           main_problem_solved: string | null
           name: string
+          sells: string
           setup_completed: boolean | null
           setup_completed_at: string | null
+          starter_kit_applied_at: string | null
           target_audience: string | null
           timezone: string
           updated_at: string
@@ -3243,11 +3243,9 @@ export type Database = {
           auto_create_deal_on_conversation?: boolean
           brand_tone?: string | null
           business_description?: string | null
+          business_model?: string
           business_sector?: string | null
           company_size?: string | null
-          business_model?: string
-          sells?: string
-          starter_kit_applied_at?: string | null
           created_at?: string
           currency?: string
           good_response_example?: string | null
@@ -3256,8 +3254,10 @@ export type Database = {
           logo_url?: string | null
           main_problem_solved?: string | null
           name?: string
+          sells?: string
           setup_completed?: boolean | null
           setup_completed_at?: string | null
+          starter_kit_applied_at?: string | null
           target_audience?: string | null
           timezone?: string
           updated_at?: string
@@ -3267,11 +3267,9 @@ export type Database = {
           auto_create_deal_on_conversation?: boolean
           brand_tone?: string | null
           business_description?: string | null
+          business_model?: string
           business_sector?: string | null
           company_size?: string | null
-          business_model?: string
-          sells?: string
-          starter_kit_applied_at?: string | null
           created_at?: string
           currency?: string
           good_response_example?: string | null
@@ -3280,8 +3278,10 @@ export type Database = {
           logo_url?: string | null
           main_problem_solved?: string | null
           name?: string
+          sells?: string
           setup_completed?: boolean | null
           setup_completed_at?: string | null
+          starter_kit_applied_at?: string | null
           target_audience?: string | null
           timezone?: string
           updated_at?: string
@@ -3395,66 +3395,66 @@ export type Database = {
       }
       products: {
         Row: {
+          billing: string
           created_at: string
           currency: string
           custom_fields: Json
           description: string | null
+          duration_minutes: number | null
           id: string
           is_active: boolean
           is_demo: boolean
+          kind: string
           name: string
           org_id: string
           price: number
+          setup_fee: number
           stock_minimum_alert: number | null
           stock_quantity: number | null
           track_stock: boolean | null
-          kind: string
-          billing: string
           unit: string | null
-          duration_minutes: number | null
-          setup_fee: number
           updated_at: string
         }
         Insert: {
+          billing?: string
           created_at?: string
           currency?: string
           custom_fields?: Json
           description?: string | null
+          duration_minutes?: number | null
           id?: string
           is_active?: boolean
           is_demo?: boolean
+          kind?: string
           name: string
           org_id: string
           price?: number
+          setup_fee?: number
           stock_minimum_alert?: number | null
           stock_quantity?: number | null
           track_stock?: boolean | null
-          kind?: string
-          billing?: string
           unit?: string | null
-          duration_minutes?: number | null
-          setup_fee?: number
           updated_at?: string
         }
         Update: {
+          billing?: string
           created_at?: string
           currency?: string
           custom_fields?: Json
           description?: string | null
+          duration_minutes?: number | null
           id?: string
           is_active?: boolean
           is_demo?: boolean
+          kind?: string
           name?: string
           org_id?: string
           price?: number
+          setup_fee?: number
           stock_minimum_alert?: number | null
           stock_quantity?: number | null
           track_stock?: boolean | null
-          kind?: string
-          billing?: string
           unit?: string | null
-          duration_minutes?: number | null
-          setup_fee?: number
           updated_at?: string
         }
         Relationships: [
@@ -4332,7 +4332,15 @@ export type Database = {
           status?: string
           submitted_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_template_drafts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       zernio_configs: {
         Row: {
