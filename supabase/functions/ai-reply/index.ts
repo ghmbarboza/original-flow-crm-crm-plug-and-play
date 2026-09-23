@@ -24,6 +24,7 @@ import { PREFIXO_SIMULADO } from "../_shared/demo.ts";
 import { chamadaInterna, naoAutorizado } from "../_shared/seguranca.ts";
 import { dentroDoHorario } from "../_shared/horario.ts";
 import { instrucaoDaOrigem, perfilDaOrigem } from "../_shared/perfilOrigem.ts";
+import { FERRAMENTAS_CONHECIMENTO, blocoDeVerdade, buscarConhecimento, carregarFatosCanonicos, registrarDuvida } from "../_shared/conhecimento.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -579,9 +580,11 @@ Deno.serve(async (req) => {
     // Base de conhecimento. Produtos NÃO entram mais no prompt (Parte 12):
     // o modelo consulta o catálogo pela ferramenta buscar_produtos quando
     // precisa — prompt menor e catálogo de qualquer tamanho.
-    const [faqs, objections, calcom] = await Promise.all([
-      admin.from("ai_knowledge_faqs").select("question, answer").eq("org_id", conversation.org_id).order("order"),
-      admin.from("ai_knowledge_objections").select("objection, response").eq("org_id", conversation.org_id).order("order"),
+    // Base de conhecimento (B10): só os fatos canônicos entram no prompt. FAQs,
+    // objeções e documentos são recuperados sob demanda pela ferramenta
+    // buscar_conhecimento (busca híbrida full-text + trigram).
+    const [fatos, calcom] = await Promise.all([
+      carregarFatosCanonicos(admin, conversation.org_id),
       admin.from("integration_configs").select("config, is_active").eq("org_id", conversation.org_id).eq("provider", "calcom").maybeSingle(),
     ]);
 
@@ -635,10 +638,10 @@ Deno.serve(async (req) => {
       config.system_prompt?.trim() || "",
       "",
       `Você é ${config.agent_name}, atendente virtual. Tom: ${config.agent_tone}. Objetivo: ${config.agent_objective}.`,
-      "Responda em português do Brasil, de forma direta e útil. Não invente informações que não estejam na base abaixo.",
+      "Responda em português do Brasil, de forma direta e útil. Não invente informações que não estejam na base de conhecimento.",
       "",
-      (faqs.data ?? []).length ? "FAQs:\n" + (faqs.data ?? []).map((f) => `P: ${f.question}\nR: ${f.answer}`).join("\n\n") : "",
-      (objections.data ?? []).length ? "\nComo contornar objeções:\n" + (objections.data ?? []).map((o) => `Objeção: ${o.objection}\nResposta: ${o.response}`).join("\n\n") : "",
+      blocoDeVerdade(fatos),
+      "\nQuando o cliente levantar uma objeção (preço, prazo, concorrente, dúvida se vale a pena), use buscar_conhecimento com a objeção para achar como a empresa orienta contornar.",
       "\nQuando o cliente perguntar sobre produtos, preços ou o que vendemos, use a ferramenta buscar_produtos para consultar o catálogo antes de responder. Não invente produtos nem preços. Respeite a disponibilidade devolvida pela ferramenta: nunca prometa entrega de item ESGOTADO — diga que está sem estoque, ofereça avisar quando repor e sugira alternativa disponível.",
       schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
       instrucaoFunil,
@@ -663,6 +666,7 @@ Deno.serve(async (req) => {
     // Ferramenta de catálogo (Parte 12): o modelo busca produtos sob demanda
     // em vez de receber o catálogo inteiro no prompt.
     const tools: FerramentaIA[] = [
+      ...FERRAMENTAS_CONHECIMENTO,
       {
         name: "buscar_produtos",
         description:
@@ -746,6 +750,10 @@ Deno.serve(async (req) => {
 
     const executarFerramenta = async (nome: string, args: Record<string, unknown>): Promise<string> => {
       if (nome === "mover_etapa") return moverEtapaPelaIA(args);
+      if (nome === "buscar_conhecimento") return buscarConhecimento(admin, conversation.org_id, args);
+      if (nome === "registrar_duvida") {
+        return registrarDuvida(admin, { orgId: conversation.org_id, conversationId: conversation.id, contactId: conversation.contact_id ?? null }, args);
+      }
       if (nome !== "buscar_produtos") return "Ferramenta desconhecida.";
       // Vírgulas e parênteses quebrariam a sintaxe do filtro `or` do PostgREST.
       const query = String(args.query ?? "").replace(/[,()]/g, " ").trim();

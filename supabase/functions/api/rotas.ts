@@ -442,12 +442,14 @@ async function listarProdutos(admin: SupabaseClient, chave: Chave, params: URLSe
 }
 
 async function conhecimento(admin: SupabaseClient, chave: Chave): Promise<Resposta> {
-  const [{ data: faqs }, { data: objections }, { data: config }] = await Promise.all([
+  const [{ data: faqs }, { data: objections }, { data: config }, { data: facts }, { data: documents }] = await Promise.all([
     admin.from("ai_knowledge_faqs").select("question, answer").eq("org_id", chave.orgId).order("order"),
     admin.from("ai_knowledge_objections").select("objection, response").eq("org_id", chave.orgId).order("order"),
     admin.from("ai_messaging_config").select("agent_name, agent_tone, agent_objective").eq("org_id", chave.orgId).maybeSingle(),
+    admin.from("knowledge_facts").select("title, category, question, fact, always_include, expires_at").eq("org_id", chave.orgId).eq("status", "confirmed").eq("is_active", true).order("category"),
+    admin.from("knowledge_documents").select("id, title, doc_type, status, chunk_count, updated_at").eq("org_id", chave.orgId).neq("status", "archived").order("updated_at", { ascending: false }),
   ]);
-  return { status: 200, body: { agent: config ?? null, faqs: faqs ?? [], objections: objections ?? [] } };
+  return { status: 200, body: { agent: config ?? null, faqs: faqs ?? [], objections: objections ?? [], facts: facts ?? [], documents: documents ?? [] } };
 }
 
 // ---------------------------------------------------------------------------

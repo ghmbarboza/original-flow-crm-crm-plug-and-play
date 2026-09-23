@@ -23,6 +23,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KnowledgePanel } from "@/components/settings/ai/KnowledgePanel";
 import { SourceProfilesPanel } from "@/components/settings/ai/SourceProfilesPanel";
+import { BuscaPanel, DocumentosPanel, FatosPanel, PendenciasPanel } from "@/components/settings/ai/ConhecimentoPanel";
 import { VoicePicker } from "@/components/settings/VoicePicker";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { PromptVersionsPanel } from "@/components/settings/ai/PromptVersionsPanel";
@@ -868,12 +869,24 @@ export default function AISettings() {
         </TabsContent>
 
         <TabsContent value="knowledge" className="pt-4">
-          <Tabs defaultValue="faqs">
+          <p className="mb-3 text-xs" style={{ color: "var(--via-text-muted)" }}>
+            Fatos marcados como "sempre no prompt" vão em toda resposta. FAQs, objeções e documentos são encontrados pela busca quando o cliente pergunta. O que a IA não souber vira pendência.
+          </p>
+          <Tabs defaultValue="fatos">
             <TabsList>
-              <TabsTrigger value="faqs">FAQs</TabsTrigger>
+              <TabsTrigger value="fatos" data-testid="knowledge-tab-fatos">Fatos</TabsTrigger>
+              <TabsTrigger value="documentos" data-testid="knowledge-tab-documentos">Documentos</TabsTrigger>
+              <TabsTrigger value="faqs" data-testid="knowledge-tab-faqs">FAQs</TabsTrigger>
               <TabsTrigger value="objections">Objeções</TabsTrigger>
+              <TabsTrigger value="pendencias" data-testid="knowledge-tab-pendencias">Pendências</TabsTrigger>
+              <TabsTrigger value="busca" data-testid="knowledge-tab-busca">Testar busca</TabsTrigger>
               <TabsTrigger value="products">Produtos</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="fatos" className="pt-4"><FatosPanel /></TabsContent>
+            <TabsContent value="documentos" className="pt-4"><DocumentosPanel /></TabsContent>
+            <TabsContent value="pendencias" className="pt-4"><PendenciasPanel /></TabsContent>
+            <TabsContent value="busca" className="pt-4"><BuscaPanel /></TabsContent>
 
             <TabsContent value="faqs" className="pt-4">
               <KnowledgePanel
