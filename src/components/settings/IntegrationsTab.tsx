@@ -16,7 +16,6 @@ import { IntegrationCard, type StatusIntegracao } from "@/components/settings/In
 import { ApiKeysList } from "@/components/settings/ApiKeysList";
 import { NewApiKeyButton } from "@/components/settings/NewApiKeyButton";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
-import { GmailSetup } from "@/components/settings/GmailSetup";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { DesconectarIntegracao } from "@/components/settings/DesconectarIntegracao";
 import { useDisconnectChannel } from "@/hooks/useWhatsAppConfig";
@@ -185,15 +184,20 @@ export default function IntegrationsTab() {
 
       <IntegrationCard
         icon={Mail}
-        title="E-mail (Gmail)"
-        purpose="Sincroniza suas conversas de e-mail no Inbox e permite responder de dentro do CRM."
+        title="E-mail (Resend e Gmail)"
+        purpose="Por onde os e-mails da empresa saem: notificações, automações, sequências e respostas do inbox."
         recomendacao="recomendado"
         status={email ? "ok" : "ausente"}
-        statusLabel={email ? "Conectado" : "Não conectado"}
+        statusLabel={email ? "Gmail conectado" : "Não configurado"}
         abrirPorPadrao={alvo === "gmail"}
         testId="integration-gmail"
       >
-        <GmailSetup conectado={!!email} />
+        <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+          A configuração de e-mail tem aba própria.
+        </p>
+        <Button variant="outline" className="mt-2" onClick={() => navigate("/settings/email")} data-testid="integration-gmail-open">
+          Abrir Configurações de E-mail
+        </Button>
       </IntegrationCard>
 
       <IntegrationCard

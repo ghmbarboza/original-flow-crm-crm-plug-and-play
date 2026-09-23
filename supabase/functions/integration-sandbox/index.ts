@@ -80,6 +80,28 @@ function respostaEvolution(
   return null;
 }
 
+/** Resposta imitando o Resend para os caminhos que o CRM usa. */
+function respostaResend(caminho: string, metodo: string, corpo: Record<string, unknown> | null): { status: number; body: unknown } | null {
+  if (caminho === "/emails" && metodo === "POST") {
+    return { status: 200, body: { id: `sandbox-${crypto.randomUUID()}` } };
+  }
+  if (caminho === "/domains" && metodo === "GET") {
+    return {
+      status: 200,
+      body: {
+        data: [{
+          id: "sandbox-dominio",
+          name: "sandbox.viverdeia.ai",
+          status: "verified",
+          records: [{ record: "SPF", name: "send", type: "TXT", value: "v=spf1 include:amazonses.com ~all", status: "verified" }],
+        }],
+      },
+    };
+  }
+  void corpo;
+  return null;
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const partes = url.pathname.split("/integration-sandbox/")[1]?.split("/") ?? [];
@@ -111,7 +133,7 @@ Deno.serve(async (req) => {
 
   const evolution = caminho.startsWith("/webhook/set/")
     ? { status: 201, body: { webhook: corpo?.webhook ?? corpo } }
-    : respostaEvolution(caminho, corpo, sessao as Sessao);
+    : respostaEvolution(caminho, corpo, sessao as Sessao) ?? respostaResend(caminho, req.method, corpo);
   const status = evolution?.status ?? (sessao.response_status as number);
   const body = evolution?.body ?? (status < 300 ? { ok: true } : { error: "sandbox configurada para falhar" });
 

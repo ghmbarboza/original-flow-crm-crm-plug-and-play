@@ -9,7 +9,7 @@
 // migration 20260914100000) com o segredo interno. Usa service-role, mas SEMPRE
 // escopa por org_id do log — nunca confia em dado de fora do org.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getValidAccessToken, type GmailConnection } from "../_shared/google.ts";
+import { enviarEmail } from "../_shared/email.ts";
 import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
 import { moverNegocio } from "../_shared/negocio.ts";
 
@@ -190,67 +190,16 @@ async function actSendEmail(
   const to = (contact?.email as string) ?? (ctx.data.email as string) ?? "";
   if (!to) return { type: "send_email", ok: false, msg: "contato sem e-mail de destino" };
 
-  // Conexão Gmail ativa do org (o envio é feito pela conta conectada da org).
-  const { data: conn } = await admin
-    .from("email_connections")
-    .select("id, org_id, user_id, email, access_token, refresh_token, token_expiry")
-    .eq("org_id", orgId)
-    .eq("is_active", true)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (!conn) return { type: "send_email", ok: false, msg: "nenhuma conexão de e-mail ativa no org" };
-
-  const token = await getValidAccessToken(admin, conn as GmailConnection);
-  if (!token) return { type: "send_email", ok: false, msg: "token de e-mail inválido" };
-
   const tctx = { contact, deal, company };
-  const subject = renderTemplate(String(tpl.subject ?? ""), tctx);
-  const bodyHtml = renderTemplate(String(tpl.body_html ?? ""), tctx);
-
-  const rawMsg = [
-    `From: ${conn.email}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    "MIME-Version: 1.0",
-    'Content-Type: text/html; charset="UTF-8"',
-    "",
-    bodyHtml,
-  ].join("\r\n");
-  const bytes = new TextEncoder().encode(rawMsg);
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  const rawB64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
-  const sendResp = await fetch(
-    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ raw: rawB64 }),
-    },
-  );
-  if (!sendResp.ok) {
-    const err = await sendResp.text();
-    return { type: "send_email", ok: false, msg: `Gmail recusou: ${err.slice(0, 160)}` };
-  }
-  const sent = await sendResp.json();
-
-  await admin.from("emails").insert({
-    org_id: orgId,
-    user_id: conn.user_id,
-    contact_id: ctx.contactId,
-    deal_id: ctx.dealId,
-    direction: "outbound",
-    from_email: conn.email,
-    to_emails: [to],
-    subject,
-    body_html: bodyHtml,
-    thread_id: sent.threadId ?? null,
-    sent_at: new Date().toISOString(),
-    status: "sent",
+  const resultado = await enviarEmail(admin, {
+    orgId,
+    to,
+    subject: renderTemplate(String(tpl.subject ?? ""), tctx),
+    html: renderTemplate(String(tpl.body_html ?? ""), tctx),
+    contactId: ctx.contactId,
+    dealId: ctx.dealId,
   });
-
+  if (!resultado.ok) return { type: "send_email", ok: false, msg: resultado.motivo ?? "falha no envio" };
   return { type: "send_email", ok: true };
 }
 
