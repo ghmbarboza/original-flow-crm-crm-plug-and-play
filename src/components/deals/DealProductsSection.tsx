@@ -15,6 +15,7 @@ import {
   useAddDealProduct, useDealProducts, useRemoveDealProduct, useUpdateDealProduct,
 } from "@/hooks/useDealProducts";
 import { formatCurrency } from "@/lib/format";
+import { resumoValores, type ProductBilling } from "@/lib/produtos";
 
 export function DealProductsSection({ dealId, currency }: { dealId: string; currency: string }) {
   const { data: items, isLoading } = useDealProducts(dealId);
@@ -27,6 +28,8 @@ export function DealProductsSection({ dealId, currency }: { dealId: string; curr
   const [quantity, setQuantity] = useState("1");
 
   const total = (items ?? []).reduce((sum, item) => sum + Number(item.total_price ?? 0), 0);
+  const resumo = resumoValores((items ?? []).map((i) => ({ quantity: i.quantity, unit_price: i.unit_price, billing: (i.billing ?? i.product?.billing ?? "one_time") as ProductBilling })));
+  const temRecorrencia = resumo.mensal > 0 || resumo.porHora > 0;
 
   const handleAdd = async () => {
     const product = products?.find((p) => p.id === selectedProduct);
@@ -175,6 +178,13 @@ export function DealProductsSection({ dealId, currency }: { dealId: string; curr
                 <TableCell colSpan={3} className="text-right font-medium">Total</TableCell>
                 <TableCell className="text-right font-semibold tabular-nums">
                   {formatCurrency(total, currency)}
+                  {temRecorrencia && (
+                    <span className="block text-xs font-normal" style={{ color: "var(--via-text-muted)" }} data-testid="deal-products-recorrencia">
+                      {resumo.avulso > 0 ? `${formatCurrency(resumo.avulso, currency)} único · ` : ""}
+                      {resumo.mensal > 0 ? `${formatCurrency(resumo.mensal, currency)}/mês (${formatCurrency(resumo.anual, currency)}/ano)` : ""}
+                      {resumo.porHora > 0 ? ` · ${formatCurrency(resumo.porHora, currency)} em horas` : ""}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell />
               </TableRow>

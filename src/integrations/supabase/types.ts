@@ -1570,6 +1570,7 @@ export type Database = {
       }
       deal_products: {
         Row: {
+          billing: string
           deal_id: string
           id: string
           product_id: string
@@ -1578,6 +1579,7 @@ export type Database = {
           unit_price: number
         }
         Insert: {
+          billing?: string
           deal_id: string
           id?: string
           product_id: string
@@ -1586,6 +1588,7 @@ export type Database = {
           unit_price: number
         }
         Update: {
+          billing?: string
           deal_id?: string
           id?: string
           product_id?: string
@@ -3218,6 +3221,8 @@ export type Database = {
           business_description: string | null
           business_sector: string | null
           company_size: string | null
+          business_model: string
+          sells: string
           created_at: string
           currency: string
           good_response_example: string | null
@@ -3239,6 +3244,8 @@ export type Database = {
           business_description?: string | null
           business_sector?: string | null
           company_size?: string | null
+          business_model?: string
+          sells?: string
           created_at?: string
           currency?: string
           good_response_example?: string | null
@@ -3260,6 +3267,8 @@ export type Database = {
           business_description?: string | null
           business_sector?: string | null
           company_size?: string | null
+          business_model?: string
+          sells?: string
           created_at?: string
           currency?: string
           good_response_example?: string | null
@@ -3396,6 +3405,11 @@ export type Database = {
           stock_minimum_alert: number | null
           stock_quantity: number | null
           track_stock: boolean | null
+          kind: string
+          billing: string
+          unit: string | null
+          duration_minutes: number | null
+          setup_fee: number
           updated_at: string
         }
         Insert: {
@@ -3412,6 +3426,11 @@ export type Database = {
           stock_minimum_alert?: number | null
           stock_quantity?: number | null
           track_stock?: boolean | null
+          kind?: string
+          billing?: string
+          unit?: string | null
+          duration_minutes?: number | null
+          setup_fee?: number
           updated_at?: string
         }
         Update: {
@@ -3428,6 +3447,11 @@ export type Database = {
           stock_minimum_alert?: number | null
           stock_quantity?: number | null
           track_stock?: boolean | null
+          kind?: string
+          billing?: string
+          unit?: string | null
+          duration_minutes?: number | null
+          setup_fee?: number
           updated_at?: string
         }
         Relationships: [

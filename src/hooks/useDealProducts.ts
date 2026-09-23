@@ -11,7 +11,8 @@ export interface DealProduct {
   unit_price: number;
   /** Coluna gerada no banco (`quantity * unit_price`). Só leitura. */
   total_price: number | null;
-  product: { id: string; name: string; currency: string } | null;
+  billing: string | null;
+  product: { id: string; name: string; currency: string; billing?: string | null } | null;
 }
 
 export function useDealProducts(dealId: string | null) {
@@ -21,7 +22,7 @@ export function useDealProducts(dealId: string | null) {
     queryFn: async (): Promise<DealProduct[]> => {
       const { data, error } = await supabase
         .from("deal_products")
-        .select("id, deal_id, product_id, quantity, unit_price, total_price, product:products(id, name, currency)")
+        .select("id, deal_id, product_id, quantity, unit_price, total_price, billing, product:products(id, name, currency, billing)")
         .eq("deal_id", dealId!);
       if (error) throw error;
       return (data ?? []) as unknown as DealProduct[];
@@ -72,11 +73,14 @@ export function useAddDealProduct() {
       quantity: number;
       unitPrice: number;
     }) => {
+      // A cobrança do item é a do produto no momento da inclusão.
+      const { data: produto } = await supabase.from("products").select("billing").eq("id", input.productId).maybeSingle();
       const { error } = await supabase.from("deal_products").insert({
         deal_id: input.dealId,
         product_id: input.productId,
         quantity: input.quantity,
         unit_price: input.unitPrice,
+        billing: produto?.billing ?? "one_time",
       });
       if (error) throw error;
       await syncDealValue(input.dealId);

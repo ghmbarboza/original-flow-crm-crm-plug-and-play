@@ -35,7 +35,7 @@ test("Formulários: campo condicional, origem por UTM e embed", async ({ page })
   await expect(page.getByText(`/f/${slug}`)).toBeVisible();
 
   // Embed disponível.
-  await page.getByRole("button", { name: "Código de embed" }).last().click();
+  await page.getByRole("button", { name: "Código de embed" }).first().click();
   await expect(page.getByTestId("embed-script")).toContainText(`capture-form-embed?form=${slug}`);
   await page.keyboard.press("Escape");
 

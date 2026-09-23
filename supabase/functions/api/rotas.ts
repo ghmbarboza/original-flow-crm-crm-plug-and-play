@@ -238,10 +238,19 @@ async function criarNegocio(admin: SupabaseClient, chave: Chave, d: Dados): Prom
     stageId = data?.id ?? null;
   }
   const ownerId = await usuarioPorEmail(admin, chave.orgId, texto(d.owner_email));
+  let companyId = texto(d.company_id);
+  const { data: org } = await admin.from("organizations").select("business_model").eq("id", chave.orgId).maybeSingle();
+  if (!companyId) {
+    const { data: ct } = await admin.from("contacts").select("company_id").eq("id", contatoId).maybeSingle();
+    companyId = (ct?.company_id as string | null) ?? null;
+  }
+  if (org?.business_model === "b2b" && !companyId) {
+    throw new ErroApi(422, "Esta organização vende B2B: informe company_id ou um contato com empresa.");
+  }
   const { data: deal, error } = await admin.from("deals").insert({
     org_id: chave.orgId,
     contact_id: contatoId,
-    company_id: texto(d.company_id),
+    company_id: companyId,
     title: texto(d.title) ?? "Negócio",
     value: numero(d.value) ?? 0,
     currency: texto(d.currency) ?? "BRL",

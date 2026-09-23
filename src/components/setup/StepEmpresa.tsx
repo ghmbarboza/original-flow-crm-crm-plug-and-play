@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BUSINESS_MODEL_LABELS, SELLS_LABELS, type BusinessModel, type Sells } from "@/lib/produtos";
 import { Textarea } from "@/components/ui/textarea";
 import { BUSINESS_SECTORS, COMPANY_SIZES, useOrganization, useSaveSetupStep } from "@/hooks/useSetup";
 import { PularEtapa } from "@/components/setup/PularEtapa";
@@ -32,6 +33,8 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
     company_size: "",
     business_description: "",
     main_problem_solved: "",
+    business_model: "mixed" as BusinessModel,
+    sells: "both" as Sells,
   });
 
   // Hidrata UMA vez — ver a mesma trava em StepPublico. Um refetch da
@@ -48,6 +51,8 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
       company_size: org.company_size ?? "",
       business_description: org.business_description ?? "",
       main_problem_solved: org.main_problem_solved ?? "",
+      business_model: ((org as { business_model?: BusinessModel }).business_model ?? "mixed"),
+      sells: ((org as { sells?: Sells }).sells ?? "both"),
     });
   }, [org]);
 
@@ -75,6 +80,8 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
           company_size: form.company_size || null,
           business_description: form.business_description.trim(),
           main_problem_solved: form.main_problem_solved.trim(),
+          business_model: form.business_model,
+          sells: form.sells,
         },
       });
       onNext();
@@ -157,6 +164,51 @@ export function StepEmpresa({ onNext, onBack }: { onNext: () => void; onBack?: (
           </p>
         </div>
       )}
+
+      <div className="space-y-2">
+        <Label>Como você vende</Label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(Object.keys(BUSINESS_MODEL_LABELS) as BusinessModel[]).map((m) => {
+            const ativo = form.business_model === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                data-testid="setup-business-model"
+                data-model={m}
+                onClick={() => setForm({ ...form, business_model: m })}
+                className="rounded-lg border p-3 text-left transition-colors"
+                style={{ borderColor: ativo ? "var(--via-navy)" : "var(--via-border)", background: ativo ? "var(--via-surface)" : "transparent" }}
+              >
+                <span className="block text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>{BUSINESS_MODEL_LABELS[m].label}</span>
+                <span className="block text-xs" style={{ color: "var(--via-text-muted)" }}>{BUSINESS_MODEL_LABELS[m].description}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>O que você vende</Label>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(SELLS_LABELS) as Sells[]).map((v) => {
+            const ativo = form.sells === v;
+            return (
+              <button
+                key={v}
+                type="button"
+                data-testid="setup-sells"
+                data-sells={v}
+                onClick={() => setForm({ ...form, sells: v })}
+                className="rounded-full border px-3 py-1.5 text-sm transition-colors"
+                style={{ borderColor: ativo ? "var(--via-navy)" : "var(--via-border)", background: ativo ? "var(--via-surface)" : "transparent", color: "var(--via-text-primary)" }}
+              >
+                {SELLS_LABELS[v]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="space-y-2">
         <Label>Tamanho da equipe (opcional)</Label>

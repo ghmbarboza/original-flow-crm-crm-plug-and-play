@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/select";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useContacts } from "@/hooks/useContacts";
+import { useOrganization } from "@/hooks/useSetup";
+import { escondeEmpresa, exigeEmpresa } from "@/lib/produtos";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
 import {
   useCreateDeal, useStages, useUpdateDeal, type Deal,
@@ -41,6 +43,8 @@ export function DealFormDialog({
   const { data: members } = useOrgMembers();
   const createDeal = useCreateDeal();
   const updateDeal = useUpdateDeal();
+  const { data: org } = useOrganization();
+  const modelo = (org as { business_model?: string } | null | undefined)?.business_model ?? "mixed";
 
   const [form, setForm] = useState({
     title: "",
@@ -83,6 +87,10 @@ export function DealFormDialog({
       return;
     }
 
+    if (exigeEmpresa(modelo) && form.company_id === NONE) {
+      toast.error("Neste modelo de negócio (B2B) todo negócio precisa de uma empresa.");
+      return;
+    }
     const stageId = form.stage_id === NONE ? null : form.stage_id;
     // A probabilidade acompanha a etapa escolhida.
     const stage = stages?.find((s) => s.id === stageId);
@@ -216,8 +224,9 @@ export function DealFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="company">Empresa</Label>
+            {!escondeEmpresa(modelo) && (
+<div className="space-y-2">
+              <Label htmlFor="company">Empresa{exigeEmpresa(modelo) ? " (obrigatória)" : ""}</Label>
               <Select
                 value={form.company_id}
                 onValueChange={(value) => setForm({ ...form, company_id: value })}
@@ -235,6 +244,7 @@ export function DealFormDialog({
                 </SelectContent>
               </Select>
             </div>
+)}
           </div>
 
           <DialogFooter>

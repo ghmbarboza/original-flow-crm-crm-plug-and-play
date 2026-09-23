@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useDeleteProduct, useProductMetrics, type Product } from "@/hooks/useProducts";
 import { formatCurrency } from "@/lib/format";
+import { BILLING_SUFIXO, KIND_LABELS, type ProductBilling, type ProductKind } from "@/lib/produtos";
 
 /** Célula de estoque: ilimitado, disponível ou destaque quando abaixo do mínimo. */
 function StockCell({ product }: { product: Product }) {
@@ -89,7 +90,7 @@ export function ProductsTable({ products, isLoading, isFiltered, onEdit, onCreat
               Nenhum produto ainda
             </p>
             <p className="mb-4 text-sm" style={{ color: "var(--via-text-muted)" }}>
-              Cadastre produtos para vincular a negócios e calcular o valor automaticamente.
+              Cadastre produtos, serviços e assinaturas para vincular a negócios e calcular o valor automaticamente.
             </p>
             <Button onClick={onCreate}>Criar primeiro produto</Button>
           </>
@@ -105,6 +106,7 @@ export function ProductsTable({ products, isLoading, isFiltered, onEdit, onCreat
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead className="text-right">Preço</TableHead>
               <TableHead className="text-right">Estoque</TableHead>
@@ -118,14 +120,17 @@ export function ProductsTable({ products, isLoading, isFiltered, onEdit, onCreat
             {products.map((product) => (
               <TableRow key={product.id} className="cursor-pointer" onClick={() => onEdit(product)}>
                 <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell style={{ color: "var(--via-text-body)" }} data-testid="product-kind-cell">
+                  {KIND_LABELS[(product.kind as ProductKind) ?? "product"]}
+                </TableCell>
                 <TableCell className="max-w-md truncate" style={{ color: "var(--via-text-body)" }}>
                   {product.description ?? "—"}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {formatCurrency(product.price, product.currency)}
+                  {formatCurrency(product.price, product.currency)}{BILLING_SUFIXO[(product.billing as ProductBilling) ?? "one_time"]}
                 </TableCell>
                 <TableCell className="text-right" data-testid="product-stock">
-                  <StockCell product={product} />
+                  {(product.kind ?? "product") === "product" ? <StockCell product={product} /> : <span style={{ color: "var(--via-text-muted)" }}>—</span>}
                 </TableCell>
                 <TableCell className="text-right tabular-nums" style={{ color: "var(--via-text-body)" }}>
                   {metrics?.get(product.id)?.deals_in_progress ?? 0}

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BILLING_LABELS, BILLING_SUFIXO, KIND_LABELS, type ProductBilling, type ProductKind } from "@/lib/produtos";
 import { useCreateProduct, useUpdateProduct, type Product } from "@/hooks/useProducts";
 
 interface Props {
@@ -30,11 +32,21 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
     track_stock: false,
     stock_quantity: "",
     stock_minimum_alert: "",
+    kind: "product" as ProductKind,
+    billing: "one_time" as ProductBilling,
+    unit: "",
+    duration_minutes: "",
+    setup_fee: "",
   });
 
   useEffect(() => {
     if (!open) return;
     setForm({
+      kind: ((product?.kind as ProductKind | undefined) ?? "product"),
+      billing: ((product?.billing as ProductBilling | undefined) ?? "one_time"),
+      unit: product?.unit ?? "",
+      duration_minutes: product?.duration_minutes !== null && product?.duration_minutes !== undefined ? String(product.duration_minutes) : "",
+      setup_fee: product?.setup_fee ? String(product.setup_fee) : "",
       name: product?.name ?? "",
       description: product?.description ?? "",
       price: product ? String(product.price ?? "") : "",
@@ -51,7 +63,7 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
     event.preventDefault();
 
     if (!form.name.trim()) {
-      toast.error("Informe o nome do produto.");
+      toast.error("Informe o nome do item.");
       return;
     }
 
@@ -60,7 +72,12 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
       description: form.description.trim() || null,
       price: form.price.trim() ? Number(form.price) : 0,
       is_active: form.is_active,
-      track_stock: form.track_stock,
+      kind: form.kind,
+      billing: form.billing,
+      unit: form.unit.trim() || null,
+      duration_minutes: form.kind !== "product" && form.duration_minutes.trim() ? Math.max(0, Number(form.duration_minutes)) : null,
+      setup_fee: form.setup_fee.trim() ? Math.max(0, Number(form.setup_fee)) : 0,
+      track_stock: form.kind === "product" && form.track_stock,
       stock_quantity: form.track_stock && form.stock_quantity.trim() !== "" ? Math.max(0, Number(form.stock_quantity)) : null,
       stock_minimum_alert: form.track_stock && form.stock_minimum_alert.trim() !== "" ? Math.max(0, Number(form.stock_minimum_alert)) : null,
     };
@@ -113,8 +130,28 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select value={form.kind} onValueChange={(v) => setForm({ ...form, kind: v as ProductKind, ...(v === "subscription" && form.billing === "one_time" ? { billing: "monthly" as ProductBilling } : {}) })}>
+                  <SelectTrigger aria-label="Tipo do item" data-testid="product-kind"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(KIND_LABELS) as ProductKind[]).map((k) => <SelectItem key={k} value={k}>{KIND_LABELS[k]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Cobrança</Label>
+                <Select value={form.billing} onValueChange={(v) => setForm({ ...form, billing: v as ProductBilling })}>
+                  <SelectTrigger aria-label="Forma de cobrança" data-testid="product-billing"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(BILLING_LABELS) as ProductBilling[]).map((b) => <SelectItem key={b} value={b}>{BILLING_LABELS[b]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="price">Preço (R$)</Label>
+              <Label htmlFor="price">Preço (R$){BILLING_SUFIXO[form.billing] ? ` ${BILLING_SUFIXO[form.billing]}` : ""}</Label>
               <Input
                 id="price"
                 type="number"
@@ -124,7 +161,24 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
               />
             </div>
-            {/* Controle de estoque (Parte 7 do Sprint 10B). */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="unit">Unidade</Label>
+                <Input id="unit" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder={form.kind === "product" ? "un, kg, caixa" : form.billing === "hourly" ? "hora" : "sessão, mês, pacote"} />
+              </div>
+              {form.kind !== "product" && (
+                <div className="space-y-2">
+                  <Label htmlFor="duration_minutes">Duração (min)</Label>
+                  <Input id="duration_minutes" type="number" min="0" value={form.duration_minutes} onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })} placeholder="60" />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="setup_fee">Taxa de adesão (R$)</Label>
+                <Input id="setup_fee" type="number" min="0" step="0.01" value={form.setup_fee} onChange={(e) => setForm({ ...form, setup_fee: e.target.value })} placeholder="0" />
+              </div>
+            </div>
+            {/* Controle de estoque (Parte 7 do Sprint 10B). Só faz sentido para produto físico. */}
+            {form.kind === "product" && (
             <div className="space-y-3 rounded-lg border p-3" style={{ borderColor: "var(--via-border)" }}>
               <div className="flex items-center justify-between">
                 <div>
@@ -167,10 +221,11 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
                 </div>
               )}
             </div>
+            )}
 
             <div className="flex items-center justify-between rounded-lg border p-3" style={{ borderColor: "var(--via-border)" }}>
               <div>
-                <Label htmlFor="is_active">Produto ativo</Label>
+                <Label htmlFor="is_active">Item ativo</Label>
                 <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
                   Só produtos ativos aparecem no seletor de negócios.
                 </p>

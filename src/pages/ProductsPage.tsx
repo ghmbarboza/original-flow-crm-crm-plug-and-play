@@ -11,6 +11,7 @@ import { ProductsTable } from "@/components/products/ProductsTable";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import { ProductImportDialog } from "@/components/products/ProductImportDialog";
 import { useProducts, type Product } from "@/hooks/useProducts";
+import { KIND_LABELS, type ProductKind } from "@/lib/produtos";
 
 const ALL = "__all__";
 
@@ -19,6 +20,7 @@ export default function ProductsPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
+  const [kindFilter, setKindFilter] = useState<string>(ALL);
   const [editing, setEditing] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -28,13 +30,14 @@ export default function ProductsPage() {
     return (products ?? []).filter((product) => {
       if (statusFilter === "active" && !product.is_active) return false;
       if (statusFilter === "inactive" && product.is_active) return false;
+      if (kindFilter !== ALL && (product.kind ?? "product") !== kindFilter) return false;
       if (!term) return true;
       const haystack = [product.name, product.description].filter(Boolean).join(" ").toLowerCase();
       return haystack.includes(term);
     });
-  }, [products, search, statusFilter]);
+  }, [products, search, statusFilter, kindFilter]);
 
-  const isFiltered = search.trim() !== "" || statusFilter !== ALL;
+  const isFiltered = search.trim() !== "" || statusFilter !== ALL || kindFilter !== ALL;
 
   const openCreate = () => {
     setEditing(null);
@@ -56,7 +59,7 @@ export default function ProductsPage() {
               className="font-display text-3xl font-medium tracking-tight"
               style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}
             >
-              Produtos
+              Produtos e serviços
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -66,7 +69,7 @@ export default function ProductsPage() {
             </Button>
             <Button onClick={openCreate} className="gap-1.5" data-testid="product-new">
               <Plus className="h-4 w-4" strokeWidth={1.5} />
-              Novo produto
+              Novo item
             </Button>
           </div>
         </div>
@@ -104,6 +107,15 @@ export default function ProductsPage() {
               <SelectItem value={ALL}>Todos</SelectItem>
               <SelectItem value="active">Ativos</SelectItem>
               <SelectItem value="inactive">Inativos</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={kindFilter} onValueChange={setKindFilter}>
+            <SelectTrigger className="w-44" aria-label="Filtrar por tipo" data-testid="product-kind-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos os tipos</SelectItem>
+              {(Object.keys(KIND_LABELS) as ProductKind[]).map((k) => <SelectItem key={k} value={k}>{KIND_LABELS[k]}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

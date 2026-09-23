@@ -54,7 +54,7 @@ export function AppSidebar() {
         { title: "Empresas", url: "/companies", icon: Building2 },
         { title: "Negócios", url: "/deals", icon: TrendingUp },
         { title: "Tarefas", url: "/tasks", icon: CheckSquare },
-        { title: "Produtos", url: "/products", icon: Package },
+        { title: "Produtos e serviços", url: "/products", icon: Package },
       ],
     },
     {
