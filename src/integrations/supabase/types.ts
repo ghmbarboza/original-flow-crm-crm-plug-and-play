@@ -1002,64 +1002,6 @@ export type Database = {
           },
         ]
       }
-      campaign_recipients: {
-        Row: {
-          campaign_id: string
-          channel_contact_id: string | null
-          contact_id: string | null
-          error_msg: string | null
-          id: string
-          org_id: string
-          phone_number: string
-          sent_at: string | null
-          status: string
-        }
-        Insert: {
-          campaign_id: string
-          channel_contact_id?: string | null
-          contact_id?: string | null
-          error_msg?: string | null
-          id?: string
-          org_id: string
-          phone_number: string
-          sent_at?: string | null
-          status?: string
-        }
-        Update: {
-          campaign_id?: string
-          channel_contact_id?: string | null
-          contact_id?: string | null
-          error_msg?: string | null
-          id?: string
-          org_id?: string
-          phone_number?: string
-          sent_at?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "campaign_recipients_campaign_id_fkey"
-            columns: ["campaign_id"]
-            isOneToOne: false
-            referencedRelation: "campaigns"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "campaign_recipients_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "campaign_recipients_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       calls: {
         Row: {
           activity_id: string | null
@@ -1142,7 +1084,101 @@ export type Database = {
           transcript?: Json
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calls_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "phone_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_recipients: {
+        Row: {
+          campaign_id: string
+          channel_contact_id: string | null
+          contact_id: string | null
+          error_msg: string | null
+          id: string
+          org_id: string
+          phone_number: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          channel_contact_id?: string | null
+          contact_id?: string | null
+          error_msg?: string | null
+          id?: string
+          org_id: string
+          phone_number: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          channel_contact_id?: string | null
+          contact_id?: string | null
+          error_msg?: string | null
+          id?: string
+          org_id?: string
+          phone_number?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       campaigns: {
         Row: {
@@ -4133,7 +4169,15 @@ export type Database = {
           twilio_sid?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "phone_numbers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pipeline_stages: {
         Row: {
@@ -5028,7 +5072,15 @@ export type Database = {
           voice_id?: string | null
           webhook_secret?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "voice_agents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       voice_campaign_contacts: {
         Row: {
@@ -5064,7 +5116,36 @@ export type Database = {
           org_id?: string
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "voice_campaign_contacts_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_campaign_contacts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "voice_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_campaign_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_campaign_contacts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       voice_campaigns: {
         Row: {
@@ -5118,7 +5199,22 @@ export type Database = {
           total?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "voice_campaigns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_campaigns_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "phone_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       webhook_deliveries: {
         Row: {
@@ -5577,14 +5673,6 @@ export type Database = {
         }
         Returns: number
       }
-      incrementar_campanha_voz: {
-        Args: { p_campaign: string; p_campo: string; p_quanto?: number }
-        Returns: undefined
-      }
-      confirmar_campo_memoria: {
-        Args: { p_contact: string; p_campo: string; p_valor: string }
-        Returns: Json
-      }
       buscar_conhecimento: {
         Args: { p_consulta: string; p_limite?: number; p_org: string }
         Returns: {
@@ -5598,6 +5686,10 @@ export type Database = {
       chamar_function: {
         Args: { p_function: string; p_timeout_ms?: number }
         Returns: number
+      }
+      confirmar_campo_memoria: {
+        Args: { p_campo: string; p_contact: string; p_valor: string }
+        Returns: Json
       }
       consumir_cota_api: {
         Args: { p_key: string; p_limite: number }
@@ -5694,6 +5786,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      incrementar_campanha_voz: {
+        Args: { p_campaign: string; p_campo: string; p_quanto?: number }
+        Returns: undefined
       }
       instancia_sem_usuarios: { Args: never; Returns: boolean }
       internal_cron_secret: { Args: never; Returns: string }
