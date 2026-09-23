@@ -96,6 +96,7 @@ export type Database = {
           answer: string
           created_at: string
           from_template_id: string | null
+          fts: unknown
           id: string
           order: number
           org_id: string
@@ -105,6 +106,7 @@ export type Database = {
           answer: string
           created_at?: string
           from_template_id?: string | null
+          fts?: unknown
           id?: string
           order?: number
           org_id: string
@@ -114,6 +116,7 @@ export type Database = {
           answer?: string
           created_at?: string
           from_template_id?: string | null
+          fts?: unknown
           id?: string
           order?: number
           org_id?: string
@@ -140,6 +143,7 @@ export type Database = {
         Row: {
           created_at: string
           from_template_id: string | null
+          fts: unknown
           id: string
           objection: string
           order: number
@@ -149,6 +153,7 @@ export type Database = {
         Insert: {
           created_at?: string
           from_template_id?: string | null
+          fts?: unknown
           id?: string
           objection: string
           order?: number
@@ -158,6 +163,7 @@ export type Database = {
         Update: {
           created_at?: string
           from_template_id?: string | null
+          fts?: unknown
           id?: string
           objection?: string
           order?: number
@@ -2846,6 +2852,184 @@ export type Database = {
           },
         ]
       }
+      knowledge_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          document_id: string
+          fts: unknown
+          id: string
+          org_id: string
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          document_id: string
+          fts?: unknown
+          id?: string
+          org_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          document_id?: string
+          fts?: unknown
+          id?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_documents: {
+        Row: {
+          chunk_count: number
+          content: string
+          created_at: string
+          created_by: string | null
+          doc_type: string
+          error_message: string | null
+          file_name: string | null
+          fingerprint: string | null
+          id: string
+          ingestion_report: Json
+          is_active: boolean
+          org_id: string
+          source_url: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          chunk_count?: number
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          doc_type?: string
+          error_message?: string | null
+          file_name?: string | null
+          fingerprint?: string | null
+          id?: string
+          ingestion_report?: Json
+          is_active?: boolean
+          org_id: string
+          source_url?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          chunk_count?: number
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          doc_type?: string
+          error_message?: string | null
+          file_name?: string | null
+          fingerprint?: string | null
+          id?: string
+          ingestion_report?: Json
+          is_active?: boolean
+          org_id?: string
+          source_url?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_documents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_facts: {
+        Row: {
+          always_include: boolean
+          category: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          expires_at: string | null
+          fact: string
+          fts: unknown
+          id: string
+          is_active: boolean
+          org_id: string
+          question: string | null
+          source: string | null
+          status: string
+          title: string
+          updated_at: string
+          valid_from: string
+        }
+        Insert: {
+          always_include?: boolean
+          category?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          expires_at?: string | null
+          fact: string
+          fts?: unknown
+          id?: string
+          is_active?: boolean
+          org_id: string
+          question?: string | null
+          source?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          valid_from?: string
+        }
+        Update: {
+          always_include?: boolean
+          category?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          expires_at?: string | null
+          fact?: string
+          fts?: unknown
+          id?: string
+          is_active?: boolean
+          org_id?: string
+          question?: string | null
+          source?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          valid_from?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_facts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_score_history: {
         Row: {
           channel: string | null
@@ -4198,6 +4382,77 @@ export type Database = {
           },
         ]
       }
+      unanswered_questions: {
+        Row: {
+          contact_id: string | null
+          context: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          metadata: Json
+          org_id: string
+          question: string
+          resolved_fact_id: string | null
+          status: string
+        }
+        Insert: {
+          contact_id?: string | null
+          context?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          metadata?: Json
+          org_id: string
+          question: string
+          resolved_fact_id?: string | null
+          status?: string
+        }
+        Update: {
+          contact_id?: string | null
+          context?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          metadata?: Json
+          org_id?: string
+          question?: string
+          resolved_fact_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unanswered_questions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unanswered_questions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unanswered_questions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unanswered_questions_resolved_fact_id_fkey"
+            columns: ["resolved_fact_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_facts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -4676,6 +4931,16 @@ export type Database = {
         }
         Returns: number
       }
+      buscar_conhecimento: {
+        Args: { p_consulta: string; p_limite?: number; p_org: string }
+        Returns: {
+          content: string
+          rank: number
+          source_id: string
+          source_type: string
+          title: string
+        }[]
+      }
       chamar_function: {
         Args: { p_function: string; p_timeout_ms?: number }
         Returns: number
@@ -4729,6 +4994,45 @@ export type Database = {
       get_org_api_key: {
         Args: { _org_id: string; _service: string }
         Returns: string
+      }
+      gravar_documento_conhecimento: {
+        Args: {
+          p_chunks: string[]
+          p_content: string
+          p_doc_type: string
+          p_document_id: string
+          p_error_message: string
+          p_file_name: string
+          p_fingerprint: string
+          p_ingestion_report: Json
+          p_source_url: string
+          p_status: string
+          p_title: string
+        }
+        Returns: {
+          chunk_count: number
+          content: string
+          created_at: string
+          created_by: string | null
+          doc_type: string
+          error_message: string | null
+          file_name: string | null
+          fingerprint: string | null
+          id: string
+          ingestion_report: Json
+          is_active: boolean
+          org_id: string
+          source_url: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "knowledge_documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       has_role: {
         Args: {
@@ -4804,6 +5108,8 @@ export type Database = {
       }
       segredo_conexao_crm: { Args: { p_connection: string }; Returns: string }
       semear_biblioteca_modelos: { Args: never; Returns: number }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       url_do_projeto: { Args: never; Returns: string }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
       vault_update_secret: {
