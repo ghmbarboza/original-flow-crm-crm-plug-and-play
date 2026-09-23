@@ -1521,6 +1521,106 @@ export type Database = {
           },
         ]
       }
+      crm_connections: {
+        Row: {
+          account_domain: string | null
+          api_base: string | null
+          auth_type: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          last_error: string | null
+          last_sync_at: string | null
+          org_id: string
+          provider: string
+          stage_map: Json
+          status: string
+          structure: Json
+          updated_at: string
+          vault_secret_id: string | null
+        }
+        Insert: {
+          account_domain?: string | null
+          api_base?: string | null
+          auth_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          org_id: string
+          provider: string
+          stage_map?: Json
+          status?: string
+          structure?: Json
+          updated_at?: string
+          vault_secret_id?: string | null
+        }
+        Update: {
+          account_domain?: string | null
+          api_base?: string | null
+          auth_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          org_id?: string
+          provider?: string
+          stage_map?: Json
+          status?: string
+          structure?: Json
+          updated_at?: string
+          vault_secret_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_oauth_states: {
+        Row: {
+          app_origin: string | null
+          created_at: string
+          org_id: string
+          provider: string
+          state: string
+          user_id: string | null
+        }
+        Insert: {
+          app_origin?: string | null
+          created_at?: string
+          org_id: string
+          provider: string
+          state: string
+          user_id?: string | null
+        }
+        Update: {
+          app_origin?: string | null
+          created_at?: string
+          org_id?: string
+          provider?: string
+          state?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_oauth_states_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_field_definitions: {
         Row: {
           created_at: string
@@ -2541,6 +2641,7 @@ export type Database = {
       imports: {
         Row: {
           completed_at: string | null
+          connection_id: string | null
           created_at: string
           created_by: string | null
           error_report: string | null
@@ -2556,6 +2657,7 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          connection_id?: string | null
           created_at?: string
           created_by?: string | null
           error_report?: string | null
@@ -2571,6 +2673,7 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          connection_id?: string | null
           created_at?: string
           created_by?: string | null
           error_report?: string | null
@@ -2585,6 +2688,13 @@ export type Database = {
           undone_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "imports_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "crm_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "imports_org_id_fkey"
             columns: ["org_id"]
@@ -4689,6 +4799,7 @@ export type Database = {
         Args: { p_template: string; p_vars: Json }
         Returns: string
       }
+      segredo_conexao_crm: { Args: { p_connection: string }; Returns: string }
       semear_biblioteca_modelos: { Args: never; Returns: number }
       url_do_projeto: { Args: never; Returns: string }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
