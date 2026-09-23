@@ -2484,6 +2484,93 @@ export type Database = {
         }
         Relationships: []
       }
+      import_rows: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          error: string | null
+          id: string
+          import_id: string
+          org_id: string
+          raw: Json
+          row_number: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error?: string | null
+          id?: string
+          import_id: string
+          org_id: string
+          raw?: Json
+          row_number: number
+          status: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          error?: string | null
+          id?: string
+          import_id?: string
+          org_id?: string
+          raw?: Json
+          row_number?: number
+          status?: string
+        }
+        Relationships: []
+      }
+      imports: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_report: string | null
+          file_name: string | null
+          id: string
+          kind: string
+          mapping: Json
+          org_id: string
+          source: string
+          stats: Json
+          status: string
+          undone_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_report?: string | null
+          file_name?: string | null
+          id?: string
+          kind: string
+          mapping?: Json
+          org_id: string
+          source?: string
+          stats?: Json
+          status?: string
+          undone_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_report?: string | null
+          file_name?: string | null
+          id?: string
+          kind?: string
+          mapping?: Json
+          org_id?: string
+          source?: string
+          stats?: Json
+          status?: string
+          undone_at?: string | null
+        }
+        Relationships: []
+      }
       integration_configs: {
         Row: {
           config: Json
@@ -4477,6 +4564,7 @@ export type Database = {
         Args: { new_description?: string; new_name: string; new_secret: string }
         Returns: string
       }
+      desfazer_importacao: { Args: { p_import: string }; Returns: Json }
       criar_chave_api: {
         Args: { p_name: string; p_rate_limit?: number; p_scopes: string[] }
         Returns: Json

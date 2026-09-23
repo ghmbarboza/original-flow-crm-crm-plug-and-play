@@ -13,12 +13,13 @@ import NotificationsTab from "@/components/settings/NotificationsTab";
 import CaptureFormsSettings from "@/components/settings/CaptureFormsSettings";
 import EmailSettings from "@/components/settings/EmailSettings";
 import ApiSettings from "@/components/settings/ApiSettings";
+import ImportSettings from "@/components/settings/ImportSettings";
 import AtendimentoSettings from "@/components/settings/AtendimentoSettings";
 import CampaignsPage from "@/pages/CampaignsPage";
 import LibraryPage from "@/pages/LibraryPage";
 import { useAuth } from "@/hooks/useAuth";
 
-const VALID_TABS = ["general", "notifications", "security", "atendimento", "integrations", "email", "api", "capture", "ia", "automations", "campaigns", "library", "team", "demonstration", "onboarding"] as const;
+const VALID_TABS = ["general", "notifications", "security", "atendimento", "integrations", "email", "api", "importacao", "capture", "ia", "automations", "campaigns", "library", "team", "demonstration", "onboarding"] as const;
 type Tab = (typeof VALID_TABS)[number];
 
 const TAB_META: Record<Tab, { title: string; description: string }> = {
@@ -45,6 +46,10 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
   api: {
     title: "API",
     description: "Acesso de outras ferramentas e soluções ao CRM: chaves com escopos, chamadas recentes e documentação.",
+  },
+  importacao: {
+    title: "Importação",
+    description: "Traga contatos, empresas, negócios e atividades de outro CRM ou planilha, com de/para de colunas e etapas.",
   },
   capture: {
     title: "Formulários",
@@ -136,6 +141,7 @@ export default function SettingsPage() {
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="integrations">Integrações</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="email">E-mail</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="api">API</TabsTrigger>}
+            {isAdmin && <TabsTrigger data-testid="settings-tab" value="importacao">Importação</TabsTrigger>}
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="capture">Formulários</TabsTrigger>}
             <TabsTrigger data-testid="settings-tab" value="atendimento">Atendimento</TabsTrigger>
             {isAdmin && <TabsTrigger data-testid="settings-tab" value="ia">IA</TabsTrigger>}
@@ -160,6 +166,7 @@ export default function SettingsPage() {
           )}
           {isAdmin && <TabsContent value="email"><EmailSettings /></TabsContent>}
           {isAdmin && <TabsContent value="api"><ApiSettings /></TabsContent>}
+          {isAdmin && <TabsContent value="importacao"><ImportSettings /></TabsContent>}
           {isAdmin && <TabsContent value="capture"><CaptureFormsSettings /></TabsContent>}
           <TabsContent value="atendimento"><AtendimentoSettings /></TabsContent>
           {isAdmin && <TabsContent value="ia"><AISettings /></TabsContent>}
