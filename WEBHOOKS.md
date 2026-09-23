@@ -133,7 +133,7 @@ Campos aceitos: `email`, `phone`/`telefone`/`whatsapp`/`celular`, `name`/`nome` 
 | `lead.created` | `lead.captured`, `lead.qualified`, corpo plano | cria ou completa o contato e garante um negócio aberto |
 | `contact.upsert` | `contact.created`, `contact.updated` | cria ou atualiza o contato, sobrescrevendo os campos enviados |
 | `deal.create` | `deal.created` | cria negócio (`title`, `value`, `stage` pelo nome) |
-| `deal.update` | `deal.updated`, `deal.stage_changed`, `deal.move` | atualiza `deal_id` ou o negócio aberto do contato (`stage`, `value`, `status`, `title`) |
+| `deal.update` | `deal.updated`, `deal.stage_changed`, `deal.move` | atualiza `deal_id` ou o negócio aberto do contato (`stage`, `value`, `status`, `title`) | Aceita também `owner_email` (e-mail de um usuário ativo da organização) para trocar o responsável; o novo dono recebe a notificação de negócio atribuído.
 | `deal.won` / `deal.lost` | | marca o negócio como ganho ou perdido |
 | `activity.create` | `activity.created`, `task.create` | cria atividade (`type`: task, meeting, call, note, email) |
 | `note.create` | `note.created` | registra uma nota |

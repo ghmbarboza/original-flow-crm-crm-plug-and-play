@@ -33,6 +33,14 @@ Deno.serve(async (req) => {
       return json({ ok: false, message: `RPC garantir_infra_do_projeto failed: ${infra.error.message}` });
     }
     const criado = ((infra.data ?? {}) as { criado?: string[] }).criado ?? [];
+
+    // Origem do app (via-flowcrm2.lovable.app, domínio próprio...) para os links
+    // de e-mail e WhatsApp das notificações. Localhost é ignorado no SQL.
+    const origem = req.headers.get("origin") ?? "";
+    if (origem) {
+      const reg = await admin.rpc("registrar_app_url", { p_url: origem });
+      if (reg.error) console.error(`[ensure-auth-trigger] app_url: ${reg.error.message}`);
+    }
     if (criado.length) console.log(`[ensure-auth-trigger] infra recriada: ${criado.join(", ")}`);
 
     // 1. Ensure trigger exists; create if missing

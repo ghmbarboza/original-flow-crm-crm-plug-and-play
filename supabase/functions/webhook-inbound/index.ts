@@ -306,6 +306,14 @@ async function atualizarNegocio(ctx: Ctx, dados: Dados, statusForcado?: "won" | 
   if (titulo) mudancas.title = titulo;
   const etapa = await etapaPorNome(ctx, texto(primeiro(n, "stage", "etapa")));
   if (etapa) mudancas.stage_id = etapa;
+  // Dono pelo e-mail do usuário do CRM (o trigger de notificação avisa quem recebeu).
+  const donoEmail = texto(primeiro(n, "owner_email", "owner", "responsavel_email", "responsavel"));
+  if (donoEmail) {
+    const { data: dono } = await ctx.admin.from("profiles").select("id")
+      .eq("org_id", ctx.orgId).ilike("email", donoEmail).eq("is_active", true).maybeSingle();
+    if (!dono) throw new ErroEntrada(422, `Nenhum usuário ativo com o e-mail ${donoEmail} nesta organização.`);
+    mudancas.owner_id = dono.id;
+  }
 
   const { error } = await ctx.admin.from("deals").update(mudancas).eq("id", dealId);
   if (error) throw new ErroEntrada(500, `Falha ao atualizar o negócio: ${error.message}`);

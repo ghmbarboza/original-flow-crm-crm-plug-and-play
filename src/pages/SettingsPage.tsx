@@ -9,7 +9,7 @@ import EquipeSettings from "@/components/settings/EquipeSettings";
 import DemonstrationSettings from "@/components/settings/DemonstrationSettings";
 import OnboardingSettings from "@/components/settings/OnboardingSettings";
 import AISettings from "@/components/settings/AISettings";
-import NotificationPreferences from "@/components/settings/NotificationPreferences";
+import NotificationsTab from "@/components/settings/NotificationsTab";
 import CaptureFormsSettings from "@/components/settings/CaptureFormsSettings";
 import EmailSettings from "@/components/settings/EmailSettings";
 import AtendimentoSettings from "@/components/settings/AtendimentoSettings";
@@ -27,7 +27,7 @@ const TAB_META: Record<Tab, { title: string; description: string }> = {
   },
   notifications: {
     title: "Notificações",
-    description: "Escolha em quais canais você quer ser avisado para cada tipo de evento.",
+    description: "O que cada pessoa recebe, por onde (app, e-mail, WhatsApp) e o texto de cada aviso.",
   },
   security: {
     title: "Segurança",
@@ -145,7 +145,7 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">{meta.description}</p>
           </div>
           <TabsContent value="general"><GeneralSettings /></TabsContent>
-          <TabsContent value="notifications"><NotificationPreferences /></TabsContent>
+          <TabsContent value="notifications"><NotificationsTab /></TabsContent>
           {isAdmin && <TabsContent value="security"><SecuritySettings /></TabsContent>}
           {isAdmin && (
             <TabsContent value="integrations">

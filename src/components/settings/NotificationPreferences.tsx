@@ -7,52 +7,9 @@ import {
   useSaveNotificationPreference,
   type ChannelPrefs,
 } from "@/hooks/useNotifications";
+import { NOTIFICATION_EVENTS } from "@/hooks/useNotificationTemplates";
 
-/** Eventos que geram notificação, na ordem exibida. */
-const EVENTS: { type: string; label: string; description: string }[] = [
-  { type: "novo_lead", label: "Novo lead", description: "Um formulário de captura gerou um lead." },
-  { type: "deal_ganho", label: "Negócio ganho", description: "Um negócio foi marcado como ganho." },
-  { type: "deal_perdido", label: "Negócio perdido", description: "Um negócio foi marcado como perdido." },
-  { type: "tarefa_atribuida", label: "Tarefa atribuída", description: "Uma tarefa foi atribuída a você." },
-  { type: "tarefa_vencendo", label: "Tarefa vencendo", description: "Uma tarefa sua está próxima do prazo." },
-  { type: "ia_acionou_humano", label: "IA acionou humano", description: "A IA transferiu uma conversa de WhatsApp para atendimento humano." },
-  { type: "mensagem_whatsapp", label: "Mensagem no WhatsApp", description: "Nova mensagem numa conversa de WhatsApp." },
-  { type: "email_recebido", label: "E-mail recebido", description: "Um novo e-mail chegou na caixa de entrada." },
-  // Eventos operacionais de atendimento multicanal (Sprint 8).
-  {
-    type: "conversa_sem_agente",
-    label: "Conversa sem agente",
-    description: "Uma conversa nova entrou e nenhum agente do canal estava disponível.",
-  },
-  {
-    type: "conversa_sem_resposta",
-    label: "Conversa sem resposta",
-    description: "Uma conversa passou do tempo tolerado sem resposta da equipe.",
-  },
-  {
-    type: "agente_no_limite",
-    label: "Agente no limite",
-    description: "Um agente atingiu o máximo de conversas configurado para o canal.",
-  },
-  // Sprint 10A — detecção de intenção de compra.
-  {
-    type: "intencao_compra",
-    label: "Intenção de compra",
-    description: "Um cliente usou palavras que indicam intenção de compra numa conversa.",
-  },
-  // Sprint 10A — agendamento via Cal.com.
-  {
-    type: "agendamento_confirmado",
-    label: "Reunião agendada",
-    description: "Um contato confirmou uma reunião pelo link de agendamento.",
-  },
-  // Sprint 10B — controle de estoque.
-  {
-    type: "estoque_baixo",
-    label: "Estoque baixo",
-    description: "Um produto ficou abaixo do estoque mínimo após uma venda.",
-  },
-];
+const EVENTS = NOTIFICATION_EVENTS;
 
 const CHANNELS: { key: keyof ChannelPrefs; label: string }[] = [
   { key: "channel_in_app", label: "No app" },

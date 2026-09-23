@@ -2716,6 +2716,48 @@ export type Database = {
           },
         ]
       }
+      notification_deliveries: {
+        Row: {
+          attempts: number
+          channel: string
+          created_at: string
+          id: string
+          last_error: string | null
+          notification_id: string
+          org_id: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          notification_id: string
+          org_id: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          notification_id?: string
+          org_id?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           channel_email: boolean
@@ -2753,6 +2795,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_templates: {
+        Row: {
+          body_template: string
+          email_html: string
+          email_subject: string
+          event_type: string
+          id: string
+          org_id: string
+          title_template: string
+          updated_at: string
+          whatsapp_template_name: string | null
+          whatsapp_text: string
+        }
+        Insert: {
+          body_template: string
+          email_html: string
+          email_subject: string
+          event_type: string
+          id?: string
+          org_id: string
+          title_template: string
+          updated_at?: string
+          whatsapp_template_name?: string | null
+          whatsapp_text: string
+        }
+        Update: {
+          body_template?: string
+          email_html?: string
+          email_subject?: string
+          event_type?: string
+          id?: string
+          org_id?: string
+          title_template?: string
+          updated_at?: string
+          whatsapp_template_name?: string | null
+          whatsapp_text?: string
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -4161,6 +4242,33 @@ export type Database = {
       }
       instancia_sem_usuarios: { Args: never; Returns: boolean }
       internal_cron_secret: { Args: never; Returns: string }
+      app_url: { Args: never; Returns: string }
+      listar_modelos_notificacao: {
+        Args: { p_eventos: string[] }
+        Returns: {
+          event_type: string
+          personalizado: boolean
+          title_template: string
+          body_template: string
+          email_subject: string
+          email_html: string
+          whatsapp_text: string
+          whatsapp_template_name: string | null
+        }[]
+      }
+      notification_template_padrao: {
+        Args: { p_event: string }
+        Returns: {
+          title_template: string
+          body_template: string
+          email_subject: string
+          email_html: string
+          whatsapp_text: string
+        }[]
+      }
+      notify_due_tasks: { Args: never; Returns: number }
+      registrar_app_url: { Args: { p_url: string }; Returns: undefined }
+      renderizar_modelo: { Args: { p_template: string; p_vars: Json }; Returns: string }
       mover_negocio: {
         Args: {
           p_deal: string
