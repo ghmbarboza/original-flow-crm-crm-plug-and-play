@@ -16,12 +16,21 @@ test("IA > Análises salva a configuração; ficha do contato mostra e confirma 
   await expect(page.getByText("Configuração da análise salva.")).toBeVisible();
 
   // Contato novo e o card na ficha.
+  const nome = `E2E Memória ${marca}`;
   await page.goto("/contacts");
   await page.getByTestId("contact-new").click();
-  await page.getByTestId("contact-first-name").fill(`E2E Memória ${marca}`);
-  await page.getByTestId("contact-save").click();
-  await expect(page.getByText(`E2E Memória ${marca}`)).toBeVisible();
-  await page.getByText(`E2E Memória ${marca}`).first().click();
+  const dialog = page.getByTestId("contact-dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.locator("#first_name").fill(nome);
+  await page.getByTestId("contact-submit").click();
+  await expect(dialog).toBeHidden();
+  await page.getByTestId("contact-search").fill(nome);
+  const row = page.getByTestId("contact-row").filter({ hasText: nome });
+  await expect(row).toHaveCount(1);
+  await row.click();
+  await page.getByTestId("contact-ver-ficha").click();
+  await expect(page).toHaveURL(/\/contacts\/[0-9a-f-]{36}$/);
+  await expect(page.getByTestId("contact-detail-nome")).toHaveText(nome);
   await expect(page.getByTestId("contact-memory")).toBeVisible();
   await expect(page.getByTestId("memory-company")).toContainText("não sabemos");
 
