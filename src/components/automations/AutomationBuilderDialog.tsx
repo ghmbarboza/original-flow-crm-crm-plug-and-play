@@ -58,7 +58,7 @@ function ActionParam({ action, onChange }: { action: AutomationAction; onChange:
           placeholder="Ex.: diga que viu o pedido pelo site e pergunte o melhor horário para uma ligação" />
         <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
           {provider === "evolution"
-            ? "Canal: Evolution (não oficial). A IA escreve a mensagem com esta instrução. Abordar quem nunca falou com a empresa pode levar ao bloqueio do número; use com leads que deixaram o telefone e em volume baixo."
+            ? "Atenção: o WhatsApp está conectado pelo Evolution (não oficial). Abordagem ativa por esse canal tem alto risco de bloqueio do número da empresa."
             : provider === "meta_official" || provider === "zernio"
               ? "Canal oficial: sai o template aprovado escolhido em IA > Abordagem ativa; a instrução vale quando o lead responder."
               : "Nenhum canal de WhatsApp conectado: a ação vai falhar até conectar um em Integrações."}

@@ -709,12 +709,11 @@ export default function AISettings() {
               <>
                 <Alert data-testid="outreach-evolution-alert">
                   <AlertTriangle className="h-4 w-4" strokeWidth={1.5} />
-                  <AlertTitle>Risco de bloqueio do número</AlertTitle>
+                  <AlertTitle>Alto risco de bloqueio do número</AlertTitle>
                   <AlertDescription>
-                    Seu WhatsApp está conectado pelo Evolution, que não é a API oficial. Mensagens ativas para
-                    quem nunca falou com a empresa são o principal motivo de bloqueio de número pelo WhatsApp.
-                    Use só com leads que deixaram o telefone por vontade própria, em volume baixo, e considere
-                    a API oficial da Meta para abordar em escala.
+                    Seu WhatsApp está conectado pelo Evolution, que não é a API oficial. Abordagem ativa por
+                    esse canal tem alto risco de o WhatsApp bloquear o número da empresa. Ao ligar esta ação,
+                    você assume esse risco.
                   </AlertDescription>
                 </Alert>
                 <div className="space-y-2">
