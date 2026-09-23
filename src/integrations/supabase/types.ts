@@ -5304,10 +5304,6 @@ export type Database = {
         }
         Returns: number
       }
-      confirmar_campo_memoria: {
-        Args: { p_contact: string; p_campo: string; p_valor: string }
-        Returns: Json
-      }
       buscar_conhecimento: {
         Args: { p_consulta: string; p_limite?: number; p_org: string }
         Returns: {
@@ -5321,6 +5317,10 @@ export type Database = {
       chamar_function: {
         Args: { p_function: string; p_timeout_ms?: number }
         Returns: number
+      }
+      confirmar_campo_memoria: {
+        Args: { p_campo: string; p_contact: string; p_valor: string }
+        Returns: Json
       }
       consumir_cota_api: {
         Args: { p_key: string; p_limite: number }
