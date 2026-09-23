@@ -2756,7 +2756,22 @@ export type Database = {
           status?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notification_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_deliveries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notification_preferences: {
         Row: {
@@ -2833,7 +2848,15 @@ export type Database = {
           whatsapp_template_name?: string | null
           whatsapp_text?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notification_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -4178,6 +4201,7 @@ export type Database = {
         Args: { p_function: string; p_job: string; p_schedule: string }
         Returns: undefined
       }
+      app_url: { Args: never; Returns: string }
       apply_lead_score: {
         Args: {
           p_channel?: string
@@ -4242,33 +4266,19 @@ export type Database = {
       }
       instancia_sem_usuarios: { Args: never; Returns: boolean }
       internal_cron_secret: { Args: never; Returns: string }
-      app_url: { Args: never; Returns: string }
       listar_modelos_notificacao: {
         Args: { p_eventos: string[] }
         Returns: {
+          body_template: string
+          email_html: string
+          email_subject: string
           event_type: string
           personalizado: boolean
           title_template: string
-          body_template: string
-          email_subject: string
-          email_html: string
-          whatsapp_text: string
-          whatsapp_template_name: string | null
-        }[]
-      }
-      notification_template_padrao: {
-        Args: { p_event: string }
-        Returns: {
-          title_template: string
-          body_template: string
-          email_subject: string
-          email_html: string
+          whatsapp_template_name: string
           whatsapp_text: string
         }[]
       }
-      notify_due_tasks: { Args: never; Returns: number }
-      registrar_app_url: { Args: { p_url: string }; Returns: undefined }
-      renderizar_modelo: { Args: { p_template: string; p_vars: Json }; Returns: string }
       mover_negocio: {
         Args: {
           p_deal: string
@@ -4278,6 +4288,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      notification_template_padrao: {
+        Args: { p_event: string }
+        Returns: {
+          body_template: string
+          email_html: string
+          email_subject: string
+          title_template: string
+          whatsapp_text: string
+        }[]
+      }
+      notify_due_tasks: { Args: never; Returns: number }
       notify_org_admins: {
         Args: {
           p_body: string
@@ -4298,7 +4319,12 @@ export type Database = {
         Args: { p_channel?: string; p_event: string; p_org: string }
         Returns: number
       }
+      registrar_app_url: { Args: { p_url: string }; Returns: undefined }
       registrar_url_do_projeto: { Args: { p_url: string }; Returns: undefined }
+      renderizar_modelo: {
+        Args: { p_template: string; p_vars: Json }
+        Returns: string
+      }
       semear_biblioteca_modelos: { Args: never; Returns: number }
       url_do_projeto: { Args: never; Returns: string }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
