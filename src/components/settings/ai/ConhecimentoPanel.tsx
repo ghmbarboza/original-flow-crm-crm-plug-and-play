@@ -242,7 +242,7 @@ export function PendenciasPanel() {
   return (
     <div className="space-y-3" data-testid="knowledge-unanswered">
       <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-        Cada vez que a IA diz "vou confirmar com a equipe", a pergunta cai aqui. Vire fato para a próxima resposta sair certa.
+        Cada vez que a IA diz "vou confirmar com a equipe", a pergunta cai aqui. O texto vem da conversa com o cliente, sem revisão: confira antes de virar fato para a próxima resposta sair certa.
       </p>
       {isLoading ? <Skeleton className="h-16 w-full" /> : (pendencias ?? []).length === 0 ? (
         <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>Nenhuma pendência. A IA respondeu tudo com a base atual.</p>

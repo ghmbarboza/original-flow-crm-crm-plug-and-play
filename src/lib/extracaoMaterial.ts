@@ -10,6 +10,8 @@ export const MAX_BYTES_POR_ARQUIVO = 8 * 1024 * 1024;
 export const MAX_CARACTERES_POR_ARQUIVO = 80_000;
 const MIN_CARACTERES_PAGINA = 12;
 const MAX_LINHAS_PLANILHA = 5000;
+/** Teto do XML descompactado de uma planilha: evita um .xlsx pequeno que explode na memória. */
+const MAX_BYTES_DESCOMPACTADOS = 40 * 1024 * 1024;
 
 export interface MaterialExtraido {
   nome: string;
@@ -61,9 +63,14 @@ async function lerXlsx(arquivo: File, ilegiveis: string[]): Promise<string> {
   const { default: JSZip } = await import("jszip");
   const zip = await JSZip.loadAsync(await arquivo.arrayBuffer());
   const parser = new DOMParser();
+  let lidos = 0;
   const xml = async (caminho: string) => {
     const f = zip.file(caminho);
-    return f ? parser.parseFromString(await f.async("string"), "application/xml") : null;
+    if (!f) return null;
+    const texto = await f.async("string");
+    lidos += texto.length;
+    if (lidos > MAX_BYTES_DESCOMPACTADOS) throw new Error(`"${arquivo.name}": a planilha é grande demais para ler no navegador.`);
+    return parser.parseFromString(texto, "application/xml");
   };
   const strings: string[] = [];
   const shared = await xml("xl/sharedStrings.xml");

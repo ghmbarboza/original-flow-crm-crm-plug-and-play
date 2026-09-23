@@ -175,7 +175,7 @@ BEGIN
     SELECT * FROM fatos UNION ALL SELECT * FROM chunks UNION ALL SELECT * FROM faqs UNION ALL SELECT * FROM objecoes
   ) hits(source_type, source_id, title, content, rank)
   ORDER BY hits.rank DESC
-  LIMIT greatest(coalesce(p_limite, 6), 1);
+  LIMIT least(greatest(coalesce(p_limite, 6), 1), 50);
 END;
 $$;
 REVOKE ALL ON FUNCTION public.buscar_conhecimento(UUID, TEXT, INTEGER) FROM PUBLIC, anon;
