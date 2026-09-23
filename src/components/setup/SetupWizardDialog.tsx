@@ -12,6 +12,7 @@ import { StepEmail } from "@/components/setup/StepEmail";
 import { StepPipeline } from "@/components/setup/StepPipeline";
 import { StepCanal } from "@/components/setup/StepCanal";
 import { StepConcluido } from "@/components/setup/StepConcluido";
+import { StepKit } from "@/components/setup/StepKit";
 import { useSetupWizard } from "@/contexts/SetupWizardContext";
 import { PESO_LABEL, SETUP_STEPS, useSetupProgress, type SetupStepKey } from "@/hooks/useSetup";
 
@@ -119,6 +120,7 @@ export function SetupWizardDialog() {
               {step === "pipeline" && <StepPipeline onNext={proximo} onBack={anterior} />}
               {step === "canal" && <StepCanal onNext={proximo} onBack={anterior} />}
               {step === "email" && <StepEmail onNext={proximo} onBack={anterior} />}
+              {step === "kit" && <StepKit onNext={proximo} onBack={anterior} />}
               {step === "concluido" && <StepConcluido onClose={fechar} />}
             </>
           )}

@@ -1,3 +1,4 @@
+import { TemplateDraftsList } from "@/components/campaigns/TemplateDraftsList";
 import { useState } from "react";
 import { FileText, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,15 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function TemplatesTab() {
+  return (
+    <div className="space-y-4">
+      <TemplatesDoProvedor />
+      <TemplateDraftsList />
+    </div>
+  );
+}
+
+function TemplatesDoProvedor() {
   const { data, isLoading, error, refetch, isFetching } = useMessageTemplates();
   const [formOpen, setFormOpen] = useState(false);
 

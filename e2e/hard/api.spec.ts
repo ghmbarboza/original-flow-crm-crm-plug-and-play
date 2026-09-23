@@ -135,7 +135,8 @@ test("escopo insuficiente dá 403 e o limite por minuto dá 429", async () => {
   expect(negado.status).toBe(403);
 
   let ultimo = 200;
-  for (let i = 0; i < 12; i++) {
+  // 25 chamadas: mesmo cruzando a virada do minuto, uma janela passa de 10.
+  for (let i = 0; i < 25; i++) {
     ultimo = (await api("GET", "/pipelines", undefined, chaveLimitada)).status;
     if (ultimo === 429) break;
   }

@@ -29,6 +29,7 @@ test("Formulários: campo condicional, origem por UTM e embed", async ({ page })
   await page.getByTestId("campo-condicao-3").click();
   await page.getByRole("option", { name: "Interesse" }).click();
   await page.getByTestId("campo-condicao-valor-3").fill("Plano anual");
+  await page.getByRole("switch", { name: 'Tornar o campo "Quantos usuários" obrigatório' }).click();
 
   await page.getByRole("button", { name: "Criar formulário" }).click();
   await expect(page.getByText("Formulário criado.")).toBeVisible();

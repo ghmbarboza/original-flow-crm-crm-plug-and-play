@@ -57,6 +57,10 @@ export const SETUP_STEPS = [
     historia: "Nem todo cliente chega pelo WhatsApp. Conectando o Gmail, os e-mails entram no mesmo histórico do contato.",
   },
   {
+    key: "kit", label: "Kit inicial", peso: "personalizacao",
+    historia: "Para não começar do zero: a IA monta automações, réguas e modelos com a cara da sua empresa. Você escolhe o que fica.",
+  },
+  {
     key: "concluido", label: "Pronto", peso: "personalizacao",
     historia: "É isso. Veja o que ficou pronto e o que dá para ajustar depois.",
   },

@@ -55,7 +55,24 @@ export interface OrgTemplateContext {
   sector: string;
   product: string;
   tone: string;
+  audience: string;
+  problem: string;
 }
+
+/**
+ * Os modelos do seed também usam marcadores entre colchetes ([empresa],
+ * [produto/serviço], [problema]...). Cada um vira a chave de contexto
+ * correspondente; o que não tem valor fica visível para o usuário preencher.
+ */
+const MARCADORES: Record<string, keyof OrgTemplateContext> = {
+  "[empresa]": "company",
+  "[Empresa]": "company",
+  "[setor]": "sector",
+  "[produto/serviço]": "product",
+  "[solução]": "product",
+  "[problema]": "problem",
+  "[público]": "audience",
+};
 
 /** Setor legível: rótulo do catálogo, ou o texto livre de "outro:<descrição>". */
 export function rotuloSetor(sector: string | null | undefined): string {
@@ -76,9 +93,13 @@ function rotuloTom(tone: string | null | undefined): string {
  */
 export function aplicarContexto(texto: string, ctx: Partial<OrgTemplateContext>): string {
   let out = texto;
-  for (const chave of ["company", "sector", "product", "tone"] as const) {
+  for (const chave of ["company", "sector", "product", "tone", "audience", "problem"] as const) {
     const valor = ctx[chave];
     if (valor) out = out.replace(new RegExp(`\\{\\{\\s*${chave}\\s*\\}\\}`, "gi"), valor);
+  }
+  for (const [marcador, chave] of Object.entries(MARCADORES)) {
+    const valor = ctx[chave];
+    if (valor) out = out.split(marcador).join(valor);
   }
   return out;
 }
@@ -87,7 +108,7 @@ async function contextoDaOrg(orgId: string): Promise<Partial<OrgTemplateContext>
   const [{ data: org }, { data: produto }] = await Promise.all([
     supabase
       .from("organizations")
-      .select("name, business_sector, brand_tone")
+      .select("name, business_sector, brand_tone, target_audience, main_problem_solved")
       .eq("id", orgId)
       .maybeSingle(),
     supabase
@@ -104,6 +125,8 @@ async function contextoDaOrg(orgId: string): Promise<Partial<OrgTemplateContext>
     sector: rotuloSetor(org?.business_sector),
     product: produto?.name ?? "",
     tone: rotuloTom(org?.brand_tone),
+    audience: org?.target_audience ?? "",
+    problem: org?.main_problem_solved ?? "",
   };
 }
 
