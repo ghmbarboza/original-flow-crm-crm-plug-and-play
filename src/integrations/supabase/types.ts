@@ -1484,8 +1484,8 @@ export type Database = {
         Row: {
           avatar_synced_at: string | null
           avatar_url: string | null
-          company_id: string | null
           client_memory: Json
+          company_id: string | null
           created_at: string
           custom_fields: Json
           email: string | null
@@ -1508,8 +1508,8 @@ export type Database = {
         Insert: {
           avatar_synced_at?: string | null
           avatar_url?: string | null
-          company_id?: string | null
           client_memory?: Json
+          company_id?: string | null
           created_at?: string
           custom_fields?: Json
           email?: string | null
@@ -1532,8 +1532,8 @@ export type Database = {
         Update: {
           avatar_synced_at?: string | null
           avatar_url?: string | null
-          company_id?: string | null
           client_memory?: Json
+          company_id?: string | null
           created_at?: string
           custom_fields?: Json
           email?: string | null
@@ -3999,10 +3999,10 @@ export type Database = {
       }
       pipeline_stages: {
         Row: {
+          ai_trigger_criteria: string | null
           auto_message_delay_hours: number | null
           auto_message_template: string | null
           color: string
-          ai_trigger_criteria: string | null
           created_at: string
           id: string
           move_on_reply: boolean
@@ -4015,10 +4015,10 @@ export type Database = {
           win_probability: number
         }
         Insert: {
+          ai_trigger_criteria?: string | null
           auto_message_delay_hours?: number | null
           auto_message_template?: string | null
           color?: string
-          ai_trigger_criteria?: string | null
           created_at?: string
           id?: string
           move_on_reply?: boolean
@@ -4031,10 +4031,10 @@ export type Database = {
           win_probability?: number
         }
         Update: {
+          ai_trigger_criteria?: string | null
           auto_message_delay_hours?: number | null
           auto_message_template?: string | null
           color?: string
-          ai_trigger_criteria?: string | null
           created_at?: string
           id?: string
           move_on_reply?: boolean
