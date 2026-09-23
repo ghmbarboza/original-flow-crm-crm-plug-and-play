@@ -108,6 +108,22 @@ Deno.serve(async (req) => {
       ownerId = ownerId ?? deal?.owner_id ?? null;
     }
 
+    // A reunião entra na agenda nativa (B11); a atividade 'meeting' nasce pelo trigger da tabela.
+    const fim: string | null = payload.endTime ?? null;
+    if (startTime) {
+      const inicio = new Date(startTime);
+      const termino = fim ? new Date(fim) : new Date(inicio.getTime() + 30 * 60_000);
+      const { data: orgRow } = await admin.from("organizations").select("timezone").eq("id", orgId).maybeSingle();
+      const { error: errAp } = await admin.from("appointments").insert({
+        org_id: orgId, contact_id: contactId, deal_id: dealId, owner_id: ownerId, title, starts_at: inicio.toISOString(), ends_at: termino.toISOString(),
+        timezone: (orgRow?.timezone as string | undefined) || "America/Sao_Paulo", source: "calcom",
+        meeting_url: typeof payload.videoCallData?.url === "string" ? payload.videoCallData.url : typeof payload.location === "string" && payload.location.startsWith("http") ? payload.location : null,
+        external_event_id: payload.uid ? String(payload.uid) : null, calendar_sync_status: "none",
+        metadata: { calcom_uid: payload.uid ?? null, attendee: attendee.email ?? null },
+      });
+      if (errAp) console.error("[calcom-webhook] appointment:", errAp.message);
+    }
+
     let activityId: string | null = null;
     if (config.create_activity !== false) {
       const detalhes = [

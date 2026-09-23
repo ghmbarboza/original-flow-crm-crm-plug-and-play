@@ -15,6 +15,7 @@
 // é gravado. Ver migration 20260914110000.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { respostaCrm } from "./crm.ts";
+import { respostaNylas } from "./nylas.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -137,7 +138,8 @@ Deno.serve(async (req) => {
     ? { status: 201, body: { webhook: corpo?.webhook ?? corpo } }
     : respostaEvolution(caminho, corpo, sessao as Sessao)
       ?? respostaResend(caminho, req.method, corpo)
-      ?? respostaCrm(caminho, req.method, url.searchParams, `${SUPABASE_URL}/functions/v1/integration-sandbox/${token}`);
+      ?? respostaCrm(caminho, req.method, url.searchParams, `${SUPABASE_URL}/functions/v1/integration-sandbox/${token}`)
+      ?? respostaNylas(caminho, req.method, corpo);
   const status = evolution?.status ?? (sessao.response_status as number);
   const body = evolution?.body ?? (status < 300 ? { ok: true } : { error: "sandbox configurada para falhar" });
 

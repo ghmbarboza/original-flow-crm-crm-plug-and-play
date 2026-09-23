@@ -110,6 +110,8 @@ async function resolveEntities(
       contactId = (data.contact_id as string) ?? null;
       break;
     case "form_submitted":
+    case "appointment_scheduled":
+    case "appointment_no_show":
       contactId = (data.contact_id as string) ?? null;
       dealId = (data.deal_id as string) ?? null;
       break;

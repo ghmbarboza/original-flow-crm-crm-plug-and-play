@@ -25,6 +25,7 @@ import { chamadaInterna, naoAutorizado } from "../_shared/seguranca.ts";
 import { dentroDoHorario } from "../_shared/horario.ts";
 import { instrucaoDaOrigem, perfilDaOrigem } from "../_shared/perfilOrigem.ts";
 import { FERRAMENTAS_CONHECIMENTO, blocoDeVerdade, buscarConhecimento, carregarFatosCanonicos, registrarDuvida } from "../_shared/conhecimento.ts";
+import { FERRAMENTAS_AGENDA, carregarPolitica, executarFerramentaAgenda, fusoDaOrg, instrucaoAgenda } from "../_shared/agenda.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -351,7 +352,7 @@ Deno.serve(async (req) => {
     const windowSize = config.context_window_size ?? 20;
     const { data: history } = await admin
       .from("conversation_messages")
-      .select("direction, content, is_from_ai, sent_at, is_internal_note, type")
+      .select("id, direction, content, is_from_ai, sent_at, is_internal_note, type")
       .eq("conversation_id", conversation_id)
       .eq("is_internal_note", false)
       .order("sent_at", { ascending: false })
@@ -583,10 +584,15 @@ Deno.serve(async (req) => {
     // Base de conhecimento (B10): só os fatos canônicos entram no prompt. FAQs,
     // objeções e documentos são recuperados sob demanda pela ferramenta
     // buscar_conhecimento (busca híbrida full-text + trigram).
-    const [fatos, calcom] = await Promise.all([
+    const [fatos, calcom, politicaAgenda, fusoOrg] = await Promise.all([
       carregarFatosCanonicos(admin, conversation.org_id),
       admin.from("integration_configs").select("config, is_active").eq("org_id", conversation.org_id).eq("provider", "calcom").maybeSingle(),
+      carregarPolitica(admin, conversation.org_id),
+      fusoDaOrg(admin, conversation.org_id),
     ]);
+    // Agenda nativa (B11): quando ligada, a IA consulta horários e marca/remarca/cancela
+    // com evidência literal; o link do Cal.com vira fallback quando a agenda está desligada.
+    const agendaLigada = politicaAgenda.ai_enabled;
 
     // Link de agendamento (Parte 11): entra como conhecimento — a IA oferece
     // quando o cliente quer marcar uma reunião.
@@ -643,7 +649,7 @@ Deno.serve(async (req) => {
       blocoDeVerdade(fatos),
       "\nQuando o cliente levantar uma objeção (preço, prazo, concorrente, dúvida se vale a pena), use buscar_conhecimento com a objeção para achar como a empresa orienta contornar.",
       "\nQuando o cliente perguntar sobre produtos, preços ou o que vendemos, use a ferramenta buscar_produtos para consultar o catálogo antes de responder. Não invente produtos nem preços. Respeite a disponibilidade devolvida pela ferramenta: nunca prometa entrega de item ESGOTADO — diga que está sem estoque, ofereça avisar quando repor e sugira alternativa disponível.",
-      schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
+      agendaLigada ? instrucaoAgenda(politicaAgenda, fusoOrg) : schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
       instrucaoFunil,
       instrucaoDaOrigem(perfilOrigem),
       "",
@@ -681,6 +687,8 @@ Deno.serve(async (req) => {
         },
       },
     ];
+
+    if (agendaLigada) tools.push(...FERRAMENTAS_AGENDA);
 
     if (instrucaoFunil) {
       tools.push({
@@ -751,6 +759,14 @@ Deno.serve(async (req) => {
     const executarFerramenta = async (nome: string, args: Record<string, unknown>): Promise<string> => {
       if (nome === "mover_etapa") return moverEtapaPelaIA(args);
       if (nome === "buscar_conhecimento") return buscarConhecimento(admin, conversation.org_id, args);
+      if (["consultar_disponibilidade", "agendar_reuniao", "remarcar_reuniao", "cancelar_reuniao"].includes(nome)) {
+        return executarFerramentaAgenda(admin, {
+          orgId: conversation.org_id, conversationId: conversation.id, contactId: conversation.contact_id ?? null, dealId: conversation.deal_id ?? null,
+          sourceMessageId: lastInbound?.id ?? null,
+          mensagensDoLead: ordered.filter((m) => m.direction === "inbound" && m.content).map((m) => m.content as string),
+          nomeContato: conversation.channel_contact_name || "cliente",
+        }, nome, args);
+      }
       if (nome === "registrar_duvida") {
         return registrarDuvida(admin, { orgId: conversation.org_id, conversationId: conversation.id, contactId: conversation.contact_id ?? null }, args);
       }
