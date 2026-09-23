@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-  Activity as ActivityIcon, Clock, Mail, MessageCircle, Pencil, StickyNote, Trash2, TrendingUp,
-} from "lucide-react";
+import { Activity as ActivityIcon, ArrowRightLeft, Clock, Mail, MessageCircle, Pencil, StickyNote, Trash2, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -141,7 +139,7 @@ export function ContactTimeline({ contactId }: { contactId: string }) {
 
   const renderEntrada = (item: TimelineItem) => {
     if (item.kind === "activity" && item.activityType === "note") return renderNota(item);
-    const Icon = KIND_ICON[item.kind];
+    const Icon = item.kind === "activity" && item.activityType === "stage_change" ? ArrowRightLeft : KIND_ICON[item.kind];
     return (
       <li key={item.id} className="flex gap-3">
         <div

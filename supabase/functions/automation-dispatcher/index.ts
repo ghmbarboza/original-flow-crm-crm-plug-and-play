@@ -11,6 +11,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getValidAccessToken, type GmailConnection } from "../_shared/google.ts";
 import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
+import { moverNegocio } from "../_shared/negocio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -276,18 +277,50 @@ async function actMoveDeal(
   admin: Admin,
   orgId: string,
   params: Record<string, string>,
-  ctx: { dealId: string | null },
+  ctx: { dealId: string | null; automationName: string },
 ): Promise<ActionResult> {
   const stageId = params.stage_id;
   if (!stageId) return { type: "move_deal", ok: false, msg: "stage_id ausente" };
   if (!ctx.dealId) return { type: "move_deal", ok: false, msg: "evento sem deal para mover" };
-  const { error } = await admin
-    .from("deals")
-    .update({ stage_id: stageId })
-    .eq("id", ctx.dealId)
-    .eq("org_id", orgId);
-  if (error) return { type: "move_deal", ok: false, msg: error.message };
+  // A etapa precisa ser do org: a RPC confere org da etapa x org do negócio,
+  // mas checar aqui devolve uma mensagem que diz o que aconteceu.
+  const { data: stage } = await admin
+    .from("pipeline_stages").select("id").eq("id", stageId).eq("org_id", orgId).maybeSingle();
+  if (!stage) return { type: "move_deal", ok: false, msg: "etapa não encontrada no org" };
+  // Passa pela RPC para o histórico registrar "por automação" com o nome dela.
+  const moveu = await moverNegocio(admin, ctx.dealId, stageId, "automacao", `Automação "${ctx.automationName}"`);
+  if (!moveu) return { type: "move_deal", ok: false, msg: "negócio não está aberto ou não pertence ao org" };
   return { type: "move_deal", ok: true };
+}
+
+/**
+ * Abordagem ativa: a IA escreve e manda a primeira mensagem de WhatsApp para o
+ * contato do evento. O trabalho fica na function ai-outreach (canal, template,
+ * horário, conversa, histórico); aqui só se chama com o segredo interno.
+ */
+async function actAiOutreach(
+  orgId: string,
+  params: Record<string, string>,
+  ctx: { contactId: string | null; dealId: string | null; automationName: string },
+): Promise<ActionResult> {
+  if (!ctx.contactId) return { type: "ai_outreach", ok: false, msg: "evento sem contato para abordar" };
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const resp = await fetch(`${url}/functions/v1/ai-outreach`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+    body: JSON.stringify({
+      org_id: orgId,
+      contact_id: ctx.contactId,
+      deal_id: ctx.dealId,
+      instruction: params.instruction ?? "",
+      origem: `Automação "${ctx.automationName}"`,
+    }),
+  });
+  const corpo = await resp.json().catch(() => ({}));
+  if (!resp.ok) return { type: "ai_outreach", ok: false, msg: corpo?.error ?? `ai-outreach respondeu ${resp.status}` };
+  if (corpo?.skipped) return { type: "ai_outreach", ok: true, msg: String(corpo.skipped) };
+  return { type: "ai_outreach", ok: true, msg: corpo?.scheduled_at ? `agendada para ${corpo.scheduled_at}` : undefined };
 }
 
 async function actAddTag(
@@ -445,10 +478,12 @@ async function runAction(
   orgId: string,
   triggerType: string,
   action: Action,
-  ctx: { contactId: string | null; dealId: string | null; data: Json },
+  ctx: { contactId: string | null; dealId: string | null; data: Json; automationName: string },
 ): Promise<ActionResult> {
   const params = action.params ?? {};
   switch (action.type) {
+    case "ai_outreach":
+      return actAiOutreach(orgId, params, ctx);
     case "send_email":
       return actSendEmail(admin, orgId, params, ctx);
     case "create_activity":
@@ -477,7 +512,7 @@ async function processLog(admin: Admin, log: Json): Promise<void> {
   // Carrega a automação (escopo do org do log).
   const { data: automation } = await admin
     .from("automations")
-    .select("id, is_active, trigger, conditions, actions, run_count, error_count")
+    .select("id, name, is_active, trigger, conditions, actions, run_count, error_count")
     .eq("id", automationId)
     .eq("org_id", orgId)
     .maybeSingle();
@@ -521,7 +556,7 @@ async function processLog(admin: Admin, log: Json): Promise<void> {
   }
 
   const { contactId, dealId } = await resolveEntities(admin, orgId, triggerType, triggerData);
-  const ctx = { contactId, dealId, data: triggerData };
+  const ctx = { contactId, dealId, data: triggerData, automationName: String(automation.name ?? "") };
 
   const actions: Action[] = Array.isArray(automation.actions)
     ? (automation.actions as Action[])

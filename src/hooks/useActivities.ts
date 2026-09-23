@@ -20,6 +20,7 @@ export const ACTIVITY_TYPE_LABEL: Record<ActivityType, string> = {
   meeting: "Reunião",
   note: "Nota",
   task: "Tarefa",
+  stage_change: "Etapa",
 };
 
 const SELECT = `
@@ -57,7 +58,10 @@ export function useActivities(filters: ActivityFilters = {}) {
     queryFn: async (): Promise<Activity[]> => {
       let query = supabase.from("activities").select(SELECT).eq("org_id", orgId!);
 
+      // Sem filtro de tipo, as entradas automáticas de etapa (stage_change) ficam
+      // fora: são histórico do negócio, não tarefa ou atividade da equipe.
       if (types && types.length > 0) query = query.in("type", types);
+      else query = query.neq("type", "stage_change");
       if (filters.status === "open") query = query.is("completed_at", null);
       if (filters.status === "done") query = query.not("completed_at", "is", null);
       if (filters.dealId) query = query.eq("deal_id", filters.dealId);

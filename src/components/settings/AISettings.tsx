@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { MelhorarComIA } from "@/components/ai/MelhorarComIA";
-import { Bot, Clock, MessageSquare, ShoppingCart, Sliders, Sparkles } from "lucide-react";
+import { Bot, Clock, KanbanSquare, MessageSquare, Send, ShoppingCart, Sliders, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +27,7 @@ import {
   WEEK_DAYS, useAIConfig, useDeleteFAQ, useDeleteObjection, useFAQs, useImportFAQs,
   useImportObjections, useObjections, useSaveFAQ, useSaveObjection, useUpsertAIConfig,
   type HumanTriggerRules, type PurchaseIntentRules, type WorkingHours,
+  type FunnelActions, type OutreachConfig, FUNNEL_ACTIONS_PADRAO, OUTREACH_PADRAO,
 } from "@/hooks/useAIConfig";
 import { useGenerateSystemPrompt } from "@/hooks/useGenerateSystemPrompt";
 import { BRAND_TONES, useOrganization, useUpdateOrganization } from "@/hooks/useSetup";
@@ -122,6 +124,8 @@ export default function AISettings() {
     take_over: false,
   });
   const [intentKeywordsText, setIntentKeywordsText] = useState("");
+  const [funnel, setFunnel] = useState<FunnelActions>(FUNNEL_ACTIONS_PADRAO);
+  const [outreach, setOutreach] = useState<OutreachConfig>(OUTREACH_PADRAO);
   const { data: stages } = useStages();
 
   useEffect(() => {
@@ -153,6 +157,19 @@ export default function AISettings() {
       take_over: pi?.take_over ?? false,
     });
     setIntentKeywordsText((pi?.keywords ?? []).join(", "));
+    const fa = (config.funnel_actions ?? {}) as unknown as Partial<FunnelActions>;
+    setFunnel({
+      enabled: fa.enabled ?? true,
+      mode: fa.mode === "suggest" ? "suggest" : "auto",
+      allowed_stage_ids: fa.allowed_stage_ids ?? [],
+    });
+    const oc = (config.outreach ?? {}) as unknown as Partial<OutreachConfig>;
+    setOutreach({
+      instruction: oc.instruction ?? "",
+      template_name: oc.template_name ?? null,
+      template_language: oc.template_language ?? "pt_BR",
+      template_params: oc.template_params ?? [],
+    });
   }, [config]);
 
   /**
@@ -198,6 +215,12 @@ export default function AISettings() {
           ...triggers,
           keywords,
           purchase_intent: { ...intent, keywords: intentKeywords },
+        } as never,
+        funnel_actions: funnel as never,
+        outreach: {
+          ...outreach,
+          instruction: outreach.instruction.trim(),
+          template_name: outreach.template_name?.trim() || null,
         } as never,
       });
       await salvarOrg.mutateAsync({
@@ -580,6 +603,142 @@ export default function AISettings() {
                 Assumir conversa automaticamente (transfere para humano)
               </span>
             </label>
+          </div>
+
+          <Separator />
+
+          {/* Ações da IA no funil: a IA enxerga as etapas e move (ou sugere) pela ferramenta mover_etapa. */}
+          <div className="space-y-3" data-testid="funnel-actions">
+            <Label className="flex items-center gap-2">
+              <KanbanSquare className="h-4 w-4" strokeWidth={1.5} />
+              Ações no funil
+            </Label>
+            <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+              Durante a conversa a IA acompanha o funil e, quando o cliente avança ou desiste, move o
+              negócio de etapa com um motivo. Cada movimento fica registrado no histórico do negócio.
+            </p>
+            <label className="flex items-center gap-2">
+              <Switch
+                aria-label="Permitir que a IA mova o negócio de etapa"
+                checked={funnel.enabled}
+                onCheckedChange={(v) => setFunnel({ ...funnel, enabled: v })}
+                data-testid="funnel-enabled"
+              />
+              <span className="text-sm" style={{ color: "var(--via-text-body)" }}>A IA pode mover o negócio de etapa</span>
+            </label>
+            {funnel.enabled && (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm" style={{ color: "var(--via-text-body)" }}>Como agir</span>
+                  <Select
+                    value={funnel.mode}
+                    onValueChange={(v) => setFunnel({ ...funnel, mode: v === "suggest" ? "suggest" : "auto" })}
+                  >
+                    <SelectTrigger className="w-72" aria-label="Como a IA age ao identificar mudança de etapa" data-testid="funnel-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Mover sozinha e registrar o motivo</SelectItem>
+                      <SelectItem value="suggest">Só sugerir: avisa o responsável e anota na ficha</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-normal">Etapas que a IA pode usar (nenhuma marcada = todas)</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {(stages ?? []).map((stage) => {
+                      const marcada = funnel.allowed_stage_ids.includes(stage.id);
+                      return (
+                        <label key={stage.id} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
+                          <Checkbox
+                            aria-label={`IA pode mover para ${stage.name}`}
+                            checked={marcada}
+                            onCheckedChange={(v) =>
+                              setFunnel({
+                                ...funnel,
+                                allowed_stage_ids: v
+                                  ? [...funnel.allowed_stage_ids, stage.id]
+                                  : funnel.allowed_stage_ids.filter((id) => id !== stage.id),
+                              })}
+                          />
+                          <span className="h-2 w-2 rounded-full" style={{ background: stage.color }} aria-hidden />
+                          {stage.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Abordagem ativa: a IA manda a primeira mensagem (ação "Abordar pelo WhatsApp com a IA" nas automações). */}
+          <div className="space-y-3" data-testid="outreach-settings">
+            <Label className="flex items-center gap-2">
+              <Send className="h-4 w-4" strokeWidth={1.5} />
+              Abordagem ativa
+            </Label>
+            <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+              Usada pela ação "Abordar pelo WhatsApp com a IA" das automações (por exemplo, quando um lead
+              chega pelo formulário). No Evolution a IA escreve a primeira mensagem com a instrução abaixo.
+              Na API oficial da Meta e no Zernio a primeira mensagem tem que ser um template aprovado; a IA
+              assume a conversa quando o lead responde.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="outreach-instruction" className="text-xs font-normal">Instrução de abertura</Label>
+              <Textarea
+                id="outreach-instruction"
+                rows={3}
+                value={outreach.instruction}
+                onChange={(e) => setOutreach({ ...outreach, instruction: e.target.value })}
+                placeholder="Apresente-se, diga que recebeu o contato pelo site, mostre que sabe do que ele precisa e faça uma pergunta curta."
+                data-testid="outreach-instruction"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="outreach-template" className="text-xs font-normal">Template aprovado (Meta e Zernio)</Label>
+                <Input
+                  id="outreach-template"
+                  value={outreach.template_name ?? ""}
+                  onChange={(e) => setOutreach({ ...outreach, template_name: e.target.value })}
+                  placeholder="primeiro_contato"
+                  data-testid="outreach-template"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="outreach-template-language" className="text-xs font-normal">Idioma do template</Label>
+                <Input
+                  id="outreach-template-language"
+                  value={outreach.template_language}
+                  onChange={(e) => setOutreach({ ...outreach, template_language: e.target.value })}
+                  placeholder="pt_BR"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-normal">Variáveis do template, na ordem em que aparecem</Label>
+              <div className="flex flex-wrap gap-3">
+                {(["nome", "empresa"] as const).map((v) => (
+                  <label key={v} className="flex items-center gap-2 text-sm" style={{ color: "var(--via-text-body)" }}>
+                    <Checkbox
+                      aria-label={`Template usa a variável ${v}`}
+                      checked={outreach.template_params.includes(v)}
+                      onCheckedChange={(on) =>
+                        setOutreach({
+                          ...outreach,
+                          template_params: on
+                            ? [...outreach.template_params.filter((p) => p !== v), v]
+                            : outreach.template_params.filter((p) => p !== v),
+                        })}
+                    />
+                    {v === "nome" ? "Primeiro nome do contato" : "Empresa do contato"}
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
 
           <Separator />

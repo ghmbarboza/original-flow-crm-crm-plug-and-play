@@ -4,6 +4,7 @@ import AutomationsSettings from "@/components/settings/AutomationsSettings";
 import PipelineSettings from "@/components/settings/PipelineSettings";
 import SequencesSettings from "@/components/settings/SequencesSettings";
 import FollowupSettings from "@/components/settings/FollowupSettings";
+import { HistoricoSettings } from "@/components/settings/HistoricoSettings";
 import { NegocioAutomaticoSwitch } from "@/components/settings/NegocioAutomaticoSwitch";
 
 const SECOES = ["regras", "funil", "cadencias"] as const;
@@ -49,6 +50,13 @@ export default function AutomationsTab() {
             descricao="O que acontece quando uma conversa nova chega pelo atendimento."
           />
           <NegocioAutomaticoSwitch />
+        </div>
+        <div className="space-y-2">
+          <SecaoTitulo
+            titulo="Histórico automático"
+            descricao="O que entra sozinho na linha do tempo do negócio e do contato, e por quem."
+          />
+          <HistoricoSettings />
         </div>
         <SecaoTitulo
           titulo="Por etapa do funil"

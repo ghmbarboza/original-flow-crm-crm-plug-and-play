@@ -1,4 +1,4 @@
-import { Activity as ActivityIcon, Clock, Mail, MessageCircle, TrendingUp } from "lucide-react";
+import { Activity as ActivityIcon, ArrowRightLeft, Clock, Mail, MessageCircle, TrendingUp } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDealTimeline } from "@/hooks/useDealTimeline";
 import type { TimelineItem } from "@/hooks/useContactTimeline";
@@ -12,7 +12,7 @@ const KIND_ICON = {
 } as const;
 
 function TimelineEntry({ item }: { item: TimelineItem }) {
-  const Icon = KIND_ICON[item.kind];
+  const Icon = item.kind === "activity" && item.activityType === "stage_change" ? ArrowRightLeft : KIND_ICON[item.kind];
   return (
     <li className="flex gap-3">
       <div

@@ -223,6 +223,13 @@ async function ingestInbound(
     };
   });
   if (!conversa) return null;
+  // Conversa aberta pela abordagem ativa nasce sem o id do Zernio (o POST de
+  // template não o devolve sempre); a primeira resposta do lead preenche.
+  if (!conversa.criada && providerConversationId) {
+    await admin.from("conversations")
+      .update({ provider_conversation_id: providerConversationId })
+      .eq("id", conversa.id).is("provider_conversation_id", null);
+  }
 
   const conversationId = conversa.id;
   const status = conversa.status;

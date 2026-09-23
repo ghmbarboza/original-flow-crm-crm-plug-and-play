@@ -9,13 +9,20 @@
 // ANTHROPIC_API_KEY existir, senão o AI Gateway do Lovable. O system prompt pede
 // resposta direta, sem raciocínio no corpo, em qualquer um dos dois.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { garantirNegocioAberto } from "../_shared/negocio.ts";
+import {
+  carregarFunil,
+  garantirNegocioAberto,
+  moverNegocio,
+  registrarNotaIA,
+  type EtapaDoFunil,
+} from "../_shared/negocio.ts";
 import { chamarIA, ErroIA, type FerramentaIA, type MensagemIA } from "../_shared/ai.ts";
 import {
   bytesParaBase64, gerarAudioDaResposta, resolverChaveElevenLabs, salvarAudioNoBucket,
 } from "../_shared/audio.ts";
 import { PREFIXO_SIMULADO } from "../_shared/demo.ts";
 import { chamadaInterna, naoAutorizado } from "../_shared/seguranca.ts";
+import { dentroDoHorario } from "../_shared/horario.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +53,20 @@ interface TriggerRules {
   purchase_intent?: PurchaseIntentRules;
 }
 
+/** Ações da IA no funil (ai_messaging_config.funnel_actions), gravadas pela tela de IA. */
+interface FunnelActions {
+  enabled?: boolean;
+  /** auto = move sozinha; suggest = só registra a sugestão e avisa o responsável. */
+  mode?: "auto" | "suggest";
+  /** Vazio = qualquer etapa do funil. */
+  allowed_stage_ids?: string[];
+}
+
+/** Normaliza para comparar nome de etapa dito pelo modelo com o cadastrado. */
+function chave(texto: string): string {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
 function matchesKeyword(text: string, keywords: string[] | undefined): boolean {
   const lower = text.toLowerCase();
   for (const kw of keywords ?? []) {
@@ -71,83 +92,6 @@ function detectPurchaseIntent(text: string, rules: PurchaseIntentRules | undefin
   return matchesKeyword(text, rules.keywords);
 }
 
-interface WorkingDay {
-  enabled?: boolean;
-  start?: string;
-  end?: string;
-}
-/** Formato novo, gravado pela tela de IA: uma entrada por dia da semana. */
-type WorkingHoursPorDia = Record<string, WorkingDay>;
-/** Formato legado, que é o DEFAULT da coluna no banco. */
-interface WorkingHoursLegado {
-  days?: number[];
-  start?: string;
-  end?: string;
-}
-
-/** Ordem ISO: 1 = segunda ... 7 = domingo, casando com o formato legado. */
-const DIAS_ISO = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-
-/** Uma janela HH:MM contém o horário atual? Trata janela que vira o dia. */
-function dentroDaJanela(agora: string, inicio: string, fim: string): boolean {
-  if (inicio <= fim) return agora >= inicio && agora <= fim;
-  // Ex.: 22:00 às 02:00 é contínua, não vazia.
-  return agora >= inicio || agora <= fim;
-}
-
-/**
- * A IA só responde dentro do horário de atendimento configurado.
- *
- * Fuso: usa organizations.timezone, não o do servidor. A edge function roda em
- * UTC e comparar contra ele responderia no horário errado para qualquer org
- * fora de Greenwich.
- *
- * DOIS FORMATOS convivem na coluna e ambos precisam funcionar:
- *  - por dia   {"mon": {enabled, start, end}, ...} — o que a tela de IA grava
- *  - legado    {"days": [1..5], "start", "end"}    — o DEFAULT da coluna
- * Uma org que nunca abriu a tela tem o legado. Entender só o formato novo faria
- * a IA responder 24h justamente para quem nunca configurou nada.
- *
- * Sem configuração reconhecível, atende: silenciar quem não configurou seria
- * pior que o excesso.
- */
-function dentroDoHorario(workingHours: unknown, timezone: string): boolean {
-  if (!workingHours || typeof workingHours !== "object") return true;
-
-  const partes = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-
-  const diaKey = partes.find((p) => p.type === "weekday")?.value.toLowerCase() ?? "";
-  const hora = partes.find((p) => p.type === "hour")?.value ?? "00";
-  const minuto = partes.find((p) => p.type === "minute")?.value ?? "00";
-  const agora = `${hora}:${minuto}`;
-
-  // O formato por dia vence quando existe. A tela mesclava o default legado com
-  // o que o usuário editava e gravava os dois juntos; lendo o legado primeiro,
-  // a IA ignorava o horário configurado na tela (achado de 14/09: org com
-  // "days" 08-18 e segunda a sexta 09-18 na tela).
-  const temPorDia = DIAS_ISO.some((d) => typeof (workingHours as Record<string, unknown>)[d] === "object");
-  const legado = workingHours as WorkingHoursLegado;
-  if (!temPorDia && Array.isArray(legado.days)) {
-    const isoHoje = DIAS_ISO.indexOf(diaKey) + 1; // 0 vira -1+1 = 0, nunca casa
-    if (!legado.days.includes(isoHoje)) return false;
-    return dentroDaJanela(agora, legado.start ?? "00:00", legado.end ?? "23:59");
-  }
-
-  const porDia = workingHours as WorkingHoursPorDia;
-  if (Object.keys(porDia).length === 0) return true;
-
-  const dia = porDia[diaKey];
-  // Dia ausente é tratado como não configurado, não como fechado.
-  if (!dia) return true;
-  if (dia.enabled === false) return false;
-  return dentroDaJanela(agora, dia.start ?? "00:00", dia.end ?? "23:59");
-}
 
 /** Dados da conversa necessários para entregar a resposta em qualquer provedor. */
 interface ConversaEntrega {
@@ -444,6 +388,16 @@ Deno.serve(async (req) => {
 
       // Avisa o cliente que um humano vai assumir. Sem isso a conversa some do
       // lado dele: a IA para de responder e nada explica o silêncio.
+      await registrarNotaIA(admin, {
+        orgId: conversation.org_id,
+        contactId: conversation.contact_id,
+        dealId: conversation.deal_id,
+        titulo: "IA transferiu a conversa para a equipe",
+        corpo: matchesKeyword(lastInbound.content, rules.keywords)
+          ? `O cliente pediu atendimento humano: "${lastInbound.content.slice(0, 160)}"`
+          : `Limite de ${config.max_ai_turns_before_human} respostas da IA atingido.`,
+        isDemo: conversation.is_demo === true,
+      });
       const fallback = (config.fallback_message as string | null)?.trim();
       if (fallback) {
         // Aviso de escalonamento vai sempre em texto: é uma mensagem de sistema.
@@ -479,6 +433,14 @@ Deno.serve(async (req) => {
 
     if (purchaseIntent && intentRules) {
       const quem = conversation.channel_contact_name || conversation.phone_number;
+      await registrarNotaIA(admin, {
+        orgId: conversation.org_id,
+        contactId: conversation.contact_id,
+        dealId: conversation.deal_id,
+        titulo: "IA detectou intenção de compra",
+        corpo: `"${lastInbound!.content!.slice(0, 200)}"`,
+        isDemo: conversation.is_demo === true,
+      });
 
       // Notifica com janela de dedupe: o cliente repetindo "quero comprar" em
       // mensagens seguidas dispararia um aviso por webhook sem esta guarda.
@@ -578,14 +540,10 @@ Deno.serve(async (req) => {
             .eq("org_id", conversation.org_id)
             .maybeSingle();
           if (stage) {
-            await admin
-              .from("deals")
-              .update({
-                stage_id: stage.id,
-                probability: stage.win_probability,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", dealAlvo.id);
+            await moverNegocio(
+              admin, dealAlvo.id, stage.id, "ia",
+              `Intenção de compra: "${lastInbound!.content!.slice(0, 120)}"`,
+            );
           }
         }
       }
@@ -597,6 +555,14 @@ Deno.serve(async (req) => {
           .from("conversations")
           .update({ status: "human_takeover", updated_at: new Date().toISOString() })
           .eq("id", conversation_id);
+        await registrarNotaIA(admin, {
+          orgId: conversation.org_id,
+          contactId: conversation.contact_id,
+          dealId: conversation.deal_id,
+          titulo: "IA transferiu a conversa para a equipe",
+          corpo: "Intenção de compra detectada com a opção de assumir a conversa ligada.",
+          isDemo: conversation.is_demo === true,
+        });
         return json({ purchase_intent: true, taken_over: true });
       }
     }
@@ -616,6 +582,44 @@ Deno.serve(async (req) => {
       ? ((calcom.data.config as { scheduling_link?: string } | null)?.scheduling_link ?? "").trim()
       : "";
 
+    // Ações no funil: a IA enxerga as etapas e pode mover o negócio pela
+    // ferramenta mover_etapa. A decisão é do modelo, com base na conversa; a
+    // configuração diz se pode, para onde e se move ou só sugere.
+    const funnelActions = (config.funnel_actions ?? {}) as FunnelActions;
+    const funilLigado = funnelActions.enabled !== false;
+    let negocioDaConversa: { id: string; stage_id: string | null } | null = null;
+    let etapasDoFunil: EtapaDoFunil[] = [];
+    if (funilLigado) {
+      if (conversation.deal_id) {
+        const { data } = await admin
+          .from("deals").select("id, stage_id, status")
+          .eq("id", conversation.deal_id).eq("org_id", conversation.org_id).maybeSingle();
+        if (data && data.status === "open") negocioDaConversa = data;
+      }
+      if (!negocioDaConversa && conversation.contact_id) {
+        const { data } = await admin
+          .from("deals").select("id, stage_id")
+          .eq("org_id", conversation.org_id).eq("contact_id", conversation.contact_id).eq("status", "open")
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        negocioDaConversa = data;
+      }
+      etapasDoFunil = await carregarFunil(admin, conversation.org_id, negocioDaConversa?.stage_id ?? null);
+    }
+    const permitidas = new Set(funnelActions.allowed_stage_ids ?? []);
+    const etapasPermitidas = etapasDoFunil.filter((e) => permitidas.size === 0 || permitidas.has(e.id));
+    const etapaAtual = etapasDoFunil.find((e) => e.id === negocioDaConversa?.stage_id);
+    const instrucaoFunil = funilLigado && etapasPermitidas.length > 0
+      ? [
+        "",
+        "Funil de vendas (etapas em ordem): " + etapasDoFunil.map((e, i) => `${i + 1}. ${e.name}`).join("; ") + ".",
+        etapaAtual ? `O negócio deste cliente está na etapa "${etapaAtual.name}".` : "O cliente ainda não tem negócio em etapa definida.",
+        funnelActions.mode === "suggest"
+          ? "Quando a conversa mostrar que o negócio avançou ou recuou (interesse confirmado, reunião marcada, proposta pedida, desistência), chame a ferramenta mover_etapa com a etapa adequada e um motivo curto: a sugestão vai para a equipe decidir."
+          : "Quando a conversa mostrar que o negócio avançou ou recuou (interesse confirmado, reunião marcada, proposta pedida, desistência), chame a ferramenta mover_etapa com a etapa adequada e um motivo curto. Só mova com evidência clara na conversa e nunca mais de uma vez por mensagem.",
+        permitidas.size > 0 ? "Etapas que você pode usar: " + etapasPermitidas.map((e) => e.name).join(", ") + "." : "",
+      ].join("\n")
+      : "";
+
     const knowledge = [
       config.system_prompt?.trim() || "",
       "",
@@ -626,6 +630,7 @@ Deno.serve(async (req) => {
       (objections.data ?? []).length ? "\nComo contornar objeções:\n" + (objections.data ?? []).map((o) => `Objeção: ${o.objection}\nResposta: ${o.response}`).join("\n\n") : "",
       "\nQuando o cliente perguntar sobre produtos, preços ou o que vendemos, use a ferramenta buscar_produtos para consultar o catálogo antes de responder. Não invente produtos nem preços. Respeite a disponibilidade devolvida pela ferramenta: nunca prometa entrega de item ESGOTADO — diga que está sem estoque, ofereça avisar quando repor e sugira alternativa disponível.",
       schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
+      instrucaoFunil,
       "",
       "Responda apenas com a mensagem final ao cliente, sem raciocínio nem meta-comentário.",
     ]
@@ -661,7 +666,74 @@ Deno.serve(async (req) => {
       },
     ];
 
+    if (instrucaoFunil) {
+      tools.push({
+        name: "mover_etapa",
+        description:
+          "Move o negócio deste cliente para outra etapa do funil de vendas quando a conversa mostra que ele avançou ou recuou. Informe a etapa pelo nome exato e um motivo curto.",
+        parameters: {
+          type: "object",
+          properties: {
+            etapa: { type: "string", description: "Nome exato da etapa de destino" },
+            motivo: { type: "string", description: "Por que o negócio deve ir para essa etapa, em uma frase" },
+          },
+          required: ["etapa", "motivo"],
+        },
+      });
+    }
+
+    let movimentoFeito = false;
+    const moverEtapaPelaIA = async (args: Record<string, unknown>): Promise<string> => {
+      const pedida = chave(String(args.etapa ?? ""));
+      const motivo = String(args.motivo ?? "").slice(0, 300).trim() || null;
+      const destino = etapasPermitidas.find((e) => chave(e.name) === pedida)
+        ?? etapasPermitidas.find((e) => chave(e.name).includes(pedida) || pedida.includes(chave(e.name)));
+      if (!destino) return `Etapa não encontrada. Use uma destas: ${etapasPermitidas.map((e) => e.name).join(", ")}.`;
+      if (movimentoFeito) return "O negócio já foi movido nesta mensagem. Siga a conversa.";
+
+      let dealId = negocioDaConversa?.id ?? null;
+      if (!dealId && conversation.contact_id) {
+        dealId = await garantirNegocioAberto(
+          admin, conversation.org_id as string, conversation.contact_id as string,
+          conversation.channel_contact_name ?? conversation.phone_number ?? "Negócio",
+          { respeitarConfig: false },
+        );
+        if (dealId) await admin.from("conversations").update({ deal_id: dealId }).eq("id", conversation.id);
+      }
+      if (!dealId) return "Este cliente não tem negócio aberto. Siga a conversa normalmente.";
+      if (negocioDaConversa?.stage_id === destino.id) return `O negócio já está em "${destino.name}".`;
+
+      movimentoFeito = true;
+      if (funnelActions.mode === "suggest") {
+        await registrarNotaIA(admin, {
+          orgId: conversation.org_id, contactId: conversation.contact_id, dealId,
+          titulo: `IA sugeriu mover para ${destino.name}`,
+          corpo: motivo ?? "Sem motivo informado.",
+          isDemo: conversation.is_demo === true,
+        });
+        const aviso = {
+          p_event_type: "sugestao_etapa",
+          p_title: `IA sugere mover para ${destino.name}`,
+          p_body: `${conversation.channel_contact_name || conversation.phone_number}: ${motivo ?? ""}`.slice(0, 200),
+          p_entity_type: "deal",
+          p_entity_id: dealId,
+        };
+        if (conversation.assigned_to) {
+          await admin.rpc("create_notification", { p_org: conversation.org_id, p_user: conversation.assigned_to, ...aviso });
+        } else {
+          await admin.rpc("notify_org_admins", { p_org: conversation.org_id, ...aviso });
+        }
+        return `Sugestão registrada para a equipe: mover para "${destino.name}". Não diga ao cliente que a etapa mudou.`;
+      }
+
+      const moveu = await moverNegocio(admin, dealId, destino.id, "ia", motivo);
+      if (!moveu) return "Não foi possível mover agora. Siga a conversa normalmente.";
+      negocioDaConversa = { id: dealId, stage_id: destino.id };
+      return `Negócio movido para "${destino.name}". Não comente a etapa com o cliente; apenas continue a conversa.`;
+    };
+
     const executarFerramenta = async (nome: string, args: Record<string, unknown>): Promise<string> => {
+      if (nome === "mover_etapa") return moverEtapaPelaIA(args);
       if (nome !== "buscar_produtos") return "Ferramenta desconhecida.";
       // Vírgulas e parênteses quebrariam a sintaxe do filtro `or` do PostgREST.
       const query = String(args.query ?? "").replace(/[,()]/g, " ").trim();
@@ -790,7 +862,7 @@ Deno.serve(async (req) => {
       })
       .eq("id", conversation_id);
 
-    return json({ ok: true, replied: reply, como_audio: comoAudio, purchase_intent: purchaseIntent });
+    return json({ ok: true, replied: reply, como_audio: comoAudio, purchase_intent: purchaseIntent, moved: movimentoFeito });
   } catch (err) {
     if (err instanceof ErroIA) return json({ error: err.publico }, err.status);
     return json({ error: err instanceof Error ? err.message : "Erro inesperado" }, 500);

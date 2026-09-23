@@ -42,6 +42,33 @@ export interface PurchaseIntentRules {
   take_over: boolean;
 }
 
+/**
+ * Ações da IA no funil (coluna `funnel_actions`): se a IA pode mover o negócio
+ * de etapa pela ferramenta mover_etapa, se move sozinha ou só sugere, e para
+ * quais etapas. Lida pela edge function ai-reply a cada resposta.
+ */
+export interface FunnelActions {
+  enabled: boolean;
+  mode: "auto" | "suggest";
+  /** Vazio = qualquer etapa do funil. */
+  allowed_stage_ids: string[];
+}
+
+/**
+ * Abordagem ativa (coluna `outreach`): instrução de abertura para a IA escrever
+ * a primeira mensagem (Evolution) e o template aprovado exigido pela Meta e
+ * pelo Zernio para iniciar conversa. Lida pela edge function ai-outreach.
+ */
+export interface OutreachConfig {
+  instruction: string;
+  template_name: string | null;
+  template_language: string;
+  template_params: string[];
+}
+
+export const FUNNEL_ACTIONS_PADRAO: FunnelActions = { enabled: true, mode: "auto", allowed_stage_ids: [] };
+export const OUTREACH_PADRAO: OutreachConfig = { instruction: "", template_name: null, template_language: "pt_BR", template_params: [] };
+
 export interface HumanTriggerRules {
   keywords: string[];
   negative_sentiment: boolean;

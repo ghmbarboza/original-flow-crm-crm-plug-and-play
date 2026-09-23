@@ -1,4 +1,4 @@
-import { CheckSquare, FileText, Mail, Phone, Users } from "lucide-react";
+import { ArrowRightLeft, CheckSquare, FileText, Mail, Phone, Users } from "lucide-react";
 import { ACTIVITY_TYPE_LABEL, type ActivityType } from "@/hooks/useActivities";
 
 const TYPE_ICON: Record<ActivityType, typeof Phone> = {
@@ -7,6 +7,7 @@ const TYPE_ICON: Record<ActivityType, typeof Phone> = {
   meeting: Users,
   note: FileText,
   task: CheckSquare,
+  stage_change: ArrowRightLeft,
 };
 
 /** Ícone + rótulo do tipo de atividade. Cores neutras (a paleta não usa cor por tipo). */

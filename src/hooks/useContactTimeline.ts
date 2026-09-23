@@ -84,7 +84,7 @@ export function useContactTimeline(contactId: string | null) {
           id: `activity-${a.id}`,
           kind: "activity",
           activityType: a.type,
-          title: a.type === "note" ? (autor ? `Anotação de ${autor}` : "Anotação") : a.title,
+          title: a.type === "note" ? (autor ? `Anotação de ${autor}` : a.user_id ? "Anotação" : a.title || "Anotação da IA") : a.title,
           body: a.body,
           at: a.created_at ?? "",
           meta: a.completed_at ? "Concluída" : a.due_date ? "Pendente" : undefined,
