@@ -92,6 +92,11 @@ test("análise preenche a memória do lead, o BANT do negócio e pontua; campo c
   const confirmada = { ...(memoria1 as Record<string, unknown>), lead_state: { ...((memoria1 as { lead_state?: Record<string, unknown> }).lead_state ?? {}), company: { value: "Padaria Solar Ltda", status: "confirmed", source: "equipe" } } };
   ok(await c.db.from("contacts").update({ client_memory: confirmada as never }).eq("id", conv.contact_id!), "confirmar empresa");
 
+  // Revisão do B12: a análise tem cooldown de 60 s por conversa. A 2ª mensagem
+  // só é analisada se chegar depois dele, então o teste espera o cooldown passar.
+  const COOLDOWN_ANALISE_MS = 60_000;
+  await new Promise((r) => setTimeout(r, COOLDOWN_ANALISE_MS + 2_000));
+
   const envio2 = await postFunction(c, `evolution-webhook?token=${webhookToken}`, mensagemTexto(
     telefone, "Temos orçamento de até R$ 1.500 por mês para isso e precisamos decidir até o fim do próximo mês, porque em dezembro a demanda dobra.", `${MARCADOR} Carla`,
   ));
