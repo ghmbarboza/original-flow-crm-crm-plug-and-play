@@ -175,7 +175,7 @@ const App = () => (
               <ProtectedRoute><Page name="Voz"><VozPage /></Page></ProtectedRoute>
             } />
             <Route path="/products" element={
-              <ProtectedRoute><Page name="Produtos"><ProductsPage /></Page></ProtectedRoute>
+              <ProtectedRoute><Page name="Produtos/Serviços"><ProductsPage /></Page></ProtectedRoute>
             } />
 
             {/* Atendimento */}

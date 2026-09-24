@@ -35,7 +35,7 @@ export const BUSINESS_MODEL_LABELS: Record<BusinessModel, { label: string; descr
 export const SELLS_LABELS: Record<Sells, string> = {
   products: "Produtos",
   services: "Serviços",
-  both: "Produtos e serviços",
+  both: "Produtos/Serviços",
 };
 
 export interface ItemValor {

@@ -853,7 +853,7 @@ export default function AISettings() {
               <TabsTrigger value="objections">Objeções</TabsTrigger>
               <TabsTrigger value="pendencias" data-testid="knowledge-tab-pendencias">Pendências</TabsTrigger>
               <TabsTrigger value="busca" data-testid="knowledge-tab-busca">Testar busca</TabsTrigger>
-              <TabsTrigger value="products">Produtos</TabsTrigger>
+              <TabsTrigger value="products">Produtos/Serviços</TabsTrigger>
             </TabsList>
 
             <TabsContent value="fatos" className="pt-4"><FatosPanel /></TabsContent>
@@ -899,11 +899,11 @@ export default function AISettings() {
 
             <TabsContent value="products" className="pt-4">
               <p className="mb-3 text-sm" style={{ color: "var(--via-text-muted)" }}>
-                Os produtos ativos são sincronizados automaticamente do módulo Produtos e ficam disponíveis para a IA.
+                Os produtos e serviços ativos são sincronizados automaticamente de Produtos/Serviços e ficam disponíveis para a IA.
               </p>
               {(products ?? []).length === 0 ? (
                 <p className="py-4 text-center text-sm" style={{ color: "var(--via-text-muted)" }}>
-                  Nenhum produto ativo. Cadastre em Produtos.
+                  Nenhum item ativo. Cadastre em Produtos/Serviços.
                 </p>
               ) : (
                 <ul className="space-y-2">

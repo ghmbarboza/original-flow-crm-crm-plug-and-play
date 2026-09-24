@@ -80,21 +80,21 @@ export function DealProductsSection({ dealId, currency }: { dealId: string; curr
       <div className="mb-4 flex items-center gap-2">
         <Package className="h-5 w-5" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
         <h2 className="text-base font-medium" style={{ color: "var(--via-text-primary)" }}>
-          Produtos
+          Produtos/Serviços
         </h2>
       </div>
 
       <div className="mb-4 flex flex-wrap items-end gap-2">
         <div className="min-w-48 flex-1 space-y-1">
-          <label id="deal-produto-label" className="text-xs block" style={{ color: "var(--via-text-muted)" }}>Produto</label>
+          <label id="deal-produto-label" className="text-xs block" style={{ color: "var(--via-text-muted)" }}>Produto ou serviço</label>
           <Select value={selectedProduct} onValueChange={setSelectedProduct}>
             <SelectTrigger data-testid="deal-product-select" aria-labelledby="deal-produto-label">
-              <SelectValue placeholder="Selecione um produto" />
+              <SelectValue placeholder="Selecione um produto ou serviço" />
             </SelectTrigger>
             <SelectContent>
               {(products ?? []).length === 0 ? (
                 <div className="px-2 py-1.5 text-sm" style={{ color: "var(--via-text-muted)" }}>
-                  Nenhum produto ativo. Cadastre em Produtos.
+                  Nenhum item ativo. Cadastre em Produtos/Serviços.
                 </div>
               ) : (
                 (products ?? []).map((product) => (
