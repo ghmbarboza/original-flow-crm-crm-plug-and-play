@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Mic, Phone, PhoneCall, PhoneOutgoing, Play, RefreshCw, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, Mic, Phone, PhoneCall, PhoneOutgoing, Play, RefreshCw, Search, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ErrorState } from "@/components/ErrorState";
 import { useAuth } from "@/hooks/useAuth";
-import { useOrgApiKey, useSaveOrgApiKey } from "@/hooks/useOrgApiKey";
 import { useElevenLabsVoices } from "@/hooks/useElevenLabsVoices";
 import { useContactOptions } from "@/hooks/useAgenda";
 import { formatDateTime } from "@/lib/format";
@@ -49,6 +48,8 @@ export default function VozPage() {
         </div>
         <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>A IA atende e faz ligações pelo seu número, com o mesmo perfil, base de conhecimento e agenda do WhatsApp. Cada ligação vira transcrição, resumo e classificação na ficha do contato.</p>
         {error ? <ErrorState title="Não foi possível carregar a voz" error={error} /> : isLoading || !status ? <Skeleton className="h-40 w-full" /> : (
+          <>
+          <PrimeirosPassos status={status} irPara={trocar} />
           <Tabs value={secao} onValueChange={trocar} className="space-y-4">
             <TabsList>
               <TabsTrigger value="ligacoes" data-testid="voz-tab-ligacoes">Ligações</TabsTrigger>
@@ -61,57 +62,85 @@ export default function VozPage() {
             <TabsContent value="agente"><Agente status={status} /></TabsContent>
             <TabsContent value="campanhas"><Campanhas status={status} /></TabsContent>
           </Tabs>
+          </>
         )}
       </div>
     </AppShell>
   );
 }
 
+/**
+ * Guia de primeiros passos: mostra a ordem certa (credenciais → número → agente →
+ * ligar) com o estado de cada passo e o link para onde ele se resolve. Some sozinho
+ * quando tudo está pronto.
+ */
+function PrimeirosPassos({ status, irPara }: { status: VoiceStatus; irPara: (secao: string) => void }) {
+  const { isAdmin } = useAuth();
+  const numeroPronto = status.numbers.some((n) => n.status === "active" && n.elevenlabs_phone_number_id);
+  const agentePronto = !!status.agent.elevenlabs_agent_id && !status.agent.last_error;
+  const passos = [
+    { feito: status.credentials.ok, titulo: "Cadastrar as credenciais do Twilio e do ElevenLabs", onde: "Configurações > Integrações", to: "/settings/integrations?integration=twilio" },
+    { feito: numeroPronto, titulo: "Importar ou comprar um número de telefone", onde: "Voz > Números", secao: "numeros" },
+    { feito: agentePronto, titulo: "Revisar a primeira frase e sincronizar o agente de voz", onde: "Voz > Agente de voz", secao: "agente" },
+    { feito: false, titulo: "Fazer a primeira ligação pela IA", onde: "Voz > Ligações", secao: "ligacoes" },
+  ];
+  const tudoPronto = status.credentials.ok && numeroPronto && agentePronto;
+  if (tudoPronto) return null;
+  const proximo = passos.findIndex((p) => !p.feito);
+  return (
+    <div className="via-card space-y-3 p-5" data-testid="voz-primeiros-passos">
+      <div>
+        <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Primeiros passos</h3>
+        <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Siga a ordem abaixo. Credenciais de serviços externos ficam sempre em Configurações &gt; Integrações.</p>
+      </div>
+      <ol className="space-y-2">
+        {passos.map((p, i) => {
+          const atual = i === proximo;
+          return (
+            <li key={p.titulo} className="flex flex-wrap items-center gap-2 text-sm" style={{ color: p.feito ? "var(--via-text-muted)" : "var(--via-text-body)" }}>
+              {p.feito ? <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} style={{ color: "var(--via-success)" }} /> : <Circle className="h-4 w-4" strokeWidth={1.5} style={{ color: atual ? "var(--via-text-primary)" : "var(--via-text-muted)" }} />}
+              <span className={p.feito ? "line-through" : atual ? "font-medium" : ""}>{i + 1}. {p.titulo}</span>
+              <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>({p.onde})</span>
+              {atual && (isAdmin || !p.to) && (
+                p.to
+                  ? <Button size="sm" variant="link" className="h-auto p-0" asChild><Link to={p.to} data-testid={`voz-passo-${i + 1}`}>Ir agora</Link></Button>
+                  : <Button size="sm" variant="link" className="h-auto p-0" onClick={() => irPara(p.secao!)} data-testid={`voz-passo-${i + 1}`}>Ir agora</Button>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {!isAdmin && <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Os passos 1 a 3 são de um administrador.</p>}
+    </div>
+  );
+}
+
 function Numeros({ status }: { status: VoiceStatus }) {
   const { isAdmin } = useAuth();
   const acao = useVoiceAction();
-  const { data: temSid } = useOrgApiKey("twilio_account_sid");
-  const { data: temToken } = useOrgApiKey("twilio_auth_token");
-  const { data: temEleven } = useOrgApiKey("elevenlabs");
-  const salvarSid = useSaveOrgApiKey("twilio_account_sid");
-  const salvarToken = useSaveOrgApiKey("twilio_auth_token");
-  const salvarEleven = useSaveOrgApiKey("elevenlabs");
-  const [sid, setSid] = useState("");
-  const [token, setToken] = useState("");
-  const [eleven, setEleven] = useState("");
   const [busca, setBusca] = useState({ area_code: "48", contains: "" });
   const [disponiveis, setDisponiveis] = useState<{ phone_number: string; friendly_name: string; locality: string | null }[] | null>(null);
   const [importar, setImportar] = useState("");
 
-  const salvarCredenciais = async () => {
-    try {
-      if (sid.trim()) await salvarSid.mutateAsync(sid);
-      if (token.trim()) await salvarToken.mutateAsync(token);
-      if (eleven.trim()) await salvarEleven.mutateAsync(eleven);
-      setSid(""); setToken(""); setEleven("");
-      toast.success("Credenciais salvas.");
-      acao.reset();
-    } catch (e) { erro(e, "Não foi possível salvar."); }
-  };
   const rodar = async (body: Record<string, unknown>, ok: string) => {
     try { const r = await acao.mutateAsync(body); toast.success(ok); return r; } catch (e) { erro(e, "Falhou."); return null; }
   };
 
   return (
     <div className="space-y-5" data-testid="voz-numeros">
-      {isAdmin && (
-        <div className="via-card space-y-3 p-5" data-testid="voz-credenciais">
-          <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Credenciais (empresa)</h3>
-          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Twilio (Account SID e Auth Token do console) e ElevenLabs (chave de API com Conversational AI). Conta Twilio de teste só liga para números verificados; número brasileiro precisa de bundle regulatório.</p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1"><Label htmlFor="tw-sid">Twilio Account SID {temSid && <span style={{ color: "var(--via-success)" }}>(cadastrado)</span>}</Label><Input id="tw-sid" value={sid} onChange={(e) => setSid(e.target.value)} autoComplete="off" data-testid="voz-twilio-sid" /></div>
-            <div className="space-y-1"><Label htmlFor="tw-token">Twilio Auth Token {temToken && <span style={{ color: "var(--via-success)" }}>(cadastrado)</span>}</Label><Input id="tw-token" type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" data-testid="voz-twilio-token" /></div>
-            <div className="space-y-1"><Label htmlFor="el-key">ElevenLabs API Key {temEleven && <span style={{ color: "var(--via-success)" }}>(cadastrada)</span>}</Label><Input id="el-key" type="password" value={eleven} onChange={(e) => setEleven(e.target.value)} autoComplete="off" data-testid="voz-eleven-key" /></div>
-          </div>
-          <Button size="sm" variant="outline" onClick={salvarCredenciais} disabled={!sid.trim() && !token.trim() && !eleven.trim()}>Salvar credenciais</Button>
-          {!status.credentials.ok && <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>{status.credentials.motivo}</p>}
+      <div className="via-card flex flex-wrap items-center gap-3 p-4" data-testid="voz-credenciais">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Credenciais do Twilio e do ElevenLabs</p>
+          <p className="text-xs" style={{ color: status.credentials.ok ? "var(--via-success)" : "var(--via-text-muted)" }}>
+            {status.credentials.ok ? "Cadastradas em Configurações > Integrações." : status.credentials.motivo ?? "Ainda não cadastradas."}
+          </p>
         </div>
-      )}
+        {isAdmin && (
+          <Button size="sm" variant="outline" asChild>
+            <Link to="/settings/integrations?integration=twilio" data-testid="voz-abrir-integracoes">{status.credentials.ok ? "Gerenciar em Integrações" : "Cadastrar em Integrações"}</Link>
+          </Button>
+        )}
+      </div>
 
       <div className="via-card space-y-3 p-5">
         <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Meus números</h3>

@@ -17,6 +17,13 @@ test("Voz: abas dedicadas carregam e o agente de voz salva a primeira frase", as
   await expect(page.getByTestId("voz-numeros")).toBeVisible();
   await expect(page).toHaveURL(/secao=numeros/);
   await expect(page.getByTestId("voz-credenciais")).toBeVisible();
+  // Credenciais não se cadastram aqui: o botão leva para Integrações, onde fica o card do Twilio.
+  await page.getByTestId("voz-abrir-integracoes").click();
+  await expect(page).toHaveURL(/settings\/integrations\?integration=twilio/);
+  await expect(page.getByTestId("integration-twilio-twilio_account_sid")).toBeVisible();
+  await expect(page.getByTestId("integration-nylas")).toBeVisible();
+  await expect(page.getByTestId("integration-salesforce")).toBeVisible();
+  await page.goto("/voz?secao=numeros");
 
   await page.getByTestId("voz-tab-agente").click();
   await expect(page.getByTestId("voz-agente")).toBeVisible();

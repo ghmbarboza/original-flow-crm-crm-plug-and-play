@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowRight, AudioLines, CalendarCheck2, History, Mail, MessageSquare, Plug, Webhook,
+  ArrowRight, AudioLines, CalendarCheck2, CalendarDays, Database, History, Mail, MessageSquare, PhoneCall, Plug, Webhook,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,10 @@ import ErpSettings from "@/components/settings/ErpSettings";
 import WebhooksSettings from "@/components/settings/WebhooksSettings";
 import { useWebhookEndpoints, useWebhookInboundKeys } from "@/hooks/useWebhooks";
 import ImportHistorySettings from "@/components/settings/ImportHistorySettings";
+import { CredenciaisServico, useCredenciaisProntas } from "@/components/settings/CredenciaisServico";
+
+const CALLBACK_NYLAS = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calendar-oauth-callback`;
+const CALLBACK_SALESFORCE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crm-oauth-callback`;
 
 /**
  * Configurações > Integrações.
@@ -38,6 +42,10 @@ import ImportHistorySettings from "@/components/settings/ImportHistorySettings";
  *
  * Chaves de API não são uma seção: só um botão discreto no topo e, quando
  * existem chaves, a lista compacta no fim da página.
+ *
+ * Regra da casa: TODA credencial de serviço externo (ElevenLabs, Twilio, Nylas,
+ * Salesforce…) é cadastrada aqui. As telas de uso (Voz, Agenda, Importação)
+ * mostram só o estado e apontam para o card correspondente.
  */
 export default function IntegrationsTab() {
   const navigate = useNavigate();
@@ -48,6 +56,9 @@ export default function IntegrationsTab() {
   const { data: email } = useEmailConnection();
   const { data: aiConfig } = useAIConfig();
   const { data: temChaveVoz } = useOrgApiKey("elevenlabs");
+  const twilioPronto = useCredenciaisProntas(["twilio_account_sid", "twilio_auth_token"]);
+  const nylasPronto = useCredenciaisProntas(["nylas_client_id", "nylas_api_key"]);
+  const salesforcePronto = useCredenciaisProntas(["salesforce_client_id", "salesforce_client_secret"]);
   const { data: calcom } = useCalcomConfig();
   const { data: erp } = useErpConfig();
   const salvarErp = useSaveErpConfig();
@@ -141,8 +152,8 @@ export default function IntegrationsTab() {
 
       <IntegrationCard
         icon={AudioLines}
-        title="Voz da agente — ElevenLabs"
-        purpose="Sua agente ouve áudios e responde com voz natural no WhatsApp."
+        title="ElevenLabs: voz da agente e ligações"
+        purpose="Sua agente ouve áudios, responde com voz natural no WhatsApp e, com um número Twilio, atende e faz ligações."
         recomendacao="recomendado"
         status={voz.status}
         statusLabel={voz.label}
@@ -152,9 +163,10 @@ export default function IntegrationsTab() {
         <div className="space-y-3">
           <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
             Áudios recebidos são transcritos sempre que houver chave. Para a agente também
-            responder falando, salve a chave do ElevenLabs, escolha a voz e ative a resposta em
-            áudio.
+            responder falando, salve a chave, escolha a voz em Configurações &gt; IA e ative a
+            resposta em áudio. Para ligações por telefone, a mesma chave precisa do Conversational AI liberado.
           </p>
+          <CredenciaisServico campos={[{ service: "elevenlabs", label: "Chave de API do ElevenLabs", secreto: true, placeholder: "sk_..." }]} testIdPrefix="integration-elevenlabs" mensagemSalvo="Chave do ElevenLabs guardada no Vault." />
           <div className="flex flex-wrap items-center gap-3">
             {/* O passo a passo existia só dentro de Configurações > IA. Quem
                 chegava por Integrações via o card sem nenhuma instrução. */}
@@ -169,6 +181,10 @@ export default function IntegrationsTab() {
               Abrir Voz da agente
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
             </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/voz")} data-testid="integrations-goto-calls">
+              Abrir Ligações
+              <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+            </Button>
             {voz.status === "ok" && (
               <DesconectarIntegracao
                 titulo="Remover a chave do ElevenLabs?"
@@ -179,6 +195,37 @@ export default function IntegrationsTab() {
               />
             )}
           </div>
+        </div>
+      </IntegrationCard>
+
+      <IntegrationCard
+        icon={PhoneCall}
+        title="Ligações por telefone: Twilio"
+        purpose="Números de telefone da empresa. A IA atende e liga por eles, com transcrição e resumo na ficha do contato."
+        recomendacao="opcional"
+        status={twilioPronto ? "ok" : "ausente"}
+        statusLabel={twilioPronto ? "Credenciais cadastradas" : "Não configurado"}
+        abrirPorPadrao={alvo === "twilio"}
+        testId="integration-twilio"
+      >
+        <div className="space-y-3">
+          <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+            No console do Twilio, copie o Account SID e o Auth Token. Depois, em Voz &gt; Números, importe um número
+            que você já tem ou compre um novo. Número brasileiro exige bundle regulatório no Twilio; conta de teste só
+            liga para números verificados.
+          </p>
+          <CredenciaisServico
+            campos={[
+              { service: "twilio_account_sid", label: "Account SID", placeholder: "AC..." },
+              { service: "twilio_auth_token", label: "Auth Token", secreto: true },
+            ]}
+            testIdPrefix="integration-twilio"
+            mensagemSalvo="Credenciais do Twilio salvas."
+          />
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/voz?secao=numeros")} data-testid="integrations-goto-numbers">
+            Abrir Voz &gt; Números
+            <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+          </Button>
         </div>
       </IntegrationCard>
 
@@ -214,6 +261,36 @@ export default function IntegrationsTab() {
       </IntegrationCard>
 
       <IntegrationCard
+        icon={CalendarDays}
+        title="Calendário: Nylas (Google Calendar e Outlook)"
+        purpose="Cada pessoa conecta o próprio calendário; as reuniões da IA entram nele e horários ocupados ficam indisponíveis."
+        recomendacao="recomendado"
+        status={nylasPronto ? "ok" : "ausente"}
+        statusLabel={nylasPronto ? "Credenciais cadastradas" : "Não configurado"}
+        abrirPorPadrao={alvo === "nylas"}
+        testId="integration-nylas"
+      >
+        <div className="space-y-3">
+          <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+            No painel do Nylas, crie um aplicativo, cadastre este endereço como Callback URI e copie o Client ID e a API Key:
+            {" "}<code className="break-all text-xs">{CALLBACK_NYLAS}</code>
+          </p>
+          <CredenciaisServico
+            campos={[
+              { service: "nylas_client_id", label: "Client ID" },
+              { service: "nylas_api_key", label: "API Key", secreto: true },
+            ]}
+            testIdPrefix="integration-nylas"
+            mensagemSalvo="Credenciais do Nylas salvas."
+          />
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/settings/agenda")} data-testid="integrations-goto-agenda">
+            Conectar meu calendário em Agenda
+            <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+          </Button>
+        </div>
+      </IntegrationCard>
+
+      <IntegrationCard
         icon={Plug}
         title="Conectividade ERP"
         purpose="Mantém contatos, negócios e pedidos em sincronia com seu sistema de gestão, nos dois sentidos."
@@ -232,6 +309,37 @@ export default function IntegrationsTab() {
         }
       >
         <ErpSettings />
+      </IntegrationCard>
+
+      <IntegrationCard
+        icon={Database}
+        title="Salesforce: app conectado"
+        purpose="Credenciais do Connected App para trazer contas, contatos e oportunidades do Salesforce na migração."
+        recomendacao="opcional"
+        status={salesforcePronto ? "ok" : "ausente"}
+        statusLabel={salesforcePronto ? "Credenciais cadastradas" : "Não configurado"}
+        abrirPorPadrao={alvo === "salesforce"}
+        testId="integration-salesforce"
+      >
+        <div className="space-y-3">
+          <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+            No Connected App, use este endereço como Callback URL:
+            {" "}<code className="break-all text-xs">{CALLBACK_SALESFORCE}</code>. HubSpot, Pipedrive, RD Station, Agendor e
+            Kommo usam token direto na tela de importação.
+          </p>
+          <CredenciaisServico
+            campos={[
+              { service: "salesforce_client_id", label: "Consumer Key" },
+              { service: "salesforce_client_secret", label: "Consumer Secret", secreto: true },
+            ]}
+            testIdPrefix="integration-salesforce"
+            mensagemSalvo="Credenciais do Salesforce salvas. Agora autorize a conta na importação."
+          />
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/settings/importacao?secao=crm")} data-testid="integrations-goto-crm">
+            Autorizar em Importação &gt; Conectar CRM
+            <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+          </Button>
+        </div>
       </IntegrationCard>
 
       <IntegrationCard

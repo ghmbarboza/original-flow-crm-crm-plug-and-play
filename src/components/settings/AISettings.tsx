@@ -26,7 +26,6 @@ import { SourceProfilesPanel } from "@/components/settings/ai/SourceProfilesPane
 import { BuscaPanel, DocumentosPanel, FatosPanel, PendenciasPanel } from "@/components/settings/ai/ConhecimentoPanel";
 import { AnalysisSettingsPanel } from "@/components/settings/ai/AnalysisSettingsPanel";
 import { VoicePicker } from "@/components/settings/VoicePicker";
-import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { PromptVersionsPanel } from "@/components/settings/ai/PromptVersionsPanel";
 import { useActiveProducts } from "@/hooks/useProducts";
 import { useStages } from "@/hooks/useDeals";
@@ -38,7 +37,7 @@ import {
 } from "@/hooks/useAIConfig";
 import { useGenerateSystemPrompt } from "@/hooks/useGenerateSystemPrompt";
 import { BRAND_TONES, useOrganization, useUpdateOrganization } from "@/hooks/useSetup";
-import { useOrgApiKey, useSaveOrgApiKey } from "@/hooks/useOrgApiKey";
+import { useOrgApiKey } from "@/hooks/useOrgApiKey";
 import { formatCurrency } from "@/lib/format";
 import { horarioParaTela, horarioPadrao as defaultWorkingHours } from "@/lib/horarioAtendimento";
 
@@ -51,8 +50,6 @@ export default function AISettings() {
   // Voz da agente: a chave do ElevenLabs é da organização (Vault). Aqui só se
   // sabe SE existe — o valor nunca volta para a tela.
   const { data: chaveElevenLabs } = useOrgApiKey("elevenlabs");
-  const salvarChave = useSaveOrgApiKey("elevenlabs");
-  const [chaveNova, setChaveNova] = useState("");
 
   // Contexto da marca: MESMOS registros de organizations que o onboarding
   // (etapa Público) grava — fonte única, não cópia. Salvos junto com o botão
@@ -360,46 +357,16 @@ export default function AISettings() {
             </div>
             {form.voice_enabled && (
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Label htmlFor="elevenlabs-key">Chave de API do ElevenLabs</Label>
-                    {chaveElevenLabs && (
-                      <Badge className="bg-success text-success-foreground">Configurada</Badge>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                      id="elevenlabs-key"
-                      data-testid="ai-elevenlabs-key"
-                      type="password"
-                      className="sm:max-w-xs"
-                      value={chaveNova}
-                      onChange={(e) => setChaveNova(e.target.value)}
-                      placeholder={chaveElevenLabs ? "••••••••  (deixe vazio para manter)" : "sk_..."}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={!chaveNova.trim() || salvarChave.isPending}
-                      onClick={async () => {
-                        try {
-                          await salvarChave.mutateAsync(chaveNova);
-                          setChaveNova("");
-                          toast.success("Chave do ElevenLabs guardada no Vault.");
-                        } catch (e) {
-                          toast.error(e instanceof Error ? e.message : "Falha ao salvar a chave.");
-                        }
-                      }}
-                    >
-                      {salvarChave.isPending ? "Salvando…" : "Salvar chave"}
-                    </Button>
-                    <ApiKeyTutorialDialog service="elevenlabs" />
-                  </div>
-                  <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-                    A chave é da sua organização e fica no Vault. Sem chave própria, usamos a
-                    chave da plataforma (limitada, só para testes).
-                  </p>
+                <div className="flex flex-wrap items-center gap-2 sm:col-span-2" data-testid="ai-elevenlabs-status">
+                  <span className="text-sm" style={{ color: "var(--via-text-body)" }}>Chave do ElevenLabs</span>
+                  {chaveElevenLabs ? (
+                    <Badge className="bg-success text-success-foreground">Configurada</Badge>
+                  ) : (
+                    <Badge variant="secondary">Não cadastrada</Badge>
+                  )}
+                  <Button variant="link" size="sm" className="h-auto p-0" asChild>
+                    <Link to="/settings/integrations?integration=elevenlabs">{chaveElevenLabs ? "Gerenciar em Integrações" : "Cadastrar em Integrações"}</Link>
+                  </Button>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Voz da agente</Label>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CalendarCheck, CheckCircle2, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
-import { useOrgApiKey, useSaveOrgApiKey } from "@/hooks/useOrgApiKey";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
@@ -33,8 +32,8 @@ function erro(e: unknown, padrao: string) {
 }
 
 /**
- * Configurações > Agenda: calendário do usuário (Nylas), credenciais do Nylas
- * da empresa (admin), política de agenda da IA e textos de lembrete e no-show.
+ * Configurações > Agenda: calendário do usuário (Nylas), política de agenda da IA
+ * e textos de lembrete e no-show. As credenciais do Nylas ficam em Integrações.
  */
 export default function AgendaSettings() {
   const { isAdmin } = useAuth();
@@ -50,12 +49,6 @@ function CalendarioDoUsuario() {
   const { isAdmin } = useAuth();
   const { data: status, isLoading } = useCalendarStatus();
   const acao = useCalendarAction();
-  const { data: temClientId } = useOrgApiKey("nylas_client_id");
-  const { data: temApiKey } = useOrgApiKey("nylas_api_key");
-  const salvarClientId = useSaveOrgApiKey("nylas_client_id");
-  const salvarApiKey = useSaveOrgApiKey("nylas_api_key");
-  const [clientId, setClientId] = useState("");
-  const [apiKey, setApiKey] = useState("");
   const [params, setParams] = useSearchParams();
 
   useEffect(() => {
@@ -70,7 +63,6 @@ function CalendarioDoUsuario() {
     setParams(proximos, { replace: true });
   }, [params, setParams]);
 
-  const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calendar-oauth-callback`;
   const conectar = async () => {
     try {
       const r = await acao.mutateAsync({ action: "connect", app_origin: window.location.origin });
@@ -79,18 +71,6 @@ function CalendarioDoUsuario() {
       erro(e, "Não foi possível iniciar a conexão.");
     }
   };
-  const salvarCredenciais = async () => {
-    try {
-      if (clientId.trim()) await salvarClientId.mutateAsync(clientId);
-      if (apiKey.trim()) await salvarApiKey.mutateAsync(apiKey);
-      setClientId("");
-      setApiKey("");
-      toast.success("Credenciais do Nylas salvas.");
-    } catch (e) {
-      erro(e, "Não foi possível salvar.");
-    }
-  };
-
   return (
     <div className="via-card space-y-4 p-5" data-testid="agenda-calendar">
       <div className="flex items-center gap-2">
@@ -117,27 +97,9 @@ function CalendarioDoUsuario() {
         <Button size="sm" onClick={conectar} disabled={acao.isPending || !status?.credentials_ready} data-testid="calendar-connect">Conectar meu calendário</Button>
       )}
       {!status?.credentials_ready && !isLoading && (
-        <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-          {isAdmin ? "Cadastre abaixo as credenciais do Nylas da empresa para liberar a conexão." : "Peça a um administrador para cadastrar as credenciais do Nylas."}
-        </p>
-      )}
-      {isAdmin && (
-        <div className="space-y-3 rounded-md border p-4" style={{ borderColor: "var(--via-border)" }} data-testid="nylas-credentials">
-          <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Credenciais do Nylas (empresa)</p>
-          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-            No painel do Nylas, crie um aplicativo, cadastre este endereço como Callback URI e copie o Client ID e a API Key: <code className="break-all">{redirectUri}</code>
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="nylas-client">Client ID {temClientId && <span style={{ color: "var(--via-success)" }}>(cadastrado)</span>}</Label>
-              <Input id="nylas-client" value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" data-testid="nylas-client-id" />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="nylas-key">API Key {temApiKey && <span style={{ color: "var(--via-success)" }}>(cadastrada)</span>}</Label>
-              <Input id="nylas-key" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" data-testid="nylas-api-key" />
-            </div>
-          </div>
-          <Button size="sm" variant="outline" onClick={salvarCredenciais} disabled={!clientId.trim() && !apiKey.trim()}>Salvar credenciais</Button>
+        <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--via-text-muted)" }}>
+          <span>{isAdmin ? "Falta cadastrar as credenciais do Nylas da empresa." : "Peça a um administrador para cadastrar as credenciais do Nylas."}</span>
+          {isAdmin && <Button size="sm" variant="link" className="h-auto p-0" asChild><Link to="/settings/integrations?integration=nylas" data-testid="agenda-abrir-integracoes">Cadastrar em Integrações</Link></Button>}
         </div>
       )}
     </div>

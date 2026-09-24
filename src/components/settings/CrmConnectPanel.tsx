@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CheckCircle2, Plug, RefreshCw, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { formatDateTime } from "@/lib/format";
 import { sugerirEtapa } from "@/lib/importacao";
 import { useStages } from "@/hooks/useDeals";
-import { useOrgApiKey, useSaveOrgApiKey } from "@/hooks/useOrgApiKey";
+import { useOrgApiKey } from "@/hooks/useOrgApiKey";
 import {
   CRM_ENTITY_LABEL, CRM_PROVIDERS, CRM_SYNC_ORDER, useConnectCrm, useCrmConnections, useDisconnectCrm, useRefreshCrmStructure, useStartCrmOAuth, useSyncCrm,
   type CrmConnection, type CrmEntity, type CrmProviderInfo, type CrmStructure, type ResultadoSync,
@@ -114,24 +114,8 @@ function ConectarCard({ info }: { info: CrmProviderInfo }) {
 function SalesforceOAuth() {
   const { data: temKey } = useOrgApiKey("salesforce_client_id");
   const { data: temSecret } = useOrgApiKey("salesforce_client_secret");
-  const salvarKey = useSaveOrgApiKey("salesforce_client_id");
-  const salvarSecret = useSaveOrgApiKey("salesforce_client_secret");
   const iniciar = useStartCrmOAuth();
-  const [key, setKey] = useState("");
-  const [secret, setSecret] = useState("");
-  const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crm-oauth-callback`;
-
-  const salvar = async () => {
-    try {
-      if (key.trim()) await salvarKey.mutateAsync(key);
-      if (secret.trim()) await salvarSecret.mutateAsync(secret);
-      setKey("");
-      setSecret("");
-      toast.success("Credenciais salvas. Agora autorize a conta.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
-    }
-  };
+  const pronto = !!temKey && !!temSecret;
 
   const autorizar = async () => {
     try {
@@ -145,21 +129,13 @@ function SalesforceOAuth() {
   return (
     <div className="space-y-3">
       <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-        No Connected App, use este endereço como Callback URL: <code className="break-all">{redirectUri}</code>
+        {pronto ? "Credenciais do app conectado cadastradas em Integrações. Autorize a conta para ler a estrutura." : "Cadastre a Consumer Key e o Consumer Secret do app conectado em Configurações > Integrações."}
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor="sf-key">Consumer Key {temKey && <span style={{ color: "var(--via-success)" }}>(cadastrada)</span>}</Label>
-          <Input id="sf-key" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" data-testid="crm-sf-key" />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="sf-secret">Consumer Secret {temSecret && <span style={{ color: "var(--via-success)" }}>(cadastrado)</span>}</Label>
-          <Input id="sf-secret" type="password" value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="off" data-testid="crm-sf-secret" />
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={salvar} disabled={!key.trim() && !secret.trim()}>Salvar credenciais</Button>
-        <Button size="sm" onClick={autorizar} disabled={!temKey || !temSecret || iniciar.isPending} data-testid="crm-sf-authorize">Autorizar no Salesforce</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" asChild>
+          <Link to="/settings/integrations?integration=salesforce" data-testid="crm-sf-integracoes">{pronto ? "Gerenciar em Integrações" : "Cadastrar em Integrações"}</Link>
+        </Button>
+        <Button size="sm" onClick={autorizar} disabled={!pronto || iniciar.isPending} data-testid="crm-sf-authorize">Autorizar no Salesforce</Button>
       </div>
     </div>
   );

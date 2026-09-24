@@ -24,8 +24,8 @@ test("Configurações > Importação > Conectar CRM: provedores, formulário por
 
   // Salesforce: OAuth, com Callback URL da function e botão travado sem credenciais.
   await page.getByTestId("crm-open-salesforce").click();
-  await expect(page.getByText(/crm-oauth-callback/)).toBeVisible();
-  await expect(page.getByTestId("crm-sf-key")).toBeVisible();
+  await expect(page.getByTestId("crm-sf-integracoes")).toBeVisible();
+  await expect(page.getByTestId("crm-sf-authorize")).toBeVisible();
 
   // As outras sub-abas continuam acessíveis.
   await page.getByTestId("import-section").filter({ hasText: "Histórico" }).click();
