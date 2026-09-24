@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { CheckCircle2, Circle, Mic, Phone, PhoneCall, PhoneOutgoing, Play, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ArrowRight, Mic, Phone, PhoneCall, PhoneOutgoing, Play, Plug, RefreshCw, Search, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ErrorState } from "@/components/ErrorState";
+import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/useAuth";
 import { useElevenLabsVoices } from "@/hooks/useElevenLabsVoices";
 import { useContactOptions } from "@/hooks/useAgenda";
@@ -47,9 +48,9 @@ export default function VozPage() {
           <h1 className="font-display text-3xl font-medium tracking-tight" style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}>Voz</h1>
         </div>
         <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>A IA atende e faz ligações pelo seu número, com o mesmo perfil, base de conhecimento e agenda do WhatsApp. Cada ligação vira transcrição, resumo e classificação na ficha do contato.</p>
-        {error ? <ErrorState title="Não foi possível carregar a voz" error={error} /> : isLoading || !status ? <Skeleton className="h-40 w-full" /> : (
-          <>
-          <PrimeirosPassos status={status} irPara={trocar} />
+        {error ? <ErrorState title="Não foi possível carregar a voz" error={error} /> : isLoading || !status ? <Skeleton className="h-40 w-full" /> : !vozPronta(status) ? (
+          <ConectarVoz status={status} />
+        ) : (
           <Tabs value={secao} onValueChange={trocar} className="space-y-4">
             <TabsList>
               <TabsTrigger value="ligacoes" data-testid="voz-tab-ligacoes">Ligações</TabsTrigger>
@@ -62,55 +63,101 @@ export default function VozPage() {
             <TabsContent value="agente"><Agente status={status} /></TabsContent>
             <TabsContent value="campanhas"><Campanhas status={status} /></TabsContent>
           </Tabs>
-          </>
         )}
       </div>
     </AppShell>
   );
 }
 
+function numeroPronto(status: VoiceStatus) {
+  return status.numbers.some((n) => n.status === "active" && n.elevenlabs_phone_number_id);
+}
+function vozPronta(status: VoiceStatus) {
+  return status.credentials.ok && numeroPronto(status);
+}
+
 /**
- * Guia de primeiros passos: mostra a ordem certa (credenciais → número → agente →
- * ligar) com o estado de cada passo e o link para onde ele se resolve. Some sozinho
- * quando tudo está pronto.
+ * Antes de tudo estar conectado a página não tem o que mostrar: mesmo padrão do
+ * Email e do WhatsApp, um único estado vazio que diz o próximo passo e leva até ele.
+ * Passo 1: credenciais em Configurações > Integrações. Passo 2: conectar um número
+ * (o agente de voz é sincronizado junto). Depois disso a tela completa aparece.
  */
-function PrimeirosPassos({ status, irPara }: { status: VoiceStatus; irPara: (secao: string) => void }) {
+function ConectarVoz({ status }: { status: VoiceStatus }) {
   const { isAdmin } = useAuth();
-  const numeroPronto = status.numbers.some((n) => n.status === "active" && n.elevenlabs_phone_number_id);
-  const agentePronto = !!status.agent.elevenlabs_agent_id && !status.agent.last_error;
-  const passos = [
-    { feito: status.credentials.ok, titulo: "Cadastrar as credenciais do Twilio e do ElevenLabs", onde: "Configurações > Integrações", to: "/settings/integrations?integration=twilio" },
-    { feito: numeroPronto, titulo: "Importar ou comprar um número de telefone", onde: "Voz > Números", secao: "numeros" },
-    { feito: agentePronto, titulo: "Revisar a primeira frase e sincronizar o agente de voz", onde: "Voz > Agente de voz", secao: "agente" },
-    { feito: false, titulo: "Fazer a primeira ligação pela IA", onde: "Voz > Ligações", secao: "ligacoes" },
-  ];
-  const tudoPronto = status.credentials.ok && numeroPronto && agentePronto;
-  if (tudoPronto) return null;
-  const proximo = passos.findIndex((p) => !p.feito);
+  const credenciais = status.credentials.ok;
+  if (!credenciais) {
+    return (
+      <EmptyState
+        icon={Plug}
+        title="Conecte a voz da IA"
+        description={isAdmin
+          ? "Para atender e fazer ligações, a IA precisa de um número no Twilio e da voz do ElevenLabs. Primeiro cadastre as credenciais dos dois em Configurações > Integrações; depois volte aqui para conectar o número."
+          : "Para atender e fazer ligações, a IA precisa de um número no Twilio e da voz do ElevenLabs. Peça a um administrador para cadastrar as credenciais em Configurações > Integrações."}
+        action={isAdmin && (
+          <Button asChild className="gap-1.5" data-testid="voz-abrir-integracoes">
+            <Link to="/settings/integrations?integration=twilio">Configurar credenciais <ArrowRight className="h-4 w-4" strokeWidth={1.5} /></Link>
+          </Button>
+        )}
+        className="mx-auto max-w-2xl"
+      />
+    );
+  }
   return (
-    <div className="via-card space-y-3 p-5" data-testid="voz-primeiros-passos">
-      <div>
-        <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Primeiros passos</h3>
-        <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Siga a ordem abaixo. Credenciais de serviços externos ficam sempre em Configurações &gt; Integrações.</p>
+    <div className="mx-auto max-w-2xl space-y-4" data-testid="voz-conectar-numero">
+      <EmptyState
+        icon={Phone}
+        title="Falta conectar um número"
+        description={isAdmin
+          ? "As credenciais já estão cadastradas. Agora importe um número que você já tem no Twilio ou compre um novo; ele é ligado ao agente de voz automaticamente, e é o último passo."
+          : "As credenciais já estão cadastradas. Peça a um administrador para conectar um número de telefone."}
+        action={isAdmin && (
+          <Button variant="outline" size="sm" asChild className="gap-1.5">
+            <Link to="/settings/integrations?integration=twilio">Rever credenciais <ArrowRight className="h-4 w-4" strokeWidth={1.5} /></Link>
+          </Button>
+        )}
+      />
+      {status.agent.last_error && <p className="text-xs" style={{ color: "var(--via-danger)" }}>Último erro ao conectar: {status.agent.last_error}</p>}
+      {isAdmin && <ConectarNumero />}
+    </div>
+  );
+}
+
+/** Importar um número da conta Twilio ou comprar um novo. Usado no estado vazio e na aba Números. */
+function ConectarNumero() {
+  const acao = useVoiceAction();
+  const [busca, setBusca] = useState({ area_code: "48", contains: "" });
+  const [disponiveis, setDisponiveis] = useState<{ phone_number: string; friendly_name: string; locality: string | null }[] | null>(null);
+  const [importar, setImportar] = useState("");
+  const rodar = async (body: Record<string, unknown>, ok: string) => {
+    try { const r = await acao.mutateAsync(body); toast.success(ok); return r; } catch (e) { erro(e, "Falhou."); return null; }
+  };
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <div className="via-card space-y-3 p-5">
+        <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Importar número que já tenho no Twilio</h3>
+        <div className="flex gap-2">
+          <Input value={importar} onChange={(e) => setImportar(e.target.value)} placeholder="+5548999990000" data-testid="voz-importar-numero" />
+          <Button size="sm" onClick={async () => { if (await rodar({ action: "numbers_import", phone_number: importar }, "Número importado e conectado ao agente.")) setImportar(""); }} disabled={acao.isPending || !importar.trim()} data-testid="voz-importar">Conectar</Button>
+        </div>
       </div>
-      <ol className="space-y-2">
-        {passos.map((p, i) => {
-          const atual = i === proximo;
-          return (
-            <li key={p.titulo} className="flex flex-wrap items-center gap-2 text-sm" style={{ color: p.feito ? "var(--via-text-muted)" : "var(--via-text-body)" }}>
-              {p.feito ? <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} style={{ color: "var(--via-success)" }} /> : <Circle className="h-4 w-4" strokeWidth={1.5} style={{ color: atual ? "var(--via-text-primary)" : "var(--via-text-muted)" }} />}
-              <span className={p.feito ? "line-through" : atual ? "font-medium" : ""}>{i + 1}. {p.titulo}</span>
-              <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>({p.onde})</span>
-              {atual && (isAdmin || !p.to) && (
-                p.to
-                  ? <Button size="sm" variant="link" className="h-auto p-0" asChild><Link to={p.to} data-testid={`voz-passo-${i + 1}`}>Ir agora</Link></Button>
-                  : <Button size="sm" variant="link" className="h-auto p-0" onClick={() => irPara(p.secao!)} data-testid={`voz-passo-${i + 1}`}>Ir agora</Button>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      {!isAdmin && <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Os passos 1 a 3 são de um administrador.</p>}
+      <div className="via-card space-y-3 p-5">
+        <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Comprar número novo</h3>
+        <div className="flex gap-2">
+          <Input value={busca.area_code} onChange={(e) => setBusca({ ...busca, area_code: e.target.value })} placeholder="DDD" className="w-20" aria-label="DDD" />
+          <Input value={busca.contains} onChange={(e) => setBusca({ ...busca, contains: e.target.value })} placeholder="contém (opcional)" aria-label="Contém" />
+          <Button size="sm" variant="outline" onClick={async () => { const r = await rodar({ action: "numbers_search", country: "BR", ...busca }, "Busca feita."); if (r) setDisponiveis((r.numbers as typeof disponiveis) ?? []); }} disabled={acao.isPending}><Search className="mr-1 h-4 w-4" strokeWidth={1.5} /> Buscar</Button>
+        </div>
+        {disponiveis && (disponiveis.length === 0 ? <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Nenhum número disponível com esse filtro.</p> : (
+          <ul className="space-y-1">
+            {disponiveis.map((d) => (
+              <li key={d.phone_number} className="flex items-center justify-between text-sm" style={{ color: "var(--via-text-body)" }}>
+                <span>{d.friendly_name}{d.locality ? ` · ${d.locality}` : ""}</span>
+                <Button size="sm" variant="outline" onClick={() => rodar({ action: "numbers_buy", phone_number: d.phone_number }, "Número comprado e conectado ao agente.")} disabled={acao.isPending}>Comprar</Button>
+              </li>
+            ))}
+          </ul>
+        ))}
+      </div>
     </div>
   );
 }
@@ -118,9 +165,6 @@ function PrimeirosPassos({ status, irPara }: { status: VoiceStatus; irPara: (sec
 function Numeros({ status }: { status: VoiceStatus }) {
   const { isAdmin } = useAuth();
   const acao = useVoiceAction();
-  const [busca, setBusca] = useState({ area_code: "48", contains: "" });
-  const [disponiveis, setDisponiveis] = useState<{ phone_number: string; friendly_name: string; locality: string | null }[] | null>(null);
-  const [importar, setImportar] = useState("");
 
   const rodar = async (body: Record<string, unknown>, ok: string) => {
     try { const r = await acao.mutateAsync(body); toast.success(ok); return r; } catch (e) { erro(e, "Falhou."); return null; }
@@ -128,19 +172,10 @@ function Numeros({ status }: { status: VoiceStatus }) {
 
   return (
     <div className="space-y-5" data-testid="voz-numeros">
-      <div className="via-card flex flex-wrap items-center gap-3 p-4" data-testid="voz-credenciais">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Credenciais do Twilio e do ElevenLabs</p>
-          <p className="text-xs" style={{ color: status.credentials.ok ? "var(--via-success)" : "var(--via-text-muted)" }}>
-            {status.credentials.ok ? "Cadastradas em Configurações > Integrações." : status.credentials.motivo ?? "Ainda não cadastradas."}
-          </p>
-        </div>
-        {isAdmin && (
-          <Button size="sm" variant="outline" asChild>
-            <Link to="/settings/integrations?integration=twilio" data-testid="voz-abrir-integracoes">{status.credentials.ok ? "Gerenciar em Integrações" : "Cadastrar em Integrações"}</Link>
-          </Button>
-        )}
-      </div>
+      <p className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--via-text-muted)" }} data-testid="voz-credenciais">
+        <span>Credenciais do Twilio e do ElevenLabs cadastradas em Configurações &gt; Integrações.</span>
+        {isAdmin && <Link to="/settings/integrations?integration=twilio" className="underline" data-testid="voz-gerenciar-credenciais">Gerenciar</Link>}
+      </p>
 
       <div className="via-card space-y-3 p-5">
         <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Meus números</h3>
@@ -170,35 +205,7 @@ function Numeros({ status }: { status: VoiceStatus }) {
         )}
       </div>
 
-      {isAdmin && (
-        <div className="grid gap-5 lg:grid-cols-2">
-          <div className="via-card space-y-3 p-5">
-            <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Importar número que já tenho no Twilio</h3>
-            <div className="flex gap-2">
-              <Input value={importar} onChange={(e) => setImportar(e.target.value)} placeholder="+5548999990000" data-testid="voz-importar-numero" />
-              <Button size="sm" onClick={async () => { if (await rodar({ action: "numbers_import", phone_number: importar }, "Número importado e conectado ao agente.")) setImportar(""); }} disabled={acao.isPending || !importar.trim()} data-testid="voz-importar">Importar</Button>
-            </div>
-          </div>
-          <div className="via-card space-y-3 p-5">
-            <h3 className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Comprar número novo</h3>
-            <div className="flex gap-2">
-              <Input value={busca.area_code} onChange={(e) => setBusca({ ...busca, area_code: e.target.value })} placeholder="DDD" className="w-20" aria-label="DDD" />
-              <Input value={busca.contains} onChange={(e) => setBusca({ ...busca, contains: e.target.value })} placeholder="contém (opcional)" aria-label="Contém" />
-              <Button size="sm" variant="outline" onClick={async () => { const r = await rodar({ action: "numbers_search", country: "BR", ...busca }, "Busca feita."); if (r) setDisponiveis((r.numbers as typeof disponiveis) ?? []); }} disabled={acao.isPending}><Search className="mr-1 h-4 w-4" strokeWidth={1.5} /> Buscar</Button>
-            </div>
-            {disponiveis && (disponiveis.length === 0 ? <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>Nenhum número disponível com esse filtro.</p> : (
-              <ul className="space-y-1">
-                {disponiveis.map((d) => (
-                  <li key={d.phone_number} className="flex items-center justify-between text-sm" style={{ color: "var(--via-text-body)" }}>
-                    <span>{d.friendly_name}{d.locality ? ` · ${d.locality}` : ""}</span>
-                    <Button size="sm" variant="outline" onClick={() => rodar({ action: "numbers_buy", phone_number: d.phone_number }, "Número comprado e conectado ao agente.")} disabled={acao.isPending}>Comprar</Button>
-                  </li>
-                ))}
-              </ul>
-            ))}
-          </div>
-        </div>
-      )}
+      {isAdmin && <ConectarNumero />}
     </div>
   );
 }

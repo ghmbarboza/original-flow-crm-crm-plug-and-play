@@ -115,8 +115,10 @@ export default function IntegrationsTab() {
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
+    // Duas colunas em telas largas: em lista única a página ficava longa demais
+    // (pedido de 24/09/2026). Cada card abre e fecha sozinho dentro da coluna.
+    <div className="grid items-start gap-3 lg:grid-cols-2">
+      <div className="flex justify-end lg:col-span-2">
         <NewApiKeyButton />
       </div>
 
@@ -370,7 +372,9 @@ export default function IntegrationsTab() {
         <ImportHistorySettings />
       </IntegrationCard>
 
-      <ApiKeysList />
+      <div className="lg:col-span-2">
+        <ApiKeysList />
+      </div>
     </div>
   );
 }
