@@ -19,7 +19,7 @@ test("IA: ações no funil e abordagem ativa salvam e voltam preenchidas", async
   const instrucaoCampo = page.getByTestId("outreach-instruction");
   const comEvolution = await instrucaoCampo.isVisible();
   if (comEvolution) {
-    await expect(page.getByTestId("outreach-evolution-alert")).toContainText("Risco de bloqueio");
+    await expect(page.getByTestId("outreach-evolution-alert")).toContainText(/risco de bloqueio/i);
   } else {
     await expect(
       page.getByTestId("outreach-template").or(page.getByText("Nenhum canal de WhatsApp conectado")),

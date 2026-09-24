@@ -143,7 +143,7 @@ export function StepKit({ onNext, onBack }: { onNext: () => void; onBack?: () =>
       <div className="flex flex-wrap justify-between gap-2">
         {onBack ? <Button variant="ghost" onClick={onBack}>Voltar</Button> : <span />}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={pular} disabled={aplicar.isPending}>Pular por agora</Button>
+          <Button variant="outline" onClick={pular} disabled={aplicar.isPending} data-testid="setup-skip-kit">Pular por agora</Button>
           <Button onClick={aplicarKit} disabled={!kit || totalSelecionado === 0 || aplicar.isPending} data-testid="kit-aplicar">
             {aplicar.isPending ? "Aplicando…" : "Aplicar selecionados"}
           </Button>

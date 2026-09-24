@@ -376,6 +376,11 @@ test("as etapas opcionais do fim podem ser puladas e o passo final conclui o set
   await expect(page.getByTestId("setup-step-email")).toBeVisible();
 
   await page.getByTestId("setup-skip-email").click();
+  // Kit inicial (Sprint 12 B7) entrou depois do e-mail: a IA monta automações e
+  // modelos a partir do que foi contado; aqui só se pula.
+  await expect(page.getByTestId("setup-step-kit")).toBeVisible();
+
+  await page.getByTestId("setup-skip-kit").click();
   await expect(page.getByTestId("setup-step-concluido")).toBeVisible();
 
   const erros: string[] = [];
