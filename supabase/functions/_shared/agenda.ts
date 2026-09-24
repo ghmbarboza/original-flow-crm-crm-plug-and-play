@@ -147,6 +147,7 @@ export function evidenciaConfere(evidencia: unknown, mensagensDoLead: string[], 
 
 /** Título vindo da conversa: sem controle, sem quebra de linha, tamanho limitado. */
 export function tituloSeguro(bruto: unknown, padrao: string): string {
+  // eslint-disable-next-line no-control-regex -- remover caracteres de controle é a intenção
   const t = String(bruto ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, MAX_TITULO);
   return t || padrao;
 }
