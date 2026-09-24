@@ -28,6 +28,7 @@ import WebhooksSettings from "@/components/settings/WebhooksSettings";
 import { useWebhookEndpoints, useWebhookInboundKeys } from "@/hooks/useWebhooks";
 import ImportHistorySettings from "@/components/settings/ImportHistorySettings";
 import { CredenciaisServico, useCredenciaisProntas } from "@/components/settings/CredenciaisServico";
+import { GmailSetup } from "@/components/settings/GmailSetup";
 
 const CALLBACK_NYLAS = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calendar-oauth-callback`;
 const CALLBACK_SALESFORCE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crm-oauth-callback`;
@@ -56,6 +57,7 @@ export default function IntegrationsTab() {
   const { data: email } = useEmailConnection();
   const { data: aiConfig } = useAIConfig();
   const { data: temChaveVoz } = useOrgApiKey("elevenlabs");
+  const { data: temChaveResend } = useOrgApiKey("resend");
   const twilioPronto = useCredenciaisProntas(["twilio_account_sid", "twilio_auth_token"]);
   const nylasPronto = useCredenciaisProntas(["nylas_client_id", "nylas_api_key"]);
   const salesforcePronto = useCredenciaisProntas(["salesforce_client_id", "salesforce_client_secret"]);
@@ -104,6 +106,7 @@ export default function IntegrationsTab() {
     : { status: "ausente", label: "Não configurada" };
 
   const temLinkCalcom = !!calcom?.config.scheduling_link?.trim();
+  const emailLabel = [email && "Gmail conectado", temChaveResend && "Resend com chave"].filter(Boolean).join(" · ") || "Não configurado";
 
   const alternarErp = async (ativo: boolean) => {
     try {
@@ -236,17 +239,29 @@ export default function IntegrationsTab() {
         title="E-mail (Resend e Gmail)"
         purpose="Por onde os e-mails da empresa saem: notificações, automações, sequências e respostas do inbox."
         recomendacao="recomendado"
-        status={email ? "ok" : "ausente"}
-        statusLabel={email ? "Gmail conectado" : "Não configurado"}
-        abrirPorPadrao={alvo === "gmail"}
+        status={email || temChaveResend ? "ok" : "ausente"}
+        statusLabel={emailLabel}
+        abrirPorPadrao={alvo === "gmail" || alvo === "resend"}
         testId="integration-gmail"
       >
-        <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-          A configuração de e-mail tem aba própria.
-        </p>
-        <Button variant="outline" className="mt-2" onClick={() => navigate("/settings/email")} data-testid="integration-gmail-open">
-          Abrir Configurações de E-mail
-        </Button>
+        <div className="space-y-5">
+          <div className="space-y-3" data-testid="integration-resend">
+            <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Resend: e-mail em nome da empresa</p>
+            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
+              Notificações, automações e sequências saem de um domínio seu. Crie a chave em resend.com e verifique o domínio lá.
+            </p>
+            <CredenciaisServico campos={[{ service: "resend", label: "Chave de API do Resend", secreto: true, placeholder: "re_..." }]} testIdPrefix="integration-resend" mensagemSalvo="Chave do Resend salva." />
+            <ApiKeyTutorialDialog service="resend" />
+          </div>
+          <div className="space-y-3 border-t pt-4" style={{ borderColor: "var(--via-border)" }} data-testid="integration-gmail-setup">
+            <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Gmail: conta conectada</p>
+            <GmailSetup conectado={!!email} />
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate("/settings/email")} data-testid="integration-gmail-open">
+            Remetente, domínio e teste de envio em E-mail
+            <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+          </Button>
+        </div>
       </IntegrationCard>
 
       <IntegrationCard

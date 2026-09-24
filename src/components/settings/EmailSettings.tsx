@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { CheckCircle2, Mail, Send, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
-import { GmailSetup } from "@/components/settings/GmailSetup";
 import { useEmailConnection } from "@/hooks/useEmailConnection";
-import { useOrgApiKey, useSaveOrgApiKey } from "@/hooks/useOrgApiKey";
+import { useOrgApiKey } from "@/hooks/useOrgApiKey";
 import {
   useCheckEmailDomain, useEmailSettings, useSaveEmailSettings, useSendTestEmail,
   type DomainStatus, type EmailProvider,
@@ -22,6 +20,8 @@ import {
  * Resend é o e-mail de sistema (notificações, automações, sequências) e sai em
  * nome da empresa. Gmail é a conta pessoal conectada por OAuth, usada nas
  * respostas do inbox e como reserva quando o Resend não está pronto.
+ * Chave do Resend e credenciais do Google ficam em Configurações > Integrações;
+ * aqui só remetente, domínio e teste de envio.
  */
 export default function EmailSettings() {
   const { data: config, isLoading } = useEmailSettings();
@@ -30,13 +30,11 @@ export default function EmailSettings() {
   const enviarTeste = useSendTestEmail();
   const { data: gmail } = useEmailConnection();
   const { data: temChaveResend } = useOrgApiKey("resend");
-  const salvarChave = useSaveOrgApiKey("resend");
 
   const [provider, setProvider] = useState<EmailProvider>("gmail");
   const [fromName, setFromName] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [replyTo, setReplyTo] = useState("");
-  const [chave, setChave] = useState("");
   const [dominio, setDominio] = useState<DomainStatus | null>(null);
 
   useEffect(() => {
@@ -58,16 +56,6 @@ export default function EmailSettings() {
       toast.success("Configuração de e-mail salva.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
-    }
-  };
-
-  const salvarChaveResend = async () => {
-    try {
-      await salvarChave.mutateAsync(chave);
-      setChave("");
-      toast.success("Chave do Resend salva.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível salvar a chave.");
     }
   };
 
@@ -165,22 +153,10 @@ export default function EmailSettings() {
             </span>
           )}
         </div>
-        <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-          Crie a chave em resend.com e verifique o domínio do remetente lá. A chave fica guardada no cofre da
-          organização e nunca volta para a tela.
+        <p className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--via-text-muted)" }}>
+          <span>{temChaveResend ? "Chave de API cadastrada em Configurações > Integrações." : "Falta cadastrar a chave de API do Resend em Configurações > Integrações."}</span>
+          <Link to="/settings/integrations?integration=gmail" className="underline" data-testid="email-resend-integracoes">{temChaveResend ? "Gerenciar" : "Cadastrar em Integrações"}</Link>
         </p>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-64 flex-1 space-y-2">
-            <Label htmlFor="resend_key">{temChaveResend ? "Trocar chave" : "Chave de API"}</Label>
-            <Input id="resend_key" type="password" value={chave} onChange={(e) => setChave(e.target.value)} placeholder="re_..." data-testid="resend-key" />
-          </div>
-          <Button variant="outline" onClick={salvarChaveResend} disabled={!chave.trim() || salvarChave.isPending}>
-            {salvarChave.isPending ? "Salvando…" : "Salvar chave"}
-          </Button>
-          <ApiKeyTutorialDialog service="resend" />
-        </div>
-
-        <Separator />
 
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -194,7 +170,7 @@ export default function EmailSettings() {
           </div>
           {!resendPronto && (
             <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-              Salve a chave e o e-mail do remetente para verificar o domínio.
+              Cadastre a chave em Integrações e salve o e-mail do remetente para verificar o domínio.
             </p>
           )}
           {dominio && (
@@ -221,7 +197,10 @@ export default function EmailSettings() {
         <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
           Conta do Google conectada por OAuth. Sincroniza suas conversas no inbox e envia as respostas em seu nome.
         </p>
-        <GmailSetup conectado={!!gmail} />
+        <p className="flex flex-wrap items-center gap-2 text-sm" style={{ color: gmail ? "var(--via-success)" : "var(--via-text-body)" }}>
+          {gmail ? <><CheckCircle2 className="h-4 w-4" strokeWidth={1.5} /> Conta conectada{gmail.email ? `: ${gmail.email}` : ""}.</> : "Nenhuma conta conectada."}
+          <Link to="/settings/integrations?integration=gmail" className="text-xs underline" style={{ color: "var(--via-text-muted)" }} data-testid="email-gmail-integracoes">{gmail ? "Gerenciar em Integrações" : "Conectar em Integrações"}</Link>
+        </p>
       </div>
     </div>
   );
