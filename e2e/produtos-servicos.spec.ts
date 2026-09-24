@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 
 /** Sprint 12 B6: serviço por hora aparece com tipo e sufixo, e o filtro por tipo funciona. */
-test("Produtos e serviços: cria serviço por hora e filtra por tipo", async ({ page }) => {
+test("Produtos/Serviços: cria serviço por hora e filtra por tipo", async ({ page }) => {
   const marca = Date.now().toString().slice(-6);
   const nome = `E2E Consultoria ${marca}`;
 
   await page.goto("/products");
-  await expect(page.getByRole("heading", { name: "Produtos e serviços" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Produtos/Serviços" })).toBeVisible();
   await page.getByTestId("product-new").click();
   await page.locator("#name").fill(nome);
   await page.getByTestId("product-kind").click();

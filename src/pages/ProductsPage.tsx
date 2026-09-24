@@ -59,7 +59,7 @@ export default function ProductsPage() {
               className="font-display text-3xl font-medium tracking-tight"
               style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}
             >
-              Produtos e serviços
+              Produtos/Serviços
             </h1>
           </div>
           <div className="flex flex-wrap gap-2">
