@@ -10,7 +10,7 @@
  */
 
 // Troque a versao (v1 -> v2 ...) sempre que quiser invalidar o cache antigo.
-const CACHE = "flowcrm-v1";
+const CACHE = "flowcrm-v2";
 
 // App shell minimo pre-cacheado no install.
 const APP_SHELL = [
@@ -18,6 +18,8 @@ const APP_SHELL = [
   "/index.html",
   "/manifest.webmanifest",
   "/pwa-icon.svg",
+  "/pwa-192.png",
+  "/pwa-512.png",
 ];
 
 // --- install: pre-cache do shell e ativacao imediata -----------------------
