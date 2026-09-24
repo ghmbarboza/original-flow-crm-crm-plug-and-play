@@ -54,7 +54,7 @@ test("demonstração: popula e limpa os dados", async ({ page }) => {
 
   const abrirAbaDemo = async () => {
     await gotoPage(page, "/settings", "Configurações");
-    await page.getByTestId("settings-tab").filter({ hasText: "Demonstração" }).click();
+    await page.getByTestId("settings-tab").filter({ hasText: "Primeiros passos" }).click();
     await expect(page.getByTestId("demo-seed")).toBeVisible();
   };
 

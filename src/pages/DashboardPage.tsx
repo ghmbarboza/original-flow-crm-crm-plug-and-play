@@ -156,7 +156,7 @@ export default function DashboardPage() {
                   </Button>
                   {role === "admin" && (
                     <Button asChild variant="ghost">
-                      <Link to="/settings/demonstration">Carregar dados de exemplo</Link>
+                      <Link to="/settings/inicio#demonstracao">Carregar dados de exemplo</Link>
                     </Button>
                   )}
                 </div>

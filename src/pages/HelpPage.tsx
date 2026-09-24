@@ -39,7 +39,7 @@ const SECTIONS: Section[] = [
       },
       {
         q: "Como convido minha equipe?",
-        a: "Em Configurações · Equipe (acesso de administrador) você aprova novos usuários, define permissões e acompanha os membros. Novos cadastros podem ficar pendentes de aprovação conforme a política definida em Configurações · Segurança.",
+        a: "Em Configurações · Usuários (acesso de administrador) você aprova novos usuários, define permissões e acompanha os membros. Novos cadastros podem ficar pendentes de aprovação conforme a política definida em Configurações · Segurança.",
       },
       {
         q: "O que é a organização (org)?",
@@ -151,7 +151,7 @@ const SECTIONS: Section[] = [
     faqs: [
       {
         q: "Onde ajusto minhas informações pessoais?",
-        a: "Em Configurações · Geral você gerencia seu perfil. As demais abas (Segurança, Integrações, IA, Automações, Equipe, Demonstração, Onboarding) são de administrador.",
+        a: "Em Configurações · Geral você gerencia seu perfil. As demais abas seguem a ordem de uso: Conta (Usuários, Notificações), Conexões (Integrações, E-mail, API), Captação, Inteligência, Automação e Primeiros passos; as de configuração da empresa são de administrador.",
       },
       {
         q: "Como refaço o onboarding?",
@@ -277,7 +277,7 @@ export default function HelpPage() {
             Comece um tour pela plataforma refazendo o onboarding ou fale com o suporte.
           </p>
           <Link
-            to="/settings/onboarding"
+            to="/settings/inicio"
             className="text-sm font-medium text-via-blue hover:underline"
           >
             Ir para o Onboarding
