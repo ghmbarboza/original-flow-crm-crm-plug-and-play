@@ -5,6 +5,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AssistenteProvider } from "@/components/assistente/AssistenteContext";
+import { AssistentePainel } from "@/components/assistente/AssistentePainel";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { SetupWizardProvider, useSetupWizard } from "@/contexts/SetupWizardContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -119,6 +121,8 @@ const App = () => (
           <TriggerHealthCheck />
           <SetupWizardProvider>
           <SetupWizardHost />
+          {/* Assistente montado uma vez acima das rotas: não fecha ao navegar pelos links das respostas. */}
+          <AssistenteProvider>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/auth" element={<AuthPage />} />
@@ -229,6 +233,8 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <AssistentePainel />
+          </AssistenteProvider>
           </SetupWizardProvider>
         </AuthProvider>
       </BrowserRouter>

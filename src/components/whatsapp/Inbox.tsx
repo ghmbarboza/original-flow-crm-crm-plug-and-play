@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 import { ConversationList } from "@/components/whatsapp/ConversationList";
 import { MessagePanel } from "@/components/whatsapp/MessagePanel";
@@ -12,6 +13,10 @@ export function Inbox({ provider, modoFoco = false }: { provider: WhatsAppProvid
   const { data: conversations, isLoading, error } = useConversations();
   const { user } = useAuth();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // `?conversa=<id>` abre a conversa direto (links do assistente e das notificações).
+  const [params] = useSearchParams();
+  const conversaDoLink = params.get("conversa");
+  useEffect(() => { if (conversaDoLink) setSelectedId(conversaDoLink); }, [conversaDoLink]);
 
   // Modo foco: só as conversas do agente logado, pendentes primeiro. A seleção
   // busca na lista COMPLETA de propósito — ligar o foco com uma conversa de

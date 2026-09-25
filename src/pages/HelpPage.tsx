@@ -1,389 +1,232 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import {
-  Activity,
-  BarChart2,
-  BookOpen,
-  Brain,
-  CalendarDays,
-  Download,
-  HelpCircle,
-  Mail,
-  MessageCircle,
-  Mic,
-  Package,
-  Plug,
-  Rocket,
-  Search,
-  Settings,
-  Users,
-  Zap,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight, BookOpen, HelpCircle, LifeBuoy, Search, Wrench } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { EmptyState } from "@/components/EmptyState";
+import { StatusDaConta } from "@/components/ajuda/StatusDaConta";
+import { GuiaDetalhe } from "@/components/ajuda/GuiaDetalhe";
+import { AssistenteCaixa } from "@/components/assistente/AssistenteCaixa";
+import { CAPITULOS, GUIAS, type Guia } from "@/lib/ajuda/guias";
+import { GLOSSARIO, PROBLEMAS, type Problema } from "@/lib/ajuda/problemas";
+import { FAQ_SECOES } from "@/lib/ajuda/faq";
 
-type Faq = { q: string; a: string };
-type Section = { id: string; title: string; icon: LucideIcon; faqs: Faq[] };
+const normalizar = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const casa = (q: string, ...textos: (string | undefined)[]) => textos.some((t) => t && normalizar(t).includes(q));
 
-const SECTIONS: Section[] = [
-  {
-    id: "primeiros-passos",
-    title: "Primeiros passos",
-    icon: Rocket,
-    faqs: [
-      {
-        q: "Por onde começo a usar a plataforma?",
-        a: "O assistente de configuração (onboarding) já deixa empresa, IA, funil e canal prontos. Depois dele, o que mais rende é: ensinar a IA em Configurações · IA · Conhecimento, trazer sua base em Configurações · Importação e cadastrar Produtos/Serviços. Para ver a plataforma preenchida antes de usar com dados reais, carregue os dados de exemplo em Configurações · Primeiros passos.",
-      },
-      {
-        q: "Como convido minha equipe?",
-        a: "Em Configurações · Usuários (acesso de administrador) você aprova novos usuários, define permissões e acompanha os membros. Novos cadastros podem ficar pendentes de aprovação conforme a política definida na seção Segurança e acesso, no fim da mesma aba.",
-      },
-      {
-        q: "O que é a organização (org)?",
-        a: "Todos os seus dados — contatos, negócios, e-mails, automações — pertencem à sua organização e são isolados de outras contas. Cada usuário aprovado enxerga apenas os dados da própria organização.",
-      },
-    ],
-  },
-  {
-    id: "contatos-empresas",
-    title: "Contatos e Empresas",
-    icon: Users,
-    faqs: [
-      {
-        q: "Qual a diferença entre Contato e Empresa?",
-        a: "Contato é a pessoa (com quem você fala); Empresa é a organização à qual o contato pode estar vinculado. Um contato pode ter empresa associada, e a página da empresa reúne seus contatos e negócios relacionados.",
-      },
-      {
-        q: "Como o Lead Scoring funciona?",
-        a: "Em Lead Scoring você define regras de pontuação por evento (ex.: abriu e-mail, respondeu no WhatsApp). Contatos acumulam pontos conforme interagem, ajudando a priorizar quem está mais quente.",
-      },
-    ],
-  },
-  {
-    id: "negocios",
-    title: "Negócios e Funil",
-    icon: BarChart2,
-    faqs: [
-      {
-        q: "Como movo um negócio de etapa?",
-        a: "Em Negócios, use a visão Kanban e arraste o card entre as colunas do funil, ou abra o negócio e altere a etapa. As etapas do funil são configuráveis por pipeline.",
-      },
-      {
-        q: "Posso ter mais de um funil (pipeline)?",
-        a: "Sim. Pipelines e suas etapas são configurados na plataforma, e cada negócio pertence a um pipeline/etapa. Formulários de captura podem direcionar novos leads para um funil e etapa específicos.",
-      },
-    ],
-  },
-  {
-    id: "atividades-tarefas",
-    title: "Atividades e Tarefas",
-    icon: Activity,
-    faqs: [
-      {
-        q: "Qual a diferença entre Atividade e Tarefa?",
-        a: "Atividade é um registro do que aconteceu ou vai acontecer (ligação, reunião, e-mail) e pode ficar vinculada a um contato, empresa ou negócio. Tarefa é um item de trabalho a fazer, com responsável e prazo.",
-      },
-    ],
-  },
-  {
-    id: "whatsapp",
-    title: "WhatsApp",
-    icon: MessageCircle,
-    faqs: [
-      {
-        q: "Como conecto o WhatsApp?",
-        a: "Em WhatsApp você conecta um provedor (Evolution ou Meta) pelo assistente de configuração. Depois é possível atender conversas na caixa de entrada, transferir para outro atendente e usar o atendimento por IA.",
-      },
-      {
-        q: "Como configuro o atendimento por IA?",
-        a: "Em Configurações · IA você define a personalidade da agente (Perfil), o que ela sabe (Conhecimento: documentos, fatos, FAQs e objeções), um perfil por origem do lead (Origens) e a análise pós-conversa (Análises). A mesma agente atende no WhatsApp, por voz e por telefone.",
-      },
-    ],
-  },
-  {
-    id: "email",
-    title: "E-mail",
-    icon: Mail,
-    faqs: [
-      {
-        q: "Como conecto minha conta de e-mail?",
-        a: "Em Configurações · Integrações, card E-mail: cadastre as credenciais do Google e clique em Conectar conta do Gmail, ou salve a chave do Resend para e-mails em nome da empresa. Remetente, domínio e teste de envio ficam em Configurações · E-mail.",
-      },
-      {
-        q: "Para que servem os Templates?",
-        a: "Templates são e-mails reutilizáveis com variáveis, criados em Templates de e-mail. Eles agilizam o envio e alimentam as etapas das Sequências de e-mail.",
-      },
-      {
-        q: "O que são Sequências de e-mail?",
-        a: "Sequências enviam uma série de e-mails ao longo do tempo para os contatos inscritos (ex.: onboarding de novos leads). Cada etapa usa um template e um intervalo.",
-      },
-    ],
-  },
-  {
-    id: "automacoes",
-    title: "Automações e Marketing",
-    icon: Zap,
-    faqs: [
-      {
-        q: "Como crio uma automação?",
-        a: "Em Automações use o construtor visual para definir o gatilho (o que dispara) e as ações (o que acontece). Por exemplo: novo lead de um formulário de captura entra numa sequência de e-mail.",
-      },
-    ],
-  },
-  {
-    id: "formularios",
-    title: "Formulários de captura",
-    icon: BookOpen,
-    faqs: [
-      {
-        q: "Como capturo leads de fora da plataforma?",
-        a: "Crie um formulário em Configurações · Formulários: campos (inclusive condicionais), origem por UTM e funil de destino. Compartilhe o link público ou o código de embed no site. Cada envio vira contato e negócio, pode disparar uma automação e cair no perfil de IA daquela origem.",
-      },
-    ],
-  },
-  {
-    id: "conhecimento",
-    title: "Conhecimento da IA",
-    icon: Brain,
-    faqs: [
-      {
-        q: "Como ensino a IA sobre a minha empresa?",
-        a: "Em Configurações · IA · Conhecimento você sobe documentos (PDF, Word, texto), cadastra fatos canônicos (preço, prazo, endereço, o que nunca pode mudar) e revisa FAQs e objeções. A IA consulta essa base antes de responder e cita o que encontrou.",
-      },
-      {
-        q: "O que acontece quando a IA não sabe responder?",
-        a: "Ela registra a pergunta em Conhecimento · Pendências e avisa o cliente que vai confirmar. Você responde ali uma vez e a resposta passa a valer para todos.",
-      },
-      {
-        q: "O que é a memória do lead?",
-        a: "Depois de cada conversa a IA anota o que entendeu (empresa, cargo, orçamento, prazo, dores) na ficha do contato, em O que a IA sabe. O que a equipe confirmar fica travado e a IA não sobrescreve. A análise é configurada em Configurações · IA · Análises.",
-      },
-    ],
-  },
-  {
-    id: "voz",
-    title: "Voz e ligações",
-    icon: Mic,
-    faqs: [
-      {
-        q: "Como a agente responde em áudio no WhatsApp?",
-        a: "Cadastre a chave do ElevenLabs em Configurações · Integrações e ligue a resposta em áudio em Configurações · IA (Voz da agente). Áudios recebidos são sempre transcritos.",
-      },
-      {
-        q: "Como a IA atende e faz ligações por telefone?",
-        a: "Cadastre Twilio e ElevenLabs em Configurações · Integrações. Depois, na tela Voz, importe ou compre um número: o agente de voz é conectado sozinho. Cada ligação vira transcrição, resumo, classificação e atividade na ficha do contato. Campanhas de ligação ficam na aba Campanhas da tela Voz e são de administrador.",
-      },
-    ],
-  },
-  {
-    id: "agenda",
-    title: "Agenda",
-    icon: CalendarDays,
-    faqs: [
-      {
-        q: "Como a IA marca reuniões?",
-        a: "Em Configurações · Agenda você define a política (dias, horários, antecedência, dono padrão) e liga a IA. Ela só marca depois que o cliente confirma dia e horário por escrito. Lembrete e cobrança de no-show saem pelo WhatsApp com os textos que você definir.",
-      },
-      {
-        q: "Como conecto meu calendário?",
-        a: "Um administrador cadastra as credenciais do Nylas em Configurações · Integrações. Depois cada pessoa conecta o próprio Google Calendar ou Outlook em Configurações · Agenda. Reuniões entram no calendário com sala de vídeo, e horários ocupados ficam indisponíveis para a IA.",
-      },
-    ],
-  },
-  {
-    id: "importacao",
-    title: "Importação e migração",
-    icon: Download,
-    faqs: [
-      {
-        q: "Como trago meus dados de outro CRM?",
-        a: "Em Configurações · Importação: por arquivo (CSV ou planilha de qualquer CRM, com de/para de colunas e etapas) ou conectando direto HubSpot, Pipedrive, RD Station, Agendor, Kommo ou Salesforce. Contatos, empresas, negócios e atividades chegam ligados entre si.",
-      },
-      {
-        q: "Posso importar mais de uma vez?",
-        a: "Sim. O histórico de importações fica na mesma tela, e registros repetidos são atualizados em vez de duplicados.",
-      },
-    ],
-  },
-  {
-    id: "produtos",
-    title: "Produtos/Serviços",
-    icon: Package,
-    faqs: [
-      {
-        q: "Para que serve o cadastro de Produtos/Serviços?",
-        a: "Produtos, serviços e assinaturas com preço e forma de cobrança entram nos negócios (com quantidade e desconto) e são lidos pela IA ao responder sobre preço e condições. O modelo de negócio (B2B, B2C, misto) fica em Configurações · Geral.",
-      },
-    ],
-  },
-  {
-    id: "integracoes",
-    title: "Integrações e credenciais",
-    icon: Plug,
-    faqs: [
-      {
-        q: "Onde cadastro chaves e conecto serviços?",
-        a: "Sempre em Configurações · Integrações, um card por serviço: canais de atendimento, ElevenLabs, Twilio, E-mail (Resend e Gmail), Cal.com, Nylas, Salesforce, ERP e webhooks. As telas que usam a integração (Voz, Agenda, E-mail, Importação) mostram só o estado e levam ao card certo.",
-      },
-      {
-        q: "Como outras ferramentas acessam o CRM?",
-        a: "Em Configurações · API você cria chaves com escopos (leitura ou escrita por recurso), acompanha as chamadas recentes e lê a documentação. Para n8n, Make e sistemas próprios, os webhooks de entrada e saída ficam em Integrações.",
-      },
-      {
-        q: "Como recebo avisos do que acontece?",
-        a: "Em Configurações · Notificações cada pessoa escolhe o que recebe e por onde (no app, e-mail ou WhatsApp), e os textos de cada aviso podem ser editados.",
-      },
-    ],
-  },
-  {
-    id: "configuracoes",
-    title: "Configurações e conta",
-    icon: Settings,
-    faqs: [
-      {
-        q: "Onde ajusto minhas informações pessoais?",
-        a: "Em Configurações · Geral você gerencia seu perfil. As demais abas seguem a ordem de uso: Conta (Usuários, Notificações), Conexões (Integrações, E-mail, API), Captação, Inteligência, Automação e Primeiros passos; as de configuração da empresa são de administrador.",
-      },
-      {
-        q: "Como refaço o onboarding?",
-        a: "Em Configurações · Primeiros passos você refaz o assistente inicial com os dados atuais já preenchidos, e no mesmo lugar carrega ou remove os dados de exemplo.",
-      },
-    ],
-  },
+const ANCORAS = [
+  { id: "guias", rotulo: "Guias" },
+  { id: "problemas", rotulo: "Resolver problemas" },
+  { id: "perguntas", rotulo: "Perguntas frequentes" },
+  { id: "glossario", rotulo: "Glossário" },
 ];
 
+function Titulo({ id, icone: Icone, children }: { id?: string; icone: typeof BookOpen; children: string }) {
+  return (
+    <h2 id={id} className="flex scroll-mt-4 items-center gap-2 text-lg font-medium" style={{ color: "var(--via-text-primary)" }}>
+      <Icone className="h-5 w-5" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} /> {children}
+    </h2>
+  );
+}
+
+function CartaoGuia({ guia, onAbrir }: { guia: Guia; onAbrir: () => void }) {
+  return (
+    <button type="button" onClick={onAbrir} className="via-card flex h-full flex-col gap-1 p-4 text-left transition-shadow hover:shadow-md" data-testid={`ajuda-card-${guia.id}`}>
+      <span className="flex items-start justify-between gap-2">
+        <span className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>{guia.titulo}</span>
+        {guia.admin && <Badge variant="outline" className="shrink-0 text-[10px]">Admin</Badge>}
+      </span>
+      <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>{guia.resumo}</span>
+      <span className="mt-auto inline-flex items-center gap-1 pt-2 text-xs font-medium text-via-blue">Ver passo a passo <ArrowRight className="h-3 w-3" strokeWidth={1.5} /></span>
+    </button>
+  );
+}
+
+function ItemProblema({ p }: { p: Problema }) {
+  return (
+    <AccordionItem value={p.id}>
+      <AccordionTrigger className="text-left text-sm">{p.sintoma}</AccordionTrigger>
+      <AccordionContent className="space-y-3 text-sm" style={{ color: "var(--via-text-body)" }}>
+        <div>
+          <p className="font-medium" style={{ color: "var(--via-text-primary)" }}>Causas comuns</p>
+          <ul className="list-disc space-y-0.5 pl-5">{p.causas.map((c) => <li key={c}>{c}</li>)}</ul>
+        </div>
+        <div>
+          <p className="font-medium" style={{ color: "var(--via-text-primary)" }}>Como resolver</p>
+          <ol className="list-decimal space-y-0.5 pl-5">{p.solucao.map((s) => <li key={s}>{s}</li>)}</ol>
+        </div>
+        <Link to={p.link.to} className="inline-flex items-center gap-1 text-sm font-medium text-via-blue hover:underline">{p.link.rotulo} <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} /></Link>
+      </AccordionContent>
+    </AccordionItem>
+  );
+}
+
+/**
+ * Central de ajuda: assistente, estado real da conta, como a plataforma funciona,
+ * guias passo a passo por área, resolução de problemas, perguntas e glossário.
+ * `?guia=<id>` abre um guia direto (links do assistente e das telas).
+ */
 export default function HelpPage() {
   const [query, setQuery] = useState("");
+  const [params, setParams] = useSearchParams();
+  const guiaAberto = GUIAS.find((g) => g.id === params.get("guia")) ?? null;
+  const abrirGuia = (id: string | null) => {
+    const p = new URLSearchParams(params);
+    if (id) p.set("guia", id); else p.delete("guia");
+    setParams(p, { replace: true });
+  };
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return SECTIONS;
-    return SECTIONS.map((s) => ({
-      ...s,
-      faqs: s.faqs.filter(
-        (f) => f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q),
-      ),
-    })).filter((s) => s.faqs.length > 0 || s.title.toLowerCase().includes(q));
-  }, [query]);
-
-  const hasResults = filtered.some((s) => s.faqs.length > 0);
+  const q = normalizar(query.trim());
+  const resultados = useMemo(() => {
+    if (!q) return null;
+    return {
+      guias: GUIAS.filter((g) => casa(q, g.titulo, g.resumo, g.paraQue, g.palavras, ...g.passos.map((p) => p.texto))),
+      problemas: PROBLEMAS.filter((p) => casa(q, p.sintoma, p.palavras, ...p.causas, ...p.solucao)),
+      faqs: FAQ_SECOES.flatMap((s) => s.faqs.filter((f) => casa(q, f.q, f.a)).map((f) => ({ ...f, secao: s.title }))),
+      termos: GLOSSARIO.filter((t) => casa(q, t.termo, t.definicao)),
+    };
+  }, [q]);
+  const totalResultados = resultados ? resultados.guias.length + resultados.problemas.length + resultados.faqs.length + resultados.termos.length : 0;
+  const visaoGeral = GUIAS.find((g) => g.id === "visao-geral")!;
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-3xl space-y-6">
-        <div className="flex items-center gap-3">
-          <HelpCircle
-            className="h-7 w-7"
-            strokeWidth={1.5}
-            style={{ color: "var(--via-text-muted)" }}
-          />
-          <h1
-            className="font-display text-3xl font-medium tracking-tight"
-            style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}
-          >
-            Central de ajuda
-          </h1>
-        </div>
-
-        <p className="text-sm" style={{ color: "var(--via-text-body)" }}>
-          Respostas rápidas sobre como usar o Flow CRM. Não achou o que procurava? Fale com o
-          suporte pelo e-mail{" "}
-          <a
-            href="mailto:suporte@viverdeia.ai"
-            className="font-medium text-via-blue hover:underline"
-          >
-            suporte@viverdeia.ai
-          </a>
-          .
-        </p>
-
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
-            strokeWidth={1.5}
-            style={{ color: "var(--via-text-muted)" }}
-          />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar na ajuda…"
-            className="pl-9"
-            aria-label="Buscar na ajuda"
-          />
-        </div>
-
-        {!hasResults ? (
-          <EmptyState
-            icon={Search}
-            title="Nenhum resultado"
-            description={
-              <>
-                Não encontramos nada para <span className="font-medium">“{query}”</span>. Tente
-                outras palavras ou fale com o suporte.
-              </>
-            }
-          />
-        ) : (
-          <div className="space-y-5">
-            {filtered
-              .filter((s) => s.faqs.length > 0)
-              .map((section) => (
-                <div key={section.id} className="via-card p-5">
-                  <div className="mb-2 flex items-center gap-2">
-                    <section.icon
-                      className="h-5 w-5"
-                      strokeWidth={1.5}
-                      style={{ color: "var(--via-text-muted)" }}
-                    />
-                    <h2
-                      className="font-medium"
-                      style={{ color: "var(--via-text-primary)" }}
-                    >
-                      {section.title}
-                    </h2>
-                  </div>
-                  <Accordion type="single" collapsible className="w-full">
-                    {section.faqs.map((faq, i) => (
-                      <AccordionItem key={i} value={`${section.id}-${i}`}>
-                        <AccordionTrigger className="text-left text-sm">{faq.q}</AccordionTrigger>
-                        <AccordionContent
-                          className="text-sm"
-                          style={{ color: "var(--via-text-body)" }}
-                        >
-                          {faq.a}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </div>
-              ))}
+      <div className="mx-auto max-w-6xl space-y-8" data-testid="ajuda-page">
+        <header className="space-y-4">
+          <div className="flex items-center gap-3">
+            <HelpCircle className="h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
+            <h1 className="font-display text-3xl font-medium tracking-tight" style={{ color: "var(--via-text-primary)", letterSpacing: "var(--via-ls-tighter)" }}>Central de ajuda</h1>
           </div>
-        )}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar em guias, problemas, perguntas e termos" className="h-11 pl-9" aria-label="Buscar na ajuda" />
+          </div>
+          {!resultados && (
+            <nav className="flex flex-wrap gap-2 text-sm" aria-label="Seções da ajuda">
+              {ANCORAS.map((a) => <a key={a.id} href={`#${a.id}`} className="rounded-full border px-3 py-1 hover:bg-muted/50" style={{ borderColor: "var(--via-border)", color: "var(--via-text-body)" }}>{a.rotulo}</a>)}
+            </nav>
+          )}
+        </header>
 
-        <div className="via-card p-5 text-center">
-          <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
-            Ainda com dúvidas?
-          </p>
-          <p className="mb-3 mt-1 text-sm" style={{ color: "var(--via-text-muted)" }}>
-            Comece um tour pela plataforma refazendo o onboarding ou fale com o suporte.
-          </p>
-          <Link
-            to="/settings/inicio"
-            className="text-sm font-medium text-via-blue hover:underline"
-          >
-            Ir para o Onboarding
-          </Link>
-        </div>
+        {resultados ? (
+          totalResultados === 0 ? (
+            <EmptyState icon={Search} title="Nenhum resultado" description={<>Nada encontrado para <span className="font-medium">“{query}”</span>. Pergunte ao assistente, ele consulta os dados da sua conta.</>} />
+          ) : (
+            <div className="space-y-6" data-testid="ajuda-resultados">
+              {resultados.guias.length > 0 && (
+                <section className="space-y-3">
+                  <Titulo icone={BookOpen}>Guias</Titulo>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{resultados.guias.map((g) => <CartaoGuia key={g.id} guia={g} onAbrir={() => abrirGuia(g.id)} />)}</div>
+                </section>
+              )}
+              {resultados.problemas.length > 0 && (
+                <section className="space-y-3">
+                  <Titulo icone={Wrench}>Resolver problemas</Titulo>
+                  <div className="via-card px-5"><Accordion type="single" collapsible>{resultados.problemas.map((p) => <ItemProblema key={p.id} p={p} />)}</Accordion></div>
+                </section>
+              )}
+              {resultados.faqs.length > 0 && (
+                <section className="space-y-3">
+                  <Titulo icone={HelpCircle}>Perguntas frequentes</Titulo>
+                  <div className="via-card px-5">
+                    <Accordion type="single" collapsible>
+                      {resultados.faqs.map((f, i) => (
+                        <AccordionItem key={i} value={`r-${i}`}>
+                          <AccordionTrigger className="text-left text-sm">{f.q}</AccordionTrigger>
+                          <AccordionContent className="text-sm" style={{ color: "var(--via-text-body)" }}>{f.a}</AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </div>
+                </section>
+              )}
+              {resultados.termos.length > 0 && (
+                <section className="space-y-3">
+                  <Titulo icone={BookOpen}>Glossário</Titulo>
+                  <dl className="via-card grid gap-3 p-5 sm:grid-cols-2">{resultados.termos.map((t) => <div key={t.termo}><dt className="text-sm font-medium">{t.termo}</dt><dd className="text-sm" style={{ color: "var(--via-text-muted)" }}>{t.definicao}</dd></div>)}</dl>
+                </section>
+              )}
+            </div>
+          )
+        ) : (
+          <>
+            <AssistenteCaixa />
+
+            <StatusDaConta />
+
+            <section className="space-y-3" data-testid="ajuda-como-funciona">
+              <Titulo icone={LifeBuoy}>Como a plataforma funciona</Titulo>
+              <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {visaoGeral.passos.map((p, i) => (
+                  <li key={i} className="via-card flex gap-3 p-4">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium" style={{ background: "var(--via-navy)", color: "var(--via-white)" }}>{i + 1}</span>
+                    <div className="space-y-1 text-sm" style={{ color: "var(--via-text-body)" }}>
+                      <p>{p.texto}</p>
+                      {p.link && <Link to={p.link.to} className="inline-flex items-center gap-1 text-xs font-medium text-via-blue hover:underline">{p.link.rotulo} <ArrowRight className="h-3 w-3" strokeWidth={1.5} /></Link>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <section className="space-y-5">
+              <Titulo id="guias" icone={BookOpen}>Guias passo a passo</Titulo>
+              {CAPITULOS.map((cap) => {
+                const lista = GUIAS.filter((g) => g.capitulo === cap && g.id !== "visao-geral");
+                if (!lista.length) return null;
+                return (
+                  <div key={cap} className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--via-text-muted)" }}>{cap}</p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{lista.map((g) => <CartaoGuia key={g.id} guia={g} onAbrir={() => abrirGuia(g.id)} />)}</div>
+                  </div>
+                );
+              })}
+            </section>
+
+            <section className="space-y-3">
+              <Titulo id="problemas" icone={Wrench}>Resolver problemas</Titulo>
+              <div className="via-card px-5"><Accordion type="single" collapsible>{PROBLEMAS.map((p) => <ItemProblema key={p.id} p={p} />)}</Accordion></div>
+            </section>
+
+            <section className="space-y-3">
+              <Titulo id="perguntas" icone={HelpCircle}>Perguntas frequentes</Titulo>
+              <div className="grid gap-4 lg:grid-cols-2">
+                {FAQ_SECOES.map((s) => (
+                  <div key={s.id} className="via-card p-5">
+                    <p className="mb-1 flex items-center gap-2 text-sm font-medium" style={{ color: "var(--via-text-primary)" }}><s.icon className="h-4 w-4" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} /> {s.title}</p>
+                    <Accordion type="single" collapsible>
+                      {s.faqs.map((f, i) => (
+                        <AccordionItem key={i} value={`${s.id}-${i}`}>
+                          <AccordionTrigger className="text-left text-sm">{f.q}</AccordionTrigger>
+                          <AccordionContent className="text-sm" style={{ color: "var(--via-text-body)" }}>{f.a}</AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <Titulo id="glossario" icone={BookOpen}>Glossário</Titulo>
+              <dl className="via-card grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+                {GLOSSARIO.map((t) => <div key={t.termo}><dt className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>{t.termo}</dt><dd className="text-sm" style={{ color: "var(--via-text-muted)" }}>{t.definicao}</dd></div>)}
+              </dl>
+            </section>
+
+            <section className="via-card flex flex-wrap items-center justify-between gap-3 p-5">
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>Ainda com dúvida?</p>
+                <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>Fale com o suporte em <a href="mailto:suporte@viverdeia.ai" className="font-medium text-via-blue hover:underline">suporte@viverdeia.ai</a> ou refaça o onboarding.</p>
+              </div>
+              <Link to="/settings/inicio" className="text-sm font-medium text-via-blue hover:underline">Ir para Primeiros passos</Link>
+            </section>
+          </>
+        )}
       </div>
+      <GuiaDetalhe guia={guiaAberto} onClose={() => abrirGuia(null)} />
     </AppShell>
   );
 }
