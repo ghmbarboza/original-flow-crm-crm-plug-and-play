@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
+import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
 
 export interface MessageTemplate {
   id: string | null;
@@ -35,9 +36,14 @@ export const TEMPLATE_CATEGORY_LABEL: Record<string, string> = {
  */
 export function useMessageTemplates(enabled = true) {
   const orgId = useOrgId();
+  // Só a API Oficial (Meta) e o Zernio têm templates; com Evolution a function
+  // responde 400 por design, então nem chamamos (evitava 400 recorrente em
+  // telas que listam templates sem olhar o canal, como Configurações > Agenda).
+  const { data: canal } = useWhatsAppSetup();
+  const provedorComTemplate = canal?.provider === "meta_official" || canal?.provider === "zernio";
   return useQuery({
     queryKey: ["message-templates", orgId],
-    enabled: !!orgId && enabled,
+    enabled: !!orgId && enabled && provedorComTemplate,
     queryFn: async (): Promise<{ provider: string; templates: MessageTemplate[] }> => {
       const { data, error } = await supabase.functions.invoke("message-templates", {
         body: { action: "list" },

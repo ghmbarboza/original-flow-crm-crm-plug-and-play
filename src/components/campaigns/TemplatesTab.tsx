@@ -43,8 +43,27 @@ export function TemplatesTab() {
 function TemplatesDoProvedor() {
   const { data, isLoading, error, refetch, isFetching } = useMessageTemplates();
   const [formOpen, setFormOpen] = useState(false);
+  // A Evolution API não tem templates (só Meta Oficial e Zernio). Nesse caso a
+  // query nem roda — mostramos uma nota no lugar da tabela e dos botões.
+  const provedorSemTemplate = !data && !isLoading && !error;
 
   const templates = data?.templates ?? [];
+
+  if (provedorSemTemplate) {
+    return (
+      <div className="via-card p-8 text-center">
+        <FileText className="mx-auto mb-3 h-7 w-7" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
+        <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+          Templates não se aplicam ao seu canal
+        </p>
+        <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: "var(--via-text-muted)" }}>
+          Templates existem apenas na API Oficial (Meta) e no Zernio. Com a Evolution API, as
+          mensagens de campanha são enviadas como conversas normais — conecte a API Oficial ou o
+          Zernio em Integrações para usar templates.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -64,6 +83,7 @@ function TemplatesDoProvedor() {
           </Button>
         </div>
       </div>
+
 
       {isLoading ? (
         <div className="space-y-2">
