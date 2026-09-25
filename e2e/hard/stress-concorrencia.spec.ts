@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { abrirSandbox, ctx, esperar, hmacHex, invocar, Limpeza, MARCADOR, ok, postFunction, telefoneUnico, uid, type Ctx, type Sessao } from "./ctx";
+import { abrirSandbox, ctx, garantirChavesVoz, esperar, hmacHex, invocar, Limpeza, MARCADOR, ok, postFunction, telefoneUnico, uid, type Ctx, type Sessao } from "./ctx";
 
 /**
  * Estresse de CONCORRÊNCIA (HARD=1 STRESS=1): rajadas e eventos duplicados.
@@ -62,6 +62,8 @@ test("50 mensagens do mesmo telefone em 2 s: um contato, uma conversa, 50 mensag
   limpeza.add(`telefone ${telefone}`, () => limparTelefone(telefone));
   const respostas = await Promise.all(Array.from({ length: 50 }, (_, i) => postFunction(c, `evolution-webhook?token=${webhookToken}`, mensagemTexto(telefone, `Mensagem ${i + 1} da rajada`, `${MARCADOR} Rajada`))));
   const codigos = respostas.map((r) => r.status);
+  const falhas = respostas.filter((r) => r.status !== 200);
+  if (falhas.length) console.log(`[stress] rajada: ${falhas.length} respostas != 200; exemplo: ${falhas[0].status} ${falhas[0].texto.slice(0, 300)}`);
   expect(codigos.every((s) => s === 200), `códigos: ${[...new Set(codigos)].join(",")}`).toBe(true);
 
   await esperar("mensagens gravadas", async () => {
@@ -117,6 +119,7 @@ test("20 envios simultâneos do formulário: 20 contatos; 5 iguais: 1 contato", 
 test("três webhooks de fim de ligação idênticos ao mesmo tempo: uma finalização, uma atividade", async () => {
   test.setTimeout(300_000);
   const sandboxVoz = await abrirSandbox(c, limpeza, "stress voz dup");
+  await garantirChavesVoz(c, limpeza);
   limpeza.add("agente de voz", async () => ok(await c.db.from("voice_agents").delete().eq("org_id", c.orgId), "apagar agente"));
   const numero = `+5548${Date.now().toString().slice(-8)}`;
   limpeza.add("número", async () => ok(await c.db.from("phone_numbers").delete().eq("org_id", c.orgId).eq("e164", numero), "apagar número"));

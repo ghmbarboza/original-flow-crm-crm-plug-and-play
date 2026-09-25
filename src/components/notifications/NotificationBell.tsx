@@ -41,6 +41,8 @@ function targetOf(n: Notification): string | null {
       return "/tasks";
     case "appointment":
       return "/agenda";
+    case "import":
+      return "/settings/importacao?secao=historico";
     default:
       return null;
   }

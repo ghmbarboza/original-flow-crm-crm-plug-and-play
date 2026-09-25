@@ -66,7 +66,8 @@ export function blocoDeVerdade(fatos: FatoCanonico[]): string {
   const linhas: string[] = ["", "## FATOS CANÔNICOS"];
   for (const [categoria, lista] of porCategoria) {
     linhas.push(`### ${categoria}`);
-    for (const f of lista) linhas.push(f.question ? `- ${f.question} → ${f.fact}` : `- ${f.fact}`);
+    // Corte de reserva: o banco já limita o fato a 2.000 caracteres.
+    for (const f of lista) { const fato = f.fact.slice(0, 2000); linhas.push(f.question ? `- ${f.question.slice(0, 500)} → ${fato}` : `- ${fato}`); }
   }
   return [...regras, ...linhas].join("\n");
 }

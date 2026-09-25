@@ -70,13 +70,15 @@ test("fato canônico de 50 mil caracteres e documento vazio: a base continua res
   const gigante = "Política de preços. ".repeat(2500);
   const { data: fato, error } = await c.db.from("knowledge_facts").insert({ org_id: c.orgId, title: `${MARCADOR} fato gigante ${marca}`, question: "Qual é a política de preços?", fact: gigante, always_include: true }).select("id").single();
   console.log(`[stress] fato de ${gigante.length} chars: ${error ? `recusado (${error.message.slice(0, 80)})` : "aceito"}`);
+  expect(error, "fato gigante é recusado pelo banco").toBeTruthy();
   if (fato) limpeza.add("fato gigante", async () => ok(await c.db.from("knowledge_facts").delete().eq("id", fato.id), "apagar fato"));
 
   const { data: vazio, error: erroVazio } = await c.db.rpc("gravar_documento_conhecimento", {
     p_document_id: null, p_title: `${MARCADOR} doc vazio ${marca}`, p_content: "", p_doc_type: "texto", p_source_url: null, p_file_name: null,
     p_fingerprint: `vazio-${marca}`, p_status: "approved", p_ingestion_report: {}, p_error_message: null, p_chunks: [],
   });
-  console.log(`[stress] doc vazio: ${erroVazio ? `recusado (${erroVazio.message.slice(0, 80)})` : `aceito ${JSON.stringify(vazio)}`}`);
+  console.log(`[stress] doc vazio: ${erroVazio ? `recusado (${erroVazio.message.slice(0, 80)})` : `aceito ${JSON.stringify(vazio).slice(0, 80)}`}`);
+  expect(erroVazio, "documento aprovado vazio é recusado").toBeTruthy();
   limpeza.add("doc vazio", async () => ok(await c.db.from("knowledge_documents").delete().eq("org_id", c.orgId).like("title", `${MARCADOR} doc vazio ${marca}%`), "apagar doc"));
 
   const busca = await c.db.rpc("buscar_conhecimento", { p_org: c.orgId, p_consulta: "política de preços", p_limite: 6 });
@@ -108,7 +110,7 @@ test("nomes com emoji, HTML e 10 mil caracteres: gravados como texto, sem quebra
     if (data) ids.push(data.id);
   }
   limpeza.add("contatos de entrada", async () => ok(await c.db.from("contacts").delete().in("id", ids), "apagar"));
-  const lista = ok(await c.db.from("contacts").select("id, first_name").eq("org_id", c.orgId).eq("last_name", marca).order("created_at"), "lista") ?? [];
+  const lista = ok(await c.db.from("contacts").select("id, first_name").eq("org_id", c.orgId).like("email", `entrada-${marca}-%`).order("created_at"), "lista") ?? [];
   expect(lista.length).toBe(ids.length);
   expect(lista.some((x) => x.first_name.includes("DROP TABLE")), "SQL vira texto, não comando").toBe(true);
   const { count } = await c.db.from("contacts").select("id", { count: "exact", head: true }).eq("org_id", c.orgId);

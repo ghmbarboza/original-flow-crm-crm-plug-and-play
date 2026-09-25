@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { abrirSandbox, ctx, esperar, invocar, Limpeza, MARCADOR, ok, postFunction, telefoneUnico, uid, type Ctx, type Sessao } from "./ctx";
+import { abrirSandbox, ctx, garantirChavesVoz, esperar, invocar, Limpeza, MARCADOR, ok, postFunction, telefoneUnico, uid, type Ctx, type Sessao } from "./ctx";
 
 /**
  * Estresse de FALHAS (HARD=1 STRESS=1): cada provedor externo cai (500), volta,
@@ -83,6 +83,7 @@ test("Evolution fora do ar: envio humano falha com erro claro e volta quando o p
 
 test("ElevenLabs e Twilio fora do ar: sincronizar agente e importar número devolvem 502 e registram o erro", async () => {
   test.setTimeout(180_000);
+  await garantirChavesVoz(c, limpeza);
   limpeza.add("agente de voz", async () => ok(await c.db.from("voice_agents").delete().eq("org_id", c.orgId), "apagar agente"));
   const numero = `+5548${Date.now().toString().slice(-8)}`;
   limpeza.add("número", async () => ok(await c.db.from("phone_numbers").delete().eq("org_id", c.orgId).eq("e164", numero), "apagar número"));

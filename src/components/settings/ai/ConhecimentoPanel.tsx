@@ -166,7 +166,7 @@ export function FatosPanel({ inicial, aoSalvar }: { inicial?: Partial<EntradaFat
         <div className="via-card grid gap-3 p-5 sm:grid-cols-2" data-testid="fact-form">
           <div className="space-y-1">
             <Label htmlFor="fato-titulo">Título</Label>
-            <Input id="fato-titulo" value={editando.title} onChange={(e) => setEditando({ ...editando, title: e.target.value })} placeholder="Prazo de entrega" data-testid="fact-title" />
+            <Input id="fato-titulo" maxLength={200} value={editando.title} onChange={(e) => setEditando({ ...editando, title: e.target.value })} placeholder="Prazo de entrega" data-testid="fact-title" />
           </div>
           <div className="space-y-1">
             <Label>Categoria</Label>
@@ -177,11 +177,12 @@ export function FatosPanel({ inicial, aoSalvar }: { inicial?: Partial<EntradaFat
           </div>
           <div className="space-y-1 sm:col-span-2">
             <Label htmlFor="fato-pergunta">Pergunta que o cliente faz (opcional)</Label>
-            <Input id="fato-pergunta" value={editando.question ?? ""} onChange={(e) => setEditando({ ...editando, question: e.target.value })} placeholder="Quanto tempo demora a entrega?" />
+            <Input id="fato-pergunta" maxLength={500} value={editando.question ?? ""} onChange={(e) => setEditando({ ...editando, question: e.target.value })} placeholder="Quanto tempo demora a entrega?" />
           </div>
           <div className="space-y-1 sm:col-span-2">
             <Label htmlFor="fato-texto">Fato (exatamente como a IA deve dizer)</Label>
-            <Textarea id="fato-texto" rows={3} value={editando.fact} onChange={(e) => setEditando({ ...editando, fact: e.target.value })} data-testid="fact-text" />
+            <Textarea id="fato-texto" rows={3} maxLength={2000} value={editando.fact} onChange={(e) => setEditando({ ...editando, fact: e.target.value })} data-testid="fact-text" />
+            <p className="text-right text-xs" style={{ color: "var(--via-text-muted)" }}>{editando.fact.length}/2000. Fato é curto e exato; texto longo vai em Documentos.</p>
           </div>
           <div className="flex items-center gap-2">
             <Switch checked={editando.always_include} onCheckedChange={(v) => setEditando({ ...editando, always_include: v })} aria-label="Sempre no prompt" />

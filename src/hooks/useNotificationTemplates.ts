@@ -21,6 +21,7 @@ export const NOTIFICATION_EVENTS: { type: string; label: string; description: st
   { type: "reuniao_agendada", label: "Reunião agendada", description: "Uma reunião foi marcada para você (pela IA, à mão ou pelo Cal.com)." },
   { type: "reuniao_no_show", label: "Cliente não compareceu", description: "Uma reunião sua passou do horário sem confirmação nem presença." },
   { type: "agendamento_confirmado", label: "Reunião agendada", description: "Um contato confirmou uma reunião pelo link de agendamento." },
+  { type: "importacao_concluida", label: "Importação concluída", description: "Uma importação de planilha ou de outro CRM terminou, com o resumo do que entrou." },
   { type: "estoque_baixo", label: "Estoque baixo", description: "Um produto ficou abaixo do estoque mínimo após uma venda." },
   { type: "automacao", label: "Aviso de automação", description: "A ação 'Notificar agente' de uma automação." },
   { type: "followup_exhausted", label: "Follow-up esgotado", description: "A régua de follow-up terminou sem resposta do contato." },

@@ -192,3 +192,14 @@ export async function capturas(c: Ctx, sessao: Sessao, prefixo = ""): Promise<Ca
 export async function rodarDispatcher(c: Ctx, nome: string) {
   ok(await c.db.rpc("executar_dispatcher_agora", { p_function: nome }), `disparar ${nome}`);
 }
+
+/** Credenciais falsas de voz (a sandbox ignora os valores) só se a org ainda não tiver. */
+export async function garantirChavesVoz(c: Ctx, limpeza: Limpeza) {
+  for (const [servico, valor] of [["elevenlabs", "el_sandbox"], ["twilio_account_sid", "ACsandbox0000000000000000000000000"], ["twilio_auth_token", "token_sandbox"]]) {
+    const existe = ok(await c.db.from("api_keys_registry").select("service_name").eq("org_id", c.orgId).eq("service_name", servico).limit(1).maybeSingle(), `chave ${servico}`);
+    if (existe) continue;
+    const s = await invocar(c, "store-api-key", { service_name: servico, api_key: valor, label: servico });
+    if (s.status !== 200) throw new Error(`store-api-key ${servico}: ${s.status} ${s.texto}`);
+    limpeza.add(`chave ${servico}`, async () => ok(await c.db.from("api_keys_registry").delete().eq("org_id", c.orgId).eq("service_name", servico), `apagar ${servico}`));
+  }
+}

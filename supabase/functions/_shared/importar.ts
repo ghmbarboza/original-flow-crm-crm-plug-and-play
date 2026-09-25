@@ -27,7 +27,7 @@ export interface Ctx {
 }
 
 /** Linhas processadas ao mesmo tempo por lote (contatos e empresas). */
-const PARALELO = 6;
+const PARALELO = 10;
 
 function umaVez<T>(ctx: Ctx, chave: string, fn: () => Promise<T>): Promise<T> {
   const atual = ctx.emAndamento.get(chave) as Promise<T> | undefined;
@@ -108,7 +108,7 @@ async function empresaPorNome(ctx: Ctx, nome: string | null, criar: boolean, ext
     const { data } = await ctx.admin.from("companies").select("id").eq("org_id", ctx.orgId).ilike("name", nome).limit(1).maybeSingle();
     if (data) { ctx.cacheEmpresas.set(chave, data.id); return { id: data.id, criada: false }; }
     if (!criar) return null;
-    const { data: nova, error } = await ctx.admin.from("companies").insert({ org_id: ctx.orgId, name: nome }).select("id").single();
+    const { data: nova, error } = await ctx.admin.from("companies").insert({ org_id: ctx.orgId, import_id: ctx.importId, name: nome }).select("id").single();
     if (error || !nova) return null;
     ctx.cacheEmpresas.set(chave, nova.id);
     return { id: nova.id, criada: true };
@@ -206,14 +206,14 @@ async function importarContato(ctx: Ctx, d: Dados): Promise<Resultado> {
   const existente = await contatoPorReferencia(ctx, d);
   const custom = { ...((existente?.custom_fields as Record<string, unknown>) ?? {}), ...extras, ...(externo ? { external_id: externo } : {}) };
   if (existente) {
-    const { error } = await ctx.admin.from("contacts").update({ ...campos, custom_fields: custom, updated_at: new Date().toISOString() }).eq("id", existente.id);
+    const { error } = await ctx.admin.from("contacts").update({ ...campos, import_id: ctx.importId, custom_fields: custom, updated_at: new Date().toISOString() }).eq("id", existente.id);
     if (error) return { row_number: 0, status: "error", error: error.message };
     await aplicarTags(ctx, existente.id, texto(d.tags));
     return { row_number: 0, status: "updated", entity_type: "contact", entity_id: existente.id };
   }
   const criado = data(texto(d.created_at));
   const { data: novo, error } = await ctx.admin.from("contacts").insert({
-    org_id: ctx.orgId, first_name: first ?? email ?? whatsapp ?? "Contato", ...campos, custom_fields: custom,
+    org_id: ctx.orgId, import_id: ctx.importId, first_name: first ?? email ?? whatsapp ?? "Contato", ...campos, custom_fields: custom,
     source: texto(d.source) ?? `importação`, ...(criado ? { created_at: criado } : {}),
   }).select("id").single();
   if (error?.code === "23505") {
@@ -221,7 +221,7 @@ async function importarContato(ctx: Ctx, d: Dados): Promise<Resultado> {
     // criou o contato entre a busca e o insert: quem chega depois atualiza.
     const vencedor = await contatoPorReferencia(ctx, d);
     if (vencedor) {
-      const { error: e2 } = await ctx.admin.from("contacts").update({ ...campos, custom_fields: { ...((vencedor.custom_fields as Record<string, unknown>) ?? {}), ...custom }, updated_at: new Date().toISOString() }).eq("id", vencedor.id);
+      const { error: e2 } = await ctx.admin.from("contacts").update({ ...campos, import_id: ctx.importId, custom_fields: { ...((vencedor.custom_fields as Record<string, unknown>) ?? {}), ...custom }, updated_at: new Date().toISOString() }).eq("id", vencedor.id);
       if (e2) return { row_number: 0, status: "error", error: e2.message };
       await aplicarTags(ctx, vencedor.id, texto(d.tags));
       return { row_number: 0, status: "updated", entity_type: "contact", entity_id: vencedor.id };
@@ -275,11 +275,11 @@ async function importarEmpresa(ctx: Ctx, d: Dados): Promise<Resultado> {
   };
   const custom = { ...((existente?.custom_fields as Record<string, unknown>) ?? {}), ...extras, ...(externo ? { external_id: externo } : {}) };
   if (existente) {
-    const { error } = await ctx.admin.from("companies").update({ ...campos, custom_fields: custom, updated_at: new Date().toISOString() }).eq("id", existente.id);
+    const { error } = await ctx.admin.from("companies").update({ ...campos, import_id: ctx.importId, custom_fields: custom, updated_at: new Date().toISOString() }).eq("id", existente.id);
     if (error) return { row_number: 0, status: "error", error: error.message };
     return { row_number: 0, status: "updated", entity_type: "company", entity_id: existente.id };
   }
-  const { data: nova, error } = await ctx.admin.from("companies").insert({ org_id: ctx.orgId, name: nome ?? dominio!, ...campos, custom_fields: custom }).select("id").single();
+  const { data: nova, error } = await ctx.admin.from("companies").insert({ org_id: ctx.orgId, import_id: ctx.importId, name: nome ?? dominio!, ...campos, custom_fields: custom }).select("id").single();
   if (error || !nova) return { row_number: 0, status: "error", error: error?.message ?? "falha ao criar" };
   ctx.cacheEmpresas.set(normalizar(nome ?? dominio!), nova.id);
   return { row_number: 0, status: "created", entity_type: "company", entity_id: nova.id };
@@ -302,7 +302,7 @@ async function importarNegocio(ctx: Ctx, d: Dados): Promise<Resultado> {
     if (!contato) {
       const [first, ...rest] = nome.split(/\s+/);
       const { data: novo } = await ctx.admin.from("contacts").insert({
-        org_id: ctx.orgId, first_name: first, last_name: rest.join(" ") || null, email: texto(d.contact_email)?.toLowerCase() ?? null,
+        org_id: ctx.orgId, import_id: ctx.importId, first_name: first, last_name: rest.join(" ") || null, email: texto(d.contact_email)?.toLowerCase() ?? null,
         whatsapp_phone: digitos(texto(d.contact_phone)) || null, source: "importação",
       }).select("id, custom_fields").single();
       contato = novo;
@@ -340,13 +340,13 @@ async function importarNegocio(ctx: Ctx, d: Dados): Promise<Resultado> {
   }
   const custom = { ...((existente?.custom_fields as Record<string, unknown>) ?? {}), ...extras, ...(externo ? { external_id: externo } : {}) };
   if (existente) {
-    const { error } = await ctx.admin.from("deals").update({ ...campos, custom_fields: custom, updated_at: new Date().toISOString() }).eq("id", existente.id);
+    const { error } = await ctx.admin.from("deals").update({ ...campos, import_id: ctx.importId, custom_fields: custom, updated_at: new Date().toISOString() }).eq("id", existente.id);
     if (error) return { row_number: 0, status: "error", error: error.message };
     return { row_number: 0, status: "updated", entity_type: "deal", entity_id: existente.id };
   }
   const criado = data(texto(d.created_at));
   const { data: novo, error } = await ctx.admin.from("deals").insert({
-    org_id: ctx.orgId, title: titulo ?? `Negócio ${externo}`, ...campos, custom_fields: custom, ...(criado ? { created_at: criado } : {}),
+    org_id: ctx.orgId, import_id: ctx.importId, title: titulo ?? `Negócio ${externo}`, ...campos, custom_fields: custom, ...(criado ? { created_at: criado } : {}),
   }).select("id").single();
   if (error || !novo) return { row_number: 0, status: "error", error: error?.message ?? "falha ao criar" };
   return { row_number: 0, status: "created", entity_type: "deal", entity_id: novo.id };
@@ -375,7 +375,7 @@ async function importarAtividade(ctx: Ctx, d: Dados): Promise<Resultado> {
   const dono = await usuarioPorEmail(ctx, texto(d.owner_email));
   const concluida = texto(d.completed) ? ["sim", "s", "yes", "y", "true", "1", "done", "concluida", "concluída", "x"].includes(texto(d.completed)!.toLowerCase()) : false;
   const { data: nova, error } = await ctx.admin.from("activities").insert({
-    org_id: ctx.orgId, type: tipo, title: titulo, body: texto(d.body), due_date: data(texto(d.due_date)),
+    org_id: ctx.orgId, import_id: ctx.importId, type: tipo, title: titulo, body: texto(d.body), due_date: data(texto(d.due_date)),
     completed_at: concluida ? new Date().toISOString() : null, contact_id: contato?.id ?? null, deal_id: dealId, user_id: dono,
   }).select("id").single();
   if (error || !nova) return { row_number: 0, status: "error", error: error?.message ?? "falha ao criar" };

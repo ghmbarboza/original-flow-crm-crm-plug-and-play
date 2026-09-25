@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { abrirSandbox, ctx, invocar, Limpeza, MARCADOR, ok, rodarDispatcher, uid, type Ctx, type Sessao } from "./ctx";
+import { abrirSandbox, ctx, garantirChavesVoz, invocar, Limpeza, MARCADOR, ok, rodarDispatcher, uid, type Ctx, type Sessao } from "./ctx";
 
 /**
  * Estresse de VOLUME (roda só com HARD=1 STRESS=1): mede o que a plataforma
@@ -39,6 +39,7 @@ test("importa 2.000 contatos em lotes e reimporta sem duplicar", async () => {
   const imp = ok(await c.db.from("imports").insert({ org_id: c.orgId, kind: "contacts", source: "csv", file_name: `stress-${marca}.csv`, created_by: c.userId }).select("id").single(), "import");
   limpeza.add("import", async () => { ok(await c.db.from("import_rows").delete().eq("import_id", imp.id), "linhas"); ok(await c.db.from("imports").delete().eq("id", imp.id), "import"); });
   const linha = (n: number) => ({ row_number: n + 2, data: { name: `${MARCADOR} stress ${marca} ${n}`, email: `stress-${marca}-${n}@exemplo.com.br`, phone: `(48) 9${String(10000000 + n).slice(-8)}`, tags: `stress-${marca}` } });
+  const inicioImport = new Date().toISOString();
   const fim = cronometro(`import ${TOTAL} contatos`);
   let criados = 0, erros = 0;
   for (let i = 0; i < TOTAL; i += LOTE) {
@@ -52,6 +53,9 @@ test("importa 2.000 contatos em lotes e reimporta sem duplicar", async () => {
   const { count } = await c.db.from("contacts").select("id", { count: "exact", head: true }).eq("org_id", c.orgId).like("email", `stress-${marca}-%@exemplo.com.br`);
   expect(count).toBe(TOTAL);
   expect(ms, "2.000 contatos em menos de 5 min").toBeLessThan(300_000);
+  // Importar não avisa "novo lead" um a um (estresse de 25/09 gerou 2.459 avisos).
+  const { count: avisos } = await c.db.from("notifications").select("id", { count: "exact", head: true }).eq("org_id", c.orgId).eq("type", "novo_lead").gte("created_at", inicioImport);
+  expect(avisos ?? 0, "nenhum aviso de novo lead por contato importado").toBe(0);
 
   // Reimporta os 200 primeiros: atualiza, não duplica.
   const r2 = await invocar(c, "import-run", { import_id: imp.id, rows: Array.from({ length: LOTE }, (_, k) => ({ ...linha(k), data: { ...linha(k).data, title: "Reimportado" } })) });
@@ -146,13 +150,7 @@ test("API pública: 300 chamadas, escopo errado e limite por minuto", async () =
 test("campanha de ligação com 150 contatos respeita o limite de simultâneas", async () => {
   test.setTimeout(600_000);
   const sandbox: Sessao = await abrirSandbox(c, limpeza, "stress voz");
-  for (const [servico, valor] of [["elevenlabs", "el_sandbox"], ["twilio_account_sid", "ACsandbox0000000000000000000000000"], ["twilio_auth_token", "token_sandbox"]]) {
-    const existe = ok(await c.db.from("api_keys_registry").select("service_name").eq("org_id", c.orgId).eq("service_name", servico).limit(1).maybeSingle(), `chave ${servico}`);
-    if (existe) continue;
-    const s = await invocar(c, "store-api-key", { service_name: servico, api_key: valor, label: servico });
-    expect(s.status, s.texto).toBe(200);
-    limpeza.add(`chave ${servico}`, async () => ok(await c.db.from("api_keys_registry").delete().eq("org_id", c.orgId).eq("service_name", servico), `apagar ${servico}`));
-  }
+  await garantirChavesVoz(c, limpeza);
   limpeza.add("agente de voz", async () => ok(await c.db.from("voice_agents").delete().eq("org_id", c.orgId), "apagar agente"));
   const numero = `+5548${Date.now().toString().slice(-8)}`;
   limpeza.add("número", async () => ok(await c.db.from("phone_numbers").delete().eq("org_id", c.orgId).eq("e164", numero), "apagar número"));
