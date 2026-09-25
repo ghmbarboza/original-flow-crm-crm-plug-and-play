@@ -1,6 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import fs from "node:fs";
 import { credencial as env } from "./helpers";
+
+/**
+ * Cópia local do estado da empresa antes do spec. Se uma execução cair no meio
+ * (rede, timeout) sem restaurar, a próxima restaura daqui antes de começar.
+ */
+const COPIA = "e2e/.auth/setup-wizard-estado.json";
 
 /**
  * Wizard de configuração inicial (/setup).
@@ -89,6 +96,15 @@ test.beforeAll(async () => {
     .from("profiles").select("org_id").eq("id", auth!.user!.id).maybeSingle();
   orgId = profile!.org_id as string;
 
+  // Execução anterior interrompida: restaura a empresa e as etapas pela cópia local.
+  if (fs.existsSync(COPIA)) {
+    const copia = JSON.parse(fs.readFileSync(COPIA, "utf-8")) as { org: Record<string, unknown>; etapas: Record<string, unknown>[] };
+    await db.from("organizations").update(copia.org).eq("id", orgId);
+    if (copia.etapas.length) await db.from("pipeline_stages").upsert(copia.etapas, { onConflict: "id" });
+    await db.from("setup_progress").delete().eq("org_id", orgId);
+    fs.rmSync(COPIA);
+  }
+
   const { data: org } = await db
     .from("organizations").select(ORG_FIELDS.join(",")).eq("id", orgId).single();
   orgAntes = org as unknown as OrgSnapshot;
@@ -105,6 +121,7 @@ test.beforeAll(async () => {
   } else {
     etapasAntes = [];
   }
+  fs.writeFileSync(COPIA, JSON.stringify({ org: orgAntes, etapas: etapasAntes }));
 
   const { data: cfg } = await db
     .from("ai_messaging_config").select("*").eq("org_id", orgId).maybeSingle();
@@ -144,13 +161,22 @@ test.afterAll(async () => {
 
   await db.from("organizations").update(orgAntes).eq("id", orgId);
 
-  // Restaura as etapas: o passo 4 substitui o conjunto quando não há deals.
+  // Restaura as etapas PELO ID, sem apagar etapa com negócio. A versão antiga
+  // apagava todas e reinseria: o ON DELETE SET NULL deixava os negócios reais sem
+  // etapa e o Kanban vazio (25/09/2026). Agora o banco também recusa esse delete.
   if (pipelineId && etapasAntes.length > 0) {
-    await db.from("pipeline_stages").delete().eq("pipeline_id", pipelineId);
-    await db.from("pipeline_stages").insert(etapasAntes);
+    await db.from("pipeline_stages").upsert(etapasAntes, { onConflict: "id" });
+    const idsAntes = new Set(etapasAntes.map((e) => e.id));
+    const { data: atuais } = await db.from("pipeline_stages").select("id").eq("pipeline_id", pipelineId);
+    for (const e of atuais ?? []) {
+      if (idsAntes.has(e.id)) continue;
+      const { count } = await db.from("deals").select("id", { count: "exact", head: true }).eq("stage_id", e.id);
+      if (!count) await db.from("pipeline_stages").delete().eq("id", e.id);
+    }
   }
 
   await db.from("setup_progress").delete().eq("org_id", orgId);
+  if (fs.existsSync(COPIA)) fs.rmSync(COPIA);
 
   // Base de conhecimento e configuração de IA: devolve ao estado de antes.
   await apagarNovos("ai_knowledge_faqs", faqIdsAntes);
@@ -352,8 +378,12 @@ test("passo 4 sugere e aplica o pipeline do setor", async ({ page }) => {
   await expect(page.getByTestId("setup-pipeline-warning"))
     .toHaveCount((deals ?? 0) > 0 ? 1 : 0);
 
+  const semEtapaAntes = (await db.from("deals").select("id", { count: "exact", head: true }).eq("org_id", orgId).is("stage_id", null)).count ?? 0;
   await page.getByTestId("setup-next").click();
   await expect(page.getByTestId("setup-step-canal")).toBeVisible();
+  // Aplicar o funil nunca pode tirar negócio da etapa (o Kanban some).
+  const semEtapaDepois = (await db.from("deals").select("id", { count: "exact", head: true }).eq("org_id", orgId).is("stage_id", null)).count ?? 0;
+  expect(semEtapaDepois, "nenhum negócio perde a etapa").toBe(semEtapaAntes);
 
   await expect(async () => {
     const { data } = await db

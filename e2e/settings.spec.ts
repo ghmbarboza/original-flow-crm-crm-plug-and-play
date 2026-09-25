@@ -14,8 +14,17 @@ test("configurações: troca de aba e salva", async ({ page }) => {
   // Salvar na aba Geral: altera o telefone (campo pouco sensível) e salva.
   const phoneField = page.locator("#full_name");
   await expect(phoneField).not.toHaveValue(""); // garante que o perfil já carregou
-  await page.locator("#phone").fill(`(11) 9${Date.now().toString().slice(-8)}`);
+  // Altera o telefone e DEVOLVE o original: a versão antiga deixava um número
+  // aleatório no perfil real a cada execução.
+  const telefone = page.locator("#phone");
+  const original = await telefone.inputValue();
+  await telefone.fill(`(11) 9${Date.now().toString().slice(-8)}`);
   await page.getByRole("button", { name: "Salvar alterações" }).click();
-
   await expect(page.getByText("Informações atualizadas com sucesso.")).toBeVisible();
+
+  await telefone.fill(original);
+  await page.getByRole("button", { name: "Salvar alterações" }).click();
+  await expect(page.getByText("Informações atualizadas com sucesso.").last()).toBeVisible();
+  await page.reload();
+  await expect(page.locator("#phone")).toHaveValue(original);
 });
