@@ -745,6 +745,24 @@ export type Database = {
           },
         ]
       }
+      assistente_uso: {
+        Row: {
+          janela: string
+          user_id: string
+          usos: number
+        }
+        Insert: {
+          janela: string
+          user_id: string
+          usos?: number
+        }
+        Update: {
+          janela?: string
+          user_id?: string
+          usos?: number
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -5733,6 +5751,10 @@ export type Database = {
       }
       consumir_cota_api: {
         Args: { p_key: string; p_limite: number }
+        Returns: boolean
+      }
+      consumir_cota_assistente: {
+        Args: { p_limite?: number }
         Returns: boolean
       }
       create_notification: {
