@@ -24,6 +24,7 @@ export type Database = {
           deal_id: string | null
           due_date: string | null
           id: string
+          import_id: string | null
           is_demo: boolean
           org_id: string
           title: string
@@ -39,6 +40,7 @@ export type Database = {
           deal_id?: string | null
           due_date?: string | null
           id?: string
+          import_id?: string | null
           is_demo?: boolean
           org_id: string
           title: string
@@ -54,6 +56,7 @@ export type Database = {
           deal_id?: string | null
           due_date?: string | null
           id?: string
+          import_id?: string | null
           is_demo?: boolean
           org_id?: string
           title?: string
@@ -80,6 +83,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
             referencedColumns: ["id"]
           },
           {
@@ -1403,6 +1413,7 @@ export type Database = {
           custom_fields: Json
           domain: string | null
           id: string
+          import_id: string | null
           industry: string | null
           is_demo: boolean
           name: string
@@ -1417,6 +1428,7 @@ export type Database = {
           custom_fields?: Json
           domain?: string | null
           id?: string
+          import_id?: string | null
           industry?: string | null
           is_demo?: boolean
           name: string
@@ -1431,6 +1443,7 @@ export type Database = {
           custom_fields?: Json
           domain?: string | null
           id?: string
+          import_id?: string | null
           industry?: string | null
           is_demo?: boolean
           name?: string
@@ -1441,6 +1454,13 @@ export type Database = {
           website?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "companies_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "companies_org_id_fkey"
             columns: ["org_id"]
@@ -1611,6 +1631,7 @@ export type Database = {
           email: string | null
           first_name: string
           id: string
+          import_id: string | null
           is_active: boolean | null
           is_demo: boolean
           last_name: string | null
@@ -1635,6 +1656,7 @@ export type Database = {
           email?: string | null
           first_name?: string
           id?: string
+          import_id?: string | null
           is_active?: boolean | null
           is_demo?: boolean
           last_name?: string | null
@@ -1659,6 +1681,7 @@ export type Database = {
           email?: string | null
           first_name?: string
           id?: string
+          import_id?: string | null
           is_active?: boolean | null
           is_demo?: boolean
           last_name?: string | null
@@ -1679,6 +1702,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
             referencedColumns: ["id"]
           },
           {
@@ -2193,6 +2223,7 @@ export type Database = {
           currency: string
           custom_fields: Json
           id: string
+          import_id: string | null
           is_demo: boolean
           loss_reason_id: string | null
           org_id: string
@@ -2216,6 +2247,7 @@ export type Database = {
           currency?: string
           custom_fields?: Json
           id?: string
+          import_id?: string | null
           is_demo?: boolean
           loss_reason_id?: string | null
           org_id: string
@@ -2239,6 +2271,7 @@ export type Database = {
           currency?: string
           custom_fields?: Json
           id?: string
+          import_id?: string | null
           is_demo?: boolean
           loss_reason_id?: string | null
           org_id?: string
@@ -2264,6 +2297,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
             referencedColumns: ["id"]
           },
           {
@@ -5813,6 +5853,10 @@ export type Database = {
           p_origem?: string
           p_stage: string
         }
+        Returns: boolean
+      }
+      mudanca_de_importacao: {
+        Args: { p_antigo: string; p_novo: string; p_op: string }
         Returns: boolean
       }
       notification_template_padrao: {
