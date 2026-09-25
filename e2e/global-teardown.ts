@@ -40,6 +40,8 @@ const TABELAS: { tabela: string; coluna: string }[] = [
   { tabela: "activities", coluna: "title" },
   { tabela: "deals", coluna: "title" },
   { tabela: "contacts", coluna: "first_name" },
+  // O formulário grava "Lead" no nome e o marcador no sobrenome.
+  { tabela: "contacts", coluna: "last_name" },
   { tabela: "companies", coluna: "name" },
   { tabela: "products", coluna: "name" },
   { tabela: "knowledge_documents", coluna: "title" },

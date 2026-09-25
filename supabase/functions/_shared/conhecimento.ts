@@ -113,8 +113,12 @@ export async function buscarConhecimento(admin: SupabaseClient, orgId: string, a
       aviso: "Nada encontrado na base de conhecimento. NÃO invente a resposta: diga que vai confirmar com a equipe e use registrar_duvida.",
     });
   }
+  // A busca é tolerante (aceita erro de digitação e palavras parecidas), então
+  // pode devolver trechos vizinhos que não respondem. Sem esta instrução a IA lia,
+  // dizia "não encontrei" e não registrava a dúvida (estresse de 25/09/2026).
   return JSON.stringify({
     encontrado: true,
+    instrucao: "Use só o que estiver escrito nestes trechos. Se nenhum deles responde exatamente à pergunta, NÃO invente: diga que vai confirmar com a equipe e chame registrar_duvida com a pergunta do cliente.",
     resultados: resultados.map((r) => ({ tipo: r.source_type, fonte: r.title, conteudo: r.content })),
   });
 }
