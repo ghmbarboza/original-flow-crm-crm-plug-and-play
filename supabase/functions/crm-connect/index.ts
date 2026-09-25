@@ -28,6 +28,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const PAGINAS_POR_CHAMADA = 5;
+// A function tem 150 s; para antes disso e devolve o cursor para a próxima chamada.
+const ORCAMENTO_MS = 90_000;
 const VALIDADE_ESTADO_MS = 15 * 60 * 1000;
 
 /** api_base só é aceito quando aponta a integration-sandbox deste projeto (hard smoke). */
@@ -191,6 +193,7 @@ Deno.serve(async (req) => {
       const total = { created: 0, updated: 0, skipped: 0, error: 0 };
       const erros: { row_number: number; error: string }[] = [];
       let paginas = 0;
+      const inicio = Date.now();
       try {
         do {
           const pagina = await adaptador.listar(cred, kind, cursor, cx.structure);
@@ -201,7 +204,7 @@ Deno.serve(async (req) => {
           for (const x of r.results) if (x.status === "error") erros.push({ row_number: x.row_number, error: x.error ?? "erro" });
           cursor = pagina.next;
           paginas++;
-        } while (cursor && paginas < PAGINAS_POR_CHAMADA);
+        } while (cursor && paginas < PAGINAS_POR_CHAMADA && Date.now() - inicio < ORCAMENTO_MS);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         await admin.from("imports").update({ status: "failed", error_report: msg }).eq("id", importId);

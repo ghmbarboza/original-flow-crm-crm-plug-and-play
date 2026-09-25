@@ -9,7 +9,9 @@ import type { Database } from "@/integrations/supabase/types";
 export type ImportRow = Database["public"]["Tables"]["imports"]["Row"];
 export type ImportRowDetail = Database["public"]["Tables"]["import_rows"]["Row"];
 
-const LOTE = 200;
+// 50 linhas por chamada: cabe folgado no limite de 150 s da function mesmo com
+// negócios e atividades, que são processados em série.
+const LOTE = 50;
 
 export interface ResultadoImportacao {
   created: number;

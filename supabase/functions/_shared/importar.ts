@@ -22,6 +22,19 @@ export interface Ctx {
   cacheUsuarios: Map<string, string | null>;
   cacheEmpresas: Map<string, string>;
   cacheEtapas: { id: string; name: string; pipeline_id: string; win_probability: number }[] | null;
+  /** Buscas-ou-criações em andamento: linhas paralelas com a mesma empresa ou tag esperam a mesma promessa. */
+  emAndamento: Map<string, Promise<unknown>>;
+}
+
+/** Linhas processadas ao mesmo tempo por lote (contatos e empresas). */
+const PARALELO = 6;
+
+function umaVez<T>(ctx: Ctx, chave: string, fn: () => Promise<T>): Promise<T> {
+  const atual = ctx.emAndamento.get(chave) as Promise<T> | undefined;
+  if (atual) return atual;
+  const p = fn();
+  ctx.emAndamento.set(chave, p);
+  return p;
 }
 
 const texto = (v: unknown): string | null => {
@@ -91,13 +104,15 @@ async function empresaPorNome(ctx: Ctx, nome: string | null, criar: boolean, ext
   if (!nome) return null;
   const chave = normalizar(nome);
   if (ctx.cacheEmpresas.has(chave)) return { id: ctx.cacheEmpresas.get(chave)!, criada: false };
-  const { data } = await ctx.admin.from("companies").select("id").eq("org_id", ctx.orgId).ilike("name", nome).limit(1).maybeSingle();
-  if (data) { ctx.cacheEmpresas.set(chave, data.id); return { id: data.id, criada: false }; }
-  if (!criar) return null;
-  const { data: nova, error } = await ctx.admin.from("companies").insert({ org_id: ctx.orgId, name: nome }).select("id").single();
-  if (error || !nova) return null;
-  ctx.cacheEmpresas.set(chave, nova.id);
-  return { id: nova.id, criada: true };
+  return umaVez(ctx, `empresa:${criar}:${chave}`, async () => {
+    const { data } = await ctx.admin.from("companies").select("id").eq("org_id", ctx.orgId).ilike("name", nome).limit(1).maybeSingle();
+    if (data) { ctx.cacheEmpresas.set(chave, data.id); return { id: data.id, criada: false }; }
+    if (!criar) return null;
+    const { data: nova, error } = await ctx.admin.from("companies").insert({ org_id: ctx.orgId, name: nome }).select("id").single();
+    if (error || !nova) return null;
+    ctx.cacheEmpresas.set(chave, nova.id);
+    return { id: nova.id, criada: true };
+  });
 }
 
 async function contatoPorReferencia(ctx: Ctx, d: Dados) {
@@ -220,12 +235,12 @@ async function importarContato(ctx: Ctx, d: Dados): Promise<Resultado> {
 async function aplicarTags(ctx: Ctx, contactId: string, tags: string | null) {
   if (!tags) return;
   for (const nome of tags.split(/[,;|]/).map((t) => t.trim()).filter(Boolean).slice(0, 10)) {
-    const { data: existente } = await ctx.admin.from("tags").select("id").eq("org_id", ctx.orgId).ilike("name", nome).maybeSingle();
-    let tagId = existente?.id as string | undefined;
-    if (!tagId) {
+    const tagId = await umaVez(ctx, `tag:${normalizar(nome)}`, async () => {
+      const { data: existente } = await ctx.admin.from("tags").select("id").eq("org_id", ctx.orgId).ilike("name", nome).limit(1).maybeSingle();
+      if (existente?.id) return existente.id as string;
       const { data: nova } = await ctx.admin.from("tags").insert({ org_id: ctx.orgId, name: nome }).select("id").single();
-      tagId = nova?.id;
-    }
+      return nova?.id as string | undefined;
+    });
     if (tagId) await ctx.admin.from("contact_tags").upsert({ contact_id: contactId, tag_id: tagId }, { onConflict: "contact_id,tag_id", ignoreDuplicates: true });
   }
 }
@@ -369,13 +384,17 @@ async function importarAtividade(ctx: Ctx, d: Dados): Promise<Resultado> {
 
 
 export function novoCtx(admin: SupabaseClient, orgId: string, importId: string, kind: string, mapaEtapas: Record<string, string>): Ctx {
-  return { admin, orgId, importId, kind, mapaEtapas, cacheUsuarios: new Map(), cacheEmpresas: new Map(), cacheEtapas: null };
+  return { admin, orgId, importId, kind, mapaEtapas, cacheUsuarios: new Map(), cacheEmpresas: new Map(), cacheEtapas: null, emAndamento: new Map() };
 }
 
 /** Processa um lote e grava import_rows. Devolve a contagem e os resultados. */
 export async function importarLote(ctx: Ctx, linhas: { row_number: number; data: Dados }[]) {
-  const resultados: Resultado[] = [];
-  for (const linha of linhas) {
+  // Estresse de volume (25/09/2026): em série, 200 linhas levavam mais que o limite
+  // de 150 s da function. Contatos e empresas vão em paralelo controlado (a mesma
+  // empresa ou tag é resolvida uma vez só, e o índice único de e-mail e WhatsApp
+  // segura contato repetido). Negócios e atividades seguem em série porque podem
+  // criar o contato pelo nome, sem chave única que segure a corrida.
+  const processar = async (linha: { row_number: number; data: Dados }): Promise<Resultado> => {
     const d = (linha.data ?? {}) as Dados;
     let r: Resultado;
     try {
@@ -387,8 +406,18 @@ export async function importarLote(ctx: Ctx, linhas: { row_number: number; data:
       r = { row_number: 0, status: "error", error: e instanceof Error ? e.message : String(e) };
     }
     r.row_number = Number(linha.row_number) || 0;
-    resultados.push(r);
-  }
+    return r;
+  };
+  const paralelo = ctx.kind === "contacts" || ctx.kind === "companies" ? PARALELO : 1;
+  const resultados: Resultado[] = new Array(linhas.length);
+  let proxima = 0;
+  const trabalhador = async () => {
+    while (proxima < linhas.length) {
+      const i = proxima++;
+      resultados[i] = await processar(linhas[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(paralelo, linhas.length) }, trabalhador));
   if (resultados.length) {
     await ctx.admin.from("import_rows").insert(resultados.map((r) => ({
       import_id: ctx.importId, org_id: ctx.orgId, row_number: r.row_number,
