@@ -33,7 +33,8 @@ test("Formulários: campo condicional, origem por UTM e embed", async ({ page })
 
   await page.getByRole("button", { name: "Criar formulário" }).click();
   await expect(page.getByText("Formulário criado.")).toBeVisible();
-  await expect(page.getByText(`/f/${slug}`)).toBeVisible();
+  // O diálogo ainda fechando mostra o mesmo endereço; a prova é o link na lista.
+  await expect(page.getByTitle("Copiar link público").filter({ hasText: `/f/${slug}` })).toBeVisible();
 
   // Embed disponível.
   await page.getByRole("button", { name: "Código de embed" }).first().click();
