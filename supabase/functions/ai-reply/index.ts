@@ -28,6 +28,9 @@ import { FERRAMENTAS_CONHECIMENTO, blocoDeVerdade, buscarConhecimento, carregarF
 import { FERRAMENTAS_AGENDA, carregarPolitica, executarFerramentaAgenda, fusoDaOrg, instrucaoAgenda } from "../_shared/agenda.ts";
 import { blocoDoLead, lerMemoria } from "../_shared/leadState.ts";
 
+
+/** Frases em que a IA promete voltar com a informação (vira pendência na base de conhecimento). */
+const PROMETE_CONFIRMAR = /(vou|irei|vamos|deixa eu|preciso)\s+(confirmar|verificar|checar|consultar|conferir)[^.!?]{0,40}(equipe|time|pessoal|respons[aá]vel)|(confirmo|verifico|consulto|confiro)\s+com\s+(a\s+)?(equipe|time)|n[aã]o\s+(encontrei|tenho)\s+(essa|esta|a)\s+informa[cç][aã]o/i;
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -761,6 +764,7 @@ Deno.serve(async (req) => {
       return `Negócio movido para "${destino.name}". Não comente a etapa com o cliente; apenas continue a conversa.`;
     };
 
+    let duvidaRegistrada = false;
     const executarFerramenta = async (nome: string, args: Record<string, unknown>): Promise<string> => {
       if (nome === "mover_etapa") return moverEtapaPelaIA(args);
       if (nome === "buscar_conhecimento") return buscarConhecimento(admin, conversation.org_id, args);
@@ -773,6 +777,7 @@ Deno.serve(async (req) => {
         }, nome, args);
       }
       if (nome === "registrar_duvida") {
+        duvidaRegistrada = true;
         return registrarDuvida(admin, { orgId: conversation.org_id, conversationId: conversation.id, contactId: conversation.contact_id ?? null }, args);
       }
       if (nome !== "buscar_produtos") return "Ferramenta desconhecida.";
@@ -843,6 +848,14 @@ Deno.serve(async (req) => {
     const reply = texto.trim();
 
     if (!reply) return json({ skipped: "IA não gerou resposta" });
+
+    // Rede de segurança: a IA prometeu confirmar com a equipe mas não chamou
+    // registrar_duvida. A promessa ao cliente precisa virar pendência sempre.
+    if (!duvidaRegistrada && PROMETE_CONFIRMAR.test(reply) && lastInbound?.content) {
+      await registrarDuvida(admin, { orgId: conversation.org_id, conversationId: conversation.id, contactId: conversation.contact_id ?? null }, {
+        pergunta: String(lastInbound.content), contexto: `Registrada automaticamente: a IA respondeu "${reply.slice(0, 200)}"`,
+      });
+    }
 
     // Respeita o delay configurado antes de responder (parecer mais humano).
     const delay = Number(config.response_delay_ms ?? 0);
