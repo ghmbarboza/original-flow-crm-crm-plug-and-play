@@ -25,6 +25,7 @@ function prop(tipo: string, descricao: string, extra: Json = {}) {
 }
 
 export const FERRAMENTAS_ASSISTENTE: FerramentaIA[] = [
+  { name: "estado_da_conta", description: "O que está configurado e funcionando na conta e o que falta: canal de atendimento, IA ligada ou desligada, base de conhecimento, funil, produtos, e-mail, calendário, voz e automações. Use para 'o que falta configurar', 'por que a IA não responde', 'está tudo certo?'.", parameters: { type: "object", properties: {} } },
   { name: "buscar_contatos", description: "Busca contatos por nome, e-mail ou telefone, com filtro de status. Use para achar alguém ou listar leads.", parameters: { type: "object", properties: { texto: prop("string", "Nome, e-mail ou telefone (opcional)"), status: prop("string", "lead, prospect, customer ou churned (opcional)"), recentes_dias: prop("number", "Só os criados nos últimos N dias (opcional)"), limite: prop("number", "Máximo de resultados, até 25") } } },
   { name: "ficha_contato", description: "Ficha completa de um contato: dados, o que a IA sabe dele, negócios, próximas reuniões, últimas atividades e ligações.", parameters: { type: "object", properties: { contato_id: prop("string", "id do contato") }, required: ["contato_id"] } },
   { name: "buscar_negocios", description: "Lista negócios com filtros: texto no título, etapa, status, valor mínimo, parados há N dias, só os meus. Ordena por valor ou mais recentes.", parameters: { type: "object", properties: { texto: prop("string", "Parte do título (opcional)"), etapa: prop("string", "Nome da etapa (opcional)"), status: prop("string", "open, won ou lost; padrão open"), valor_minimo: prop("number", "opcional"), parados_dias: prop("number", "Sem atualização há pelo menos N dias (opcional)"), meus: prop("boolean", "Só os do usuário que pergunta"), ordenar: prop("string", "valor ou recentes"), limite: prop("number", "até 25") } } },
@@ -230,9 +231,43 @@ export function ajudaPlataforma(a: Json) {
   };
 }
 
+async function estadoDaConta(ctx: CtxAssistente) {
+  const contar = async (tabela: string) => (await ctx.db.from(tabela).select("id", { count: "exact", head: true }).eq("org_id", ctx.orgId)).count ?? 0;
+  const [msg, evo, meta, zer, ia, chaves, gmail, cal, etapas, conhecimento, docs, produtos, automacoes] = await Promise.all([
+    ctx.db.from("messaging_config").select("provider").eq("org_id", ctx.orgId).maybeSingle(),
+    ctx.db.from("evolution_configs").select("status").eq("org_id", ctx.orgId),
+    ctx.db.from("meta_configs").select("webhook_verified, is_active").eq("org_id", ctx.orgId),
+    ctx.db.from("zernio_configs").select("status").eq("org_id", ctx.orgId).maybeSingle(),
+    ctx.db.from("ai_messaging_config").select("is_active, working_hours, voice_enabled").eq("org_id", ctx.orgId).maybeSingle(),
+    ctx.db.from("api_keys_registry").select("service_name, is_active").eq("org_id", ctx.orgId),
+    ctx.db.from("email_connections").select("id").eq("org_id", ctx.orgId).limit(1).maybeSingle(),
+    ctx.db.from("calendar_integrations").select("id").eq("user_id", ctx.userId).limit(1).maybeSingle(),
+    contar("pipeline_stages"), contar("knowledge_facts"), contar("knowledge_documents"), contar("products"), contar("automations"),
+  ]);
+  const provedor = (msg.data?.provider as string | undefined) ?? null;
+  const evolucoes = evo.data ?? [];
+  const metas = meta.data ?? [];
+  const conectado = evolucoes.some((e) => e.status === "connected") || metas.some((m) => m.webhook_verified && m.is_active !== false) || ["connected", "active"].includes(String(zer.data?.status ?? ""));
+  const canal = conectado ? "conectado" : (evolucoes.length || metas.length || zer.data) ? "configurado, aguardando pareamento" : "não conectado (ou sem permissão para ver)";
+  const tem = new Set((chaves.data ?? []).filter((k) => k.is_active !== false).map((k) => k.service_name as string));
+  return {
+    canal_de_atendimento: { situacao: canal, provedor, link: "/settings/integrations?integration=channels" },
+    ia: { ligada: ia.data?.is_active === true, horario_restrito: !!ia.data?.working_hours && Object.keys(ia.data.working_hours as object).length > 0, link: "/settings/ia" },
+    base_de_conhecimento: { fatos_e_documentos: conhecimento + docs, link: "/settings/ia?aba=knowledge" },
+    funil: { etapas, link: "/settings/automations?secao=funil" },
+    produtos_servicos: { cadastrados: produtos, link: "/products" },
+    email: { gmail_conectado: !!gmail.data, resend_com_chave: tem.has("resend"), link: "/settings/integrations?integration=gmail" },
+    calendario_do_usuario: { conectado: !!cal.data, credenciais_nylas: tem.has("nylas_client_id") && tem.has("nylas_api_key"), link: "/settings/agenda" },
+    voz: { resposta_em_audio: ia.data?.voice_enabled === true, credenciais_twilio: tem.has("twilio_account_sid") && tem.has("twilio_auth_token"), chave_elevenlabs: tem.has("elevenlabs"), link: "/voz" },
+    automacoes: { criadas: automacoes, link: "/settings/automations" },
+    painel_completo: "/help",
+  };
+}
+
 export async function executarFerramentaAssistente(ctx: CtxAssistente, nomeFerramenta: string, args: Json): Promise<string> {
   try {
-    const r = nomeFerramenta === "buscar_contatos" ? await buscarContatos(ctx, args)
+    const r = nomeFerramenta === "estado_da_conta" ? await estadoDaConta(ctx)
+      : nomeFerramenta === "buscar_contatos" ? await buscarContatos(ctx, args)
       : nomeFerramenta === "ficha_contato" ? await fichaContato(ctx, args)
       : nomeFerramenta === "buscar_negocios" ? await buscarNegocios(ctx, args)
       : nomeFerramenta === "resumo_funil" ? await resumoFunil(ctx, args)
