@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
+import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
 
 export interface MessageTemplate {
   id: string | null;
