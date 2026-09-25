@@ -8,6 +8,8 @@ import { Link } from "react-router-dom";
  * e o painel continua aberto.
  */
 const INTERNO = /^\/(?!\/)[\w\-/?=&.%]*$/;
+const TELAS = ["/dashboard", "/contacts", "/companies", "/deals", "/tasks", "/agenda", "/voz", "/products", "/whatsapp", "/inbox", "/reports", "/sales-goals", "/lead-scoring", "/settings", "/help", "/email-templates"];
+const eTela = (d: string) => { const base = d.split(/[?#]/)[0]; return TELAS.some((t) => base === t || base.startsWith(`${t}/`)); };
 
 function inline(texto: string, onNavegar?: () => void): ReactNode[] {
   const partes = texto.split(/(\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*)/g);
@@ -15,7 +17,7 @@ function inline(texto: string, onNavegar?: () => void): ReactNode[] {
     const link = p.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
     if (link) {
       const [, rotulo, destino] = link;
-      if (!INTERNO.test(destino)) return <Fragment key={i}>{rotulo}</Fragment>;
+      if (!INTERNO.test(destino) || !eTela(destino)) return <Fragment key={i}>{rotulo}</Fragment>;
       return <Link key={i} to={destino} onClick={onNavegar} className="font-medium text-via-blue underline-offset-2 hover:underline" data-testid="assistente-link">{rotulo}</Link>;
     }
     const negrito = p.match(/^\*\*([^*]+)\*\*$/);

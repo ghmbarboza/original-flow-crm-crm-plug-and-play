@@ -37,6 +37,20 @@ export const FERRAMENTAS_ASSISTENTE: FerramentaIA[] = [
   { name: "ajuda_plataforma", description: "Como usar a plataforma: guias passo a passo e resolução de problemas, com o caminho de cada tela.", parameters: { type: "object", properties: { tema: prop("string", "O que a pessoa quer fazer ou o problema") }, required: ["tema"] } },
 ];
 
+/** Telas que existem no app. Link fora disso é inventado e vira texto. */
+export const ROTAS_DO_APP = ["/dashboard", "/contacts", "/companies", "/deals", "/tasks", "/agenda", "/voz", "/products", "/whatsapp", "/inbox", "/reports", "/sales-goals", "/lead-scoring", "/settings", "/help", "/email-templates"];
+
+export function rotaValida(caminho: string): boolean {
+  if (!caminho.startsWith("/") || caminho.startsWith("//")) return false;
+  const base = caminho.split(/[?#]/)[0];
+  return ROTAS_DO_APP.some((r) => base === r || base.startsWith(`${r}/`));
+}
+
+/** Tira o link de caminhos que não são telas do app (o texto do link fica). */
+export function limparLinks(texto: string): string {
+  return texto.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (inteiro, rotulo: string, destino: string) => (rotaValida(destino) ? inteiro : rotulo));
+}
+
 export interface CtxAssistente {
   db: SupabaseClient;
   orgId: string;
@@ -205,7 +219,7 @@ async function buscarConhecimento(ctx: CtxAssistente, a: Json) {
   return { link: "/settings/ia?aba=knowledge", resultados: ((data ?? []) as { source_type: string; title: string; content: string }[]).map((r) => ({ tipo: r.source_type, fonte: r.title, conteudo: r.content.slice(0, 800) })) };
 }
 
-function ajudaPlataforma(a: Json) {
+export function ajudaPlataforma(a: Json) {
   const palavras = semAcento(String(a.tema ?? "")).split(/\W+/).filter((p) => p.length > 2);
   const pontua = (texto: string) => { const t = semAcento(texto); return palavras.reduce((s, p) => s + (t.includes(p) ? 1 : 0), 0); };
   const guias = GUIAS.map((g) => ({ g, s: pontua(`${g.titulo} ${g.resumo} ${g.palavras ?? ""} ${g.passos.map((p) => p.texto).join(" ")}`) })).filter((x) => x.s > 0).sort((x, y) => y.s - x.s).slice(0, 3);
