@@ -7,7 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chamarIA, ErroIA, type MensagemIA } from "../_shared/ai.ts";
-import { ajudaPlataforma, executarFerramentaAssistente, FERRAMENTAS_ASSISTENTE, limparLinks } from "../_shared/assistente/ferramentas.ts";
+import { executarFerramentaAssistente, FERRAMENTAS_ASSISTENTE, limparLinks } from "../_shared/assistente/ferramentas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,8 +29,8 @@ function instrucoes(p: { nomeUsuario: string; papel: string; empresa: string; ho
     "COMO RESPONDER",
     "- Português do Brasil, direto e prático. Primeiro a resposta, depois o detalhe. Sem travessão.",
     "- Para qualquer número, nome ou situação da empresa, use as ferramentas. Nunca invente dado. Se a ferramenta não trouxer, diga que não encontrou.",
-    "- Para dúvidas de como fazer algo na plataforma, siga os GUIAS DA PLATAFORMA que vêm junto da pergunta (ou chame ajuda_plataforma). Nunca descreva telas, menus ou caminhos que não estejam neles.",
-    "- Sempre que citar um contato, negócio, conversa, tela ou guia, escreva como link markdown usando o campo `link` (ou `tela`, `guia_completo`) que veio das ferramentas ou dos guias, por exemplo [Maria Souza](/contacts/ID). Nunca invente um caminho.",
+    "- Para dúvidas de como fazer algo na plataforma, chame ajuda_plataforma e siga o que ela devolver. Nunca descreva telas, menus ou caminhos que não estejam neles.",
+    "- Sempre que citar um contato, negócio, conversa, tela ou guia, escreva como link markdown usando o campo `link` (ou `tela`, `guia_completo`) que veio das ferramentas, por exemplo [Maria Souza](/contacts/ID). Nunca invente um caminho.",
     "- Listas com mais de 3 itens: use tabela markdown (| col | col |) ou lista com hífen. Valores em reais já vêm formatados.",
     "- Você só consulta, não altera nada. Se pedirem para criar, mover ou apagar, explique onde fazer e dê o link da tela.",
     "- Se uma tela for só de administrador e a pessoa não for, diga isso e sugira pedir a um administrador.",
@@ -76,13 +76,10 @@ Deno.serve(async (req) => {
       tarefa: "chat",
       maxTokens: 1500,
       system: instrucoes({ nomeUsuario: (perfil.full_name as string | null) ?? "usuário", papel: ehAdmin ? "admin" : "member", empresa: (org?.name as string | undefined) ?? "sua empresa", hoje, tela }),
-      // Guias relevantes vão junto da pergunta: a resposta de "como fazer" parte do
-      // conteúdo real da plataforma mesmo quando o modelo não chama a ferramenta.
-      messages: [...historico, { role: "user", content: `${pergunta}
-
-<guias_da_plataforma>
-${JSON.stringify(ajudaPlataforma({ tema: pergunta }))}
-</guias_da_plataforma>` }],
+      messages: [...historico, { role: "user", content: pergunta }],
+      // Primeiro consulta, depois responde: sem isso o modelo às vezes inventava
+      // valor, link e caminho de tela em vez de buscar (teste de 25/09/2026).
+      exigirFerramenta: true,
       tools: FERRAMENTAS_ASSISTENTE,
       executarFerramenta: (nome, args) => executarFerramentaAssistente(ctx, nome, args),
     });

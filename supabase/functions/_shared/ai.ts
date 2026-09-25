@@ -77,6 +77,8 @@ export interface PedidoIA {
   tarefa: TarefaIA;
   tools?: FerramentaIA[];
   executarFerramenta?: ExecutorFerramenta;
+  /** Obriga o modelo a chamar alguma ferramenta na primeira rodada (antes de responder). */
+  exigirFerramenta?: boolean;
 }
 
 export interface RespostaIA {
@@ -152,6 +154,7 @@ async function viaAnthropic(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
                 description: t.description,
                 input_schema: t.parameters,
               })),
+              ...(p.exigirFerramenta && rodada === 0 ? { tool_choice: { type: "any" } } : {}),
             }
           : {}),
         messages,
@@ -211,6 +214,7 @@ async function viaGateway(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
                 type: "function",
                 function: { name: t.name, description: t.description, parameters: t.parameters },
               })),
+              ...(p.exigirFerramenta && rodada === 0 ? { tool_choice: "required" } : {}),
             }
           : {}),
       }),
