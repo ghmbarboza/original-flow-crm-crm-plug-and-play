@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
 
       const source = origemDoTracking(tracking, form.source_default as string | null);
 
-      const { data: contact, error: contactErr } = await admin
+      let { data: contact, error: contactErr } = await admin
         .from("contacts")
         .insert({
           org_id: form.org_id,
@@ -126,7 +126,17 @@ Deno.serve(async (req) => {
         })
         .select("*")
         .single();
-      if (contactErr) return json({ error: contactErr.message }, 500);
+      if (contactErr?.code === "23505" && email) {
+        // Dois envios do mesmo e-mail ao mesmo tempo: o índice único deixa passar
+        // um; o outro reaproveita o contato e só completa o que veio no formulário.
+        const { data: vencedor } = await admin.from("contacts").select("*").eq("org_id", form.org_id).is("merged_into_id", null).ilike("email", email).limit(1).maybeSingle();
+        if (vencedor) {
+          await admin.from("contacts").update({ custom_fields: { ...((vencedor.custom_fields as Record<string, unknown>) ?? {}), ...customFields }, ...(phone && !vencedor.phone ? { phone } : {}) }).eq("id", vencedor.id);
+          contact = { ...vencedor, custom_fields: { ...((vencedor.custom_fields as Record<string, unknown>) ?? {}), ...customFields } };
+          contactErr = null;
+        }
+      }
+      if (contactErr || !contact) return json({ error: contactErr?.message ?? "Falha ao criar o contato." }, 500);
 
       // Etapa alvo: a do perfil da origem; senão a configurada no formulário; senão
       // a primeira do funil configurado ou do padrão.
@@ -149,12 +159,19 @@ Deno.serve(async (req) => {
         }
       }
 
-      const { data: deal, error: dealErr } = await admin
-        .from("deals")
-        .insert({ org_id: form.org_id, contact_id: contact.id, title: fullName, stage_id: stageId })
-        .select("id")
-        .single();
-      if (dealErr) return json({ error: dealErr.message }, 500);
+      // Regra da casa: um negócio ABERTO por contato. Lead que preenche de novo
+      // (ou dois envios ao mesmo tempo) reaproveita o negócio em vez de abrir outro.
+      const { data: aberto } = await admin.from("deals").select("id").eq("org_id", form.org_id).eq("contact_id", contact.id).eq("status", "open").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      let deal = aberto;
+      if (!deal) {
+        const { data: novoDeal, error: dealErr } = await admin
+          .from("deals")
+          .insert({ org_id: form.org_id, contact_id: contact.id, title: fullName, stage_id: stageId })
+          .select("id")
+          .single();
+        if (dealErr) return json({ error: dealErr.message }, 500);
+        deal = novoDeal;
+      }
 
       // Rastreamento do envio (relatório por formulário e por origem).
       await admin.from("tracking_events").insert({

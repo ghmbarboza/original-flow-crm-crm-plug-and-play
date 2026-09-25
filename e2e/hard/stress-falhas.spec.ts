@@ -6,7 +6,8 @@ import { abrirSandbox, ctx, esperar, invocar, Limpeza, MARCADOR, ok, postFunctio
  * e chegam corpos malformados. O que se prova: a plataforma responde com erro
  * claro (nunca 500 genérico nem sucesso falso), grava o erro e se recupera.
  */
-test.describe.configure({ mode: "serial" });
+// Modo padrão (1 worker, ordem do arquivo): uma falha não pula os testes seguintes.
+test.describe.configure({ mode: "default" });
 test.skip(!process.env.HARD || !process.env.STRESS, "estresse: rode com HARD=1 STRESS=1");
 
 let c: Ctx;

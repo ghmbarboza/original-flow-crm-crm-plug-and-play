@@ -142,9 +142,13 @@ Deno.serve(async (req) => {
       ?? respostaCrm(caminho, req.method, url.searchParams, `${SUPABASE_URL}/functions/v1/integration-sandbox/${token}`)
       ?? respostaNylas(caminho, req.method, corpo)
       ?? respostaVoz(caminho, req.method, corpo, url.searchParams);
-  const status = evolution?.status ?? (sessao.response_status as number);
-  const body = evolution?.body ?? (status < 300 ? { ok: true } : { error: "sandbox configurada para falhar" });
-  const bruto = (evolution as { raw?: Uint8Array } | null)?.raw ?? null;
+  // Sessão configurada para falhar (response_status >= 400) derruba TODOS os
+  // provedores simulados, não só os caminhos sem fixture: é assim que o estresse
+  // de falhas prova que cada function reage a um provedor fora do ar.
+  const derrubada = (sessao.response_status as number) >= 400;
+  const status = derrubada ? (sessao.response_status as number) : (evolution?.status ?? (sessao.response_status as number));
+  const body = derrubada ? { error: "sandbox configurada para falhar" } : (evolution?.body ?? (status < 300 ? { ok: true } : { error: "sandbox configurada para falhar" }));
+  const bruto = derrubada ? null : ((evolution as { raw?: Uint8Array } | null)?.raw ?? null);
 
   await admin.from("integration_sandbox_captures").insert({
     session_id: sessao.id,

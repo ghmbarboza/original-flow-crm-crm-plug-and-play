@@ -5,7 +5,8 @@ import { abrirSandbox, ctx, esperar, hmacHex, invocar, Limpeza, MARCADOR, ok, po
  * Estresse de CONCORRÊNCIA (HARD=1 STRESS=1): rajadas e eventos duplicados.
  * O que se prova: nada duplica, nada se perde, nada conta duas vezes.
  */
-test.describe.configure({ mode: "serial" });
+// Modo padrão (1 worker, ordem do arquivo): uma falha não pula os testes seguintes.
+test.describe.configure({ mode: "default" });
 test.skip(!process.env.HARD || !process.env.STRESS, "estresse: rode com HARD=1 STRESS=1");
 
 let c: Ctx;

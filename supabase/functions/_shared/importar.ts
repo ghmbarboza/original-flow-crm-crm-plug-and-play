@@ -7,6 +7,8 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0
 const STATUS_CONTATO = new Set(["lead", "prospect", "customer", "churned"]);
 const STATUS_NEGOCIO = new Set(["open", "won", "lost"]);
 const TIPOS_ATIVIDADE = new Set(["call", "email", "meeting", "note", "task"]);
+const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const MAX_NOME = 200;
 
 export type Dados = Record<string, string>;
 export type Resultado = { row_number: number; status: "created" | "updated" | "skipped" | "error"; entity_type?: string; entity_id?: string; error?: string };
@@ -162,6 +164,11 @@ async function importarContato(ctx: Ctx, d: Dados): Promise<Resultado> {
   const fone = texto(d.phone);
   const whatsapp = digitos(texto(d.whatsapp_phone)) || null;
   if (!first && !email && !whatsapp && !fone) return { row_number: 0, status: "error", error: "Linha sem nome, e-mail ou telefone." };
+  // Estresse de entradas (25/09/2026): "sem-arroba" virava e-mail de contato e todas as
+  // linhas com o mesmo lixo caíam no mesmo registro. E-mail malformado é erro da linha.
+  if (email && !EMAIL_VALIDO.test(email)) return { row_number: 0, status: "error", error: `E-mail inválido: ${email.slice(0, 60)}` };
+  if (fone && digitos(fone).length < 8) return { row_number: 0, status: "error", error: `Telefone inválido: ${fone.slice(0, 40)}` };
+  if ((first?.length ?? 0) > MAX_NOME || (last?.length ?? 0) > MAX_NOME) return { row_number: 0, status: "error", error: `Nome com mais de ${MAX_NOME} caracteres.` };
 
   const status = texto(d.status)?.toLowerCase();
   const empresa = await empresaPorNome(ctx, texto(d.company), true, texto(d.company_external_id));
@@ -194,6 +201,17 @@ async function importarContato(ctx: Ctx, d: Dados): Promise<Resultado> {
     org_id: ctx.orgId, first_name: first ?? email ?? whatsapp ?? "Contato", ...campos, custom_fields: custom,
     source: texto(d.source) ?? `importação`, ...(criado ? { created_at: criado } : {}),
   }).select("id").single();
+  if (error?.code === "23505") {
+    // Outra execução (a mesma importação disparada duas vezes, ou o formulário)
+    // criou o contato entre a busca e o insert: quem chega depois atualiza.
+    const vencedor = await contatoPorReferencia(ctx, d);
+    if (vencedor) {
+      const { error: e2 } = await ctx.admin.from("contacts").update({ ...campos, custom_fields: { ...((vencedor.custom_fields as Record<string, unknown>) ?? {}), ...custom }, updated_at: new Date().toISOString() }).eq("id", vencedor.id);
+      if (e2) return { row_number: 0, status: "error", error: e2.message };
+      await aplicarTags(ctx, vencedor.id, texto(d.tags));
+      return { row_number: 0, status: "updated", entity_type: "contact", entity_id: vencedor.id };
+    }
+  }
   if (error || !novo) return { row_number: 0, status: "error", error: error?.message ?? "falha ao criar" };
   await aplicarTags(ctx, novo.id, texto(d.tags));
   return { row_number: 0, status: "created", entity_type: "contact", entity_id: novo.id };

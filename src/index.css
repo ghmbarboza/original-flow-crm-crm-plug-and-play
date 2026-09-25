@@ -209,7 +209,9 @@
   --muted-foreground:       213 40% 30%;
   --accent:                 0 0% 100%;
   --accent-foreground:      213 96% 9%;
-  --destructive:            0 84% 60%;
+  /* Mesmo vermelho do --via-danger (#B83A3A): 5,3:1 com branco e com o fundo
+     claro. O anterior (0 84% 60%) dava 3,8:1 no texto "Remover" e reprovava no axe. */
+  --destructive:            0 52% 47%;
   --destructive-foreground: 210 40% 98%;
   /* Mesmo verde do --via-success (#187A4F): 5,3:1 com branco. O anterior
      (160 84% 39%) dava 2,6:1 e reprovava no axe nos selos "Conectado/Ativo". */

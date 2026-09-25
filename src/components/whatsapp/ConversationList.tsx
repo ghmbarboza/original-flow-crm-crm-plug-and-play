@@ -8,6 +8,7 @@ import { SlaBadge } from "@/components/whatsapp/SlaBadge";
 import { conversationName, type Conversation } from "@/hooks/useConversations";
 import { useSlaConfig } from "@/hooks/useSla";
 import { formatDateTime } from "@/lib/format";
+import { avatarAindaValido } from "@/lib/avatar";
 
 const ALL_CHANNELS = "__all__";
 
@@ -141,9 +142,9 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
                         style={{ background: "var(--via-navy)", color: "var(--via-white)" }}
                       >
                         {initials(name)}
-                        {conversation.contact?.avatar_url && (
+                        {avatarAindaValido(conversation.contact?.avatar_url) && (
                           <img
-                            src={conversation.contact.avatar_url}
+                            src={conversation.contact!.avatar_url!}
                             alt=""
                             aria-hidden
                             loading="lazy"
