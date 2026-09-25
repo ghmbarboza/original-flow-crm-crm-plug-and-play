@@ -5838,6 +5838,7 @@ export type Database = {
         Returns: undefined
       }
       notify_stale_conversations: { Args: never; Returns: number }
+      org_admin: { Args: { _org: string }; Returns: boolean }
       pick_agent_for_channel: {
         Args: { p_channel: string; p_org: string }
         Returns: string
