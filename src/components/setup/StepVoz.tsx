@@ -194,6 +194,11 @@ export function StepVoz({ onNext, onBack }: { onNext: () => void; onBack: () => 
         </div>
       )}
 
+      <p className="rounded-md border p-3 text-xs" style={{ borderColor: "var(--via-border)", color: "var(--via-text-muted)" }} data-testid="setup-voz-ligacoes">
+        A mesma agente também atende e faz ligações por telefone com um número Twilio. Isso fica para
+        depois: Configurações &gt; Integrações &gt; Twilio, e a tela Voz guia o resto.
+      </p>
+
       <div className="flex flex-wrap items-end justify-between gap-3 pt-2">
         <Button variant="outline" onClick={onBack}>Voltar</Button>
         <PularEtapa

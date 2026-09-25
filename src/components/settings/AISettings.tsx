@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { LinkBiblioteca } from "@/components/library/LinkBiblioteca";
 import { MelhorarComIA } from "@/components/ai/MelhorarComIA";
 import { AlertTriangle, Bot, Clock, KanbanSquare, MessageSquare, Send, ShoppingCart, Sliders, Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
@@ -41,7 +41,12 @@ import { useOrgApiKey } from "@/hooks/useOrgApiKey";
 import { formatCurrency } from "@/lib/format";
 import { horarioParaTela, horarioPadrao as defaultWorkingHours } from "@/lib/horarioAtendimento";
 
+const ABAS_IA = ["personality", "behavior", "knowledge", "origens", "analises", "versions"];
+
 export default function AISettings() {
+  // `?aba=knowledge` abre direto na sub-aba (links do onboarding e da Ajuda).
+  const [params] = useSearchParams();
+  const abaInicial = ABAS_IA.includes(params.get("aba") ?? "") ? (params.get("aba") as string) : "personality";
   const { data: config, isLoading } = useAIConfig();
   const upsert = useUpsertAIConfig();
   const [alternando, setAlternando] = useState(false);
@@ -276,7 +281,7 @@ export default function AISettings() {
         />
       </div>
 
-      <Tabs defaultValue="personality">
+      <Tabs defaultValue={abaInicial}>
         <TabsList>
           <TabsTrigger value="personality">Personalidade</TabsTrigger>
           <TabsTrigger value="behavior">Comportamento</TabsTrigger>

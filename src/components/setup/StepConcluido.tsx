@@ -1,14 +1,22 @@
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowRight, CheckCircle2, PartyPopper } from "lucide-react";
+import { ArrowRight, CheckCircle2, PartyPopper, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCompleteSetup, useOrganization, useSaveSetupStep, useSetupProgress } from "@/hooks/useSetup";
 import { useSetupChecklist } from "@/hooks/useSetupChecklist";
+import { useDemoStatus, useSeedDemo } from "@/hooks/useDemoData";
 
+/**
+ * Próximos passos na ordem em que rendem mais rápido: o que a IA sabe, quem já
+ * é cliente, o que se vende, e depois agenda e telefone. Cada link cai na tela
+ * exata (aba certa já aberta), não numa Configurações genérica.
+ */
 const PROXIMOS_PASSOS = [
-  { label: "Cadastre seus produtos", to: "/products" },
-  { label: "Importe seus contatos", to: "/contacts" },
-  { label: "Revise a base de conhecimento da IA", to: "/settings" },
+  { label: "Ensine a IA: suba documentos e fatos da empresa", to: "/settings/ia?aba=knowledge" },
+  { label: "Traga contatos e negócios de outro CRM ou planilha", to: "/settings/importacao" },
+  { label: "Cadastre seus Produtos/Serviços", to: "/products" },
+  { label: "Conecte seu calendário e deixe a IA marcar reuniões", to: "/settings/agenda" },
+  { label: "Ligações por telefone com a IA (Twilio e ElevenLabs)", to: "/settings/integrations?integration=twilio" },
 ];
 
 export function StepConcluido({ onClose }: { onClose?: () => void }) {
@@ -18,6 +26,8 @@ export function StepConcluido({ onClose }: { onClose?: () => void }) {
   const checklist = useSetupChecklist();
   const concluir = useCompleteSetup();
   const salvarEtapa = useSaveSetupStep();
+  const { data: demo } = useDemoStatus();
+  const semear = useSeedDemo();
 
   const feitos = new Set(progresso?.completed_steps ?? []);
   // O checklist reflete o ESTADO REAL verificado no banco, não a passagem pela
@@ -64,14 +74,38 @@ export function StepConcluido({ onClose }: { onClose?: () => void }) {
     navigate(to);
   };
 
+  const canalPronto = !!checklist.canal.ok;
+  const temDemo = demo === true;
+  const ocupado = concluir.isPending || salvarEtapa.isPending || semear.isPending;
+
+  const finalizar = async () => {
+    await salvarEtapa.mutateAsync({ step: "concluido" });
+    await concluir.mutateAsync();
+    onClose?.();
+  };
+
+  // Ao concluir, o cliente cai onde a plataforma já está viva: no atendimento se
+  // o canal está conectado, senão no painel.
   const irParaDashboard = async () => {
     try {
-      await salvarEtapa.mutateAsync({ step: "concluido" });
-      await concluir.mutateAsync();
-      onClose?.();
-      navigate("/dashboard", { replace: true });
+      await finalizar();
+      navigate(canalPronto ? "/whatsapp" : "/dashboard", { replace: true });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível concluir o setup.");
+    }
+  };
+
+  // Sem histórico ainda, a plataforma vazia não mostra o que faz. Os dados de
+  // exemplo (marcados, removíveis em Configurações > Primeiros passos) preenchem
+  // contatos, negócios, atividades e produtos para o primeiro passeio.
+  const concluirComExemplo = async () => {
+    try {
+      await semear.mutateAsync();
+      await finalizar();
+      toast.success("Dados de exemplo carregados. Remova quando quiser em Configurações > Primeiros passos.");
+      navigate("/dashboard", { replace: true });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível carregar os dados de exemplo.");
     }
   };
 
@@ -130,16 +164,23 @@ export function StepConcluido({ onClose }: { onClose?: () => void }) {
         ))}
       </div>
 
-      <Button
-        onClick={irParaDashboard}
-        disabled={concluir.isPending || salvarEtapa.isPending}
-        data-testid="setup-finish"
-      >
-        {concluir.isPending ? "Finalizando…" : "Concluir e usar a plataforma"}
-      </Button>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Button onClick={irParaDashboard} disabled={ocupado} data-testid="setup-finish">
+          {concluir.isPending ? "Finalizando…" : canalPronto ? "Concluir e abrir o atendimento" : "Concluir e ir para o painel"}
+        </Button>
+        {!temDemo && (
+          <Button variant="outline" onClick={concluirComExemplo} disabled={ocupado} className="gap-1.5" data-testid="setup-finish-demo">
+            <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+            {semear.isPending ? "Carregando exemplo…" : "Concluir com dados de exemplo"}
+          </Button>
+        )}
+      </div>
 
       <p className="mx-auto max-w-sm text-xs" style={{ color: "var(--via-text-muted)" }}>
-        Quer retomar o assistente depois? Configurações &gt; Onboarding &gt; “Refazer onboarding”
+        {canalPronto
+          ? "Seu canal já está conectado: a próxima mensagem que chegar será atendida pela IA."
+          : "Sem canal conectado a IA ainda não atende ninguém. É o primeiro item pendente acima."}
+        {" "}Quer retomar o assistente depois? Configurações &gt; Primeiros passos &gt; “Refazer onboarding”
         reabre estas etapas com os dados atuais já preenchidos.
       </p>
     </div>

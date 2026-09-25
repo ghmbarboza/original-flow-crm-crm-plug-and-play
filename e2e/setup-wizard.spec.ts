@@ -397,5 +397,6 @@ test("as etapas opcionais do fim podem ser puladas e o passo final conclui o set
     expect(data!.setup_completed, `erros no console: ${erros.join(" | ")}`).toBe(true);
   }).toPass({ timeout: 15_000 });
 
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+  // Com canal conectado o wizard abre direto o atendimento; sem canal, o painel.
+  await expect(page).toHaveURL(/\/(dashboard|whatsapp)/, { timeout: 15_000 });
 });
