@@ -10,6 +10,12 @@ import { PROBLEMAS } from "../ajuda/problemas.ts";
 const LIMITE_PADRAO = 10;
 const LIMITE_MAX = 25;
 const DIA_MS = 86_400_000;
+const TAMANHO_MIN_RADICAL = 5;
+const PESO_TITULO = 3;
+const PESO_RESUMO = 2;
+const PESO_TEXTO = 1;
+/** Palavras da pergunta que não dizem o assunto. */
+const PALAVRAS_VAZIAS = new Set(["como", "para", "que", "onde", "qual", "quais", "fazer", "faco", "posso", "meu", "minha", "meus", "minhas", "uma", "uns", "das", "dos", "nao", "por", "com", "sem", "tem", "esta"]);
 
 type Json = Record<string, unknown>;
 const limite = (v: unknown) => Math.min(LIMITE_MAX, Math.max(1, Number(v) || LIMITE_PADRAO));
@@ -128,6 +134,18 @@ async function buscarNegocios(ctx: CtxAssistente, a: Json) {
   };
 }
 
+/** Todas as etapas do funil na ordem, inclusive as vazias; negócio de etapa desconhecida vai para "Sem etapa" no fim. */
+export function abertosPorEtapa(etapas: { id: string; name: string; order: number }[], abertos: { stage_id: unknown; value: unknown }[]) {
+  const linhas = [...etapas].sort((x, y) => x.order - y.order).map((e) => ({ id: e.id as string | null, etapa: e.name, quantidade: 0, valor: 0 }));
+  const semEtapa = { id: null, etapa: "Sem etapa", quantidade: 0, valor: 0 };
+  for (const d of abertos) {
+    const linha = linhas.find((l) => l.id === d.stage_id) ?? semEtapa;
+    linha.quantidade += 1;
+    linha.valor += Number(d.value ?? 0);
+  }
+  return [...linhas, ...(semEtapa.quantidade ? [semEtapa] : [])].map(({ etapa, quantidade, valor }) => ({ etapa, quantidade, valor }));
+}
+
 async function resumoFunil(ctx: CtxAssistente, a: Json) {
   const dias = Math.min(365, Math.max(1, Number(a.periodo_dias) || 30));
   const desde = new Date(Date.now() - dias * DIA_MS).toISOString();
@@ -136,19 +154,14 @@ async function resumoFunil(ctx: CtxAssistente, a: Json) {
     ctx.db.from("deals").select("stage_id, value").eq("org_id", ctx.orgId).eq("status", "open").limit(5000),
     ctx.db.from("deals").select("status, value").eq("org_id", ctx.orgId).in("status", ["won", "lost"]).gte("updated_at", desde).limit(5000),
   ]);
-  const porEtapa = new Map<string, { quantidade: number; valor: number }>();
-  for (const d of abertos.data ?? []) {
-    const k = etapas.get(d.stage_id as string)?.name ?? "Sem etapa";
-    const atual = porEtapa.get(k) ?? { quantidade: 0, valor: 0 };
-    porEtapa.set(k, { quantidade: atual.quantidade + 1, valor: atual.valor + Number(d.value ?? 0) });
-  }
-  const ordem = [...etapas.values()].map((e) => e.name);
+  const porEtapa = abertosPorEtapa([...etapas.values()], abertos.data ?? []);
   const soma = (s: string) => (fechados.data ?? []).filter((d) => d.status === s).reduce((t, d) => t + Number(d.value ?? 0), 0);
   const conta = (s: string) => (fechados.data ?? []).filter((d) => d.status === s).length;
   return {
     link: "/deals",
-    abertos_por_etapa: [...porEtapa.entries()].sort(([x], [y]) => ordem.indexOf(x) - ordem.indexOf(y)).map(([etapa, v]) => ({ etapa, quantidade: v.quantidade, valor: moeda(v.valor) })),
-    total_aberto: moeda([...porEtapa.values()].reduce((t, v) => t + v.valor, 0)),
+    total_de_etapas: etapas.size,
+    abertos_por_etapa: porEtapa.map((e) => ({ ...e, valor: moeda(e.valor) })),
+    total_aberto: moeda(porEtapa.reduce((t, e) => t + e.valor, 0)),
     [`ganhos_${dias}_dias`]: { quantidade: conta("won"), valor: moeda(soma("won")) },
     [`perdidos_${dias}_dias`]: { quantidade: conta("lost"), valor: moeda(soma("lost")) },
   };
@@ -220,11 +233,21 @@ async function buscarConhecimento(ctx: CtxAssistente, a: Json) {
   return { link: "/settings/ia?aba=knowledge", resultados: ((data ?? []) as { source_type: string; title: string; content: string }[]).map((r) => ({ tipo: r.source_type, fonte: r.title, conteudo: r.content.slice(0, 800) })) };
 }
 
+/** Radical simples: tira a flexão do fim ("importo" e "importar" viram "impor"). */
+const radical = (p: string) => (p.length >= TAMANHO_MIN_RADICAL + 1 ? p.slice(0, p.length - 2) : p);
+
 export function ajudaPlataforma(a: Json) {
-  const palavras = semAcento(String(a.tema ?? "")).split(/\W+/).filter((p) => p.length > 2);
-  const pontua = (texto: string) => { const t = semAcento(texto); return palavras.reduce((s, p) => s + (t.includes(p) ? 1 : 0), 0); };
-  const guias = GUIAS.map((g) => ({ g, s: pontua(`${g.titulo} ${g.resumo} ${g.palavras ?? ""} ${g.passos.map((p) => p.texto).join(" ")}`) })).filter((x) => x.s > 0).sort((x, y) => y.s - x.s).slice(0, 3);
-  const problemas = PROBLEMAS.map((p) => ({ p, s: pontua(`${p.sintoma} ${p.palavras ?? ""} ${p.causas.join(" ")}`) })).filter((x) => x.s > 0).sort((x, y) => y.s - x.s).slice(0, 2);
+  const palavras = semAcento(String(a.tema ?? "")).split(/\W+/).filter((p) => p.length > 2 && !PALAVRAS_VAZIAS.has(p)).map(radical);
+  // Cada palavra vale o peso do campo mais forte onde aparece: achar no título
+  // ou nos sinônimos pesa mais que achar no meio dos passos de um guia longo.
+  const pontua = (campos: [string, number][]) => {
+    const normalizados = campos.map(([texto, peso]) => [semAcento(texto), peso] as const);
+    return palavras.reduce((s, p) => s + Math.max(0, ...normalizados.filter(([t]) => t.includes(p)).map(([, peso]) => peso)), 0);
+  };
+  const guias = GUIAS.map((g) => ({ g, s: pontua([[`${g.titulo} ${g.palavras ?? ""}`, PESO_TITULO], [`${g.resumo} ${g.paraQue}`, PESO_RESUMO], [[...g.passos.map((p) => p.texto), ...(g.dicas ?? [])].join(" "), PESO_TEXTO]]) }))
+    .filter((x) => x.s > 0).sort((x, y) => y.s - x.s).slice(0, 3);
+  const problemas = PROBLEMAS.map((p) => ({ p, s: pontua([[`${p.sintoma} ${p.palavras ?? ""}`, PESO_TITULO], [p.causas.join(" "), PESO_TEXTO]]) }))
+    .filter((x) => x.s > 0).sort((x, y) => y.s - x.s).slice(0, 2);
   return {
     guias: guias.map(({ g }) => ({ titulo: g.titulo, para_que: g.paraQue, so_admin: !!g.admin, passos: g.passos.map((p) => (p.link ? `${p.texto} [${p.link.rotulo}](${p.link.to})` : p.texto)), dicas: g.dicas ?? [], tela: g.onde.to, guia_completo: `/help?guia=${g.id}` })),
     problemas: problemas.map(({ p }) => ({ sintoma: p.sintoma, causas: p.causas, como_resolver: p.solucao, tela: p.link.to })),

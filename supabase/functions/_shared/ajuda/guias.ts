@@ -132,7 +132,7 @@ export const GUIAS: Guia[] = [
     ],
     dicas: ["Número brasileiro no Twilio exige cadastro regulatório. Conta de teste do Twilio só liga para números verificados."],
     onde: { to: "/voz", rotulo: "Abrir Voz" },
-    palavras: "elevenlabs twilio telefone ligação chamada áudio campanha discador",
+    palavras: "elevenlabs twilio telefone ligar ligação chamada áudio campanha discador",
   },
 
   // Inteligência ------------------------------------------------------------

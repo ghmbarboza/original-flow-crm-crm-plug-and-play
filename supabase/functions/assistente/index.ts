@@ -7,7 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chamarIA, ErroIA, type MensagemIA } from "../_shared/ai.ts";
-import { executarFerramentaAssistente, FERRAMENTAS_ASSISTENTE, limparLinks } from "../_shared/assistente/ferramentas.ts";
+import { executarFerramentaAssistente, FERRAMENTAS_ASSISTENTE, limparLinks, rotaValida } from "../_shared/assistente/ferramentas.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,7 +69,8 @@ Deno.serve(async (req) => {
       .filter((m: { papel?: string; texto?: string }) => (m?.papel === "usuario" || m?.papel === "assistente") && typeof m.texto === "string")
       .slice(-MAX_HISTORICO)
       .map((m: { papel: string; texto: string }): MensagemIA => ({ role: m.papel === "usuario" ? "user" : "assistant", content: m.texto.slice(0, MAX_MENSAGEM) }));
-    const tela = typeof body.tela === "string" && body.tela.startsWith("/") ? body.tela.slice(0, 120) : null;
+    // Só tela do app entra no prompt: "//host" ou rota inventada viram null.
+    const tela = typeof body.tela === "string" && rotaValida(body.tela) ? body.tela.slice(0, 120) : null;
     const hoje = new Intl.DateTimeFormat("pt-BR", { dateStyle: "full", timeZone: "America/Sao_Paulo" }).format(new Date());
 
     const ctx = { db, orgId: perfil.org_id as string, userId: user.id };
