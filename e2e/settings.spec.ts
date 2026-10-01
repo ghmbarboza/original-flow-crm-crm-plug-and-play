@@ -23,8 +23,11 @@ test("configurações: troca de aba e salva", async ({ page }) => {
   await expect(page.getByText("Informações atualizadas com sucesso.")).toBeVisible();
 
   await telefone.fill(original);
+  // Espera a gravação, não o toast: o toast do 1º salvamento ainda está na tela e
+  // o reload saía antes do 2º chegar ao banco, deixando o número aleatório no perfil.
+  const gravou = page.waitForResponse((r) => r.url().includes("/rest/v1/profiles") && r.request().method() === "PATCH");
   await page.getByRole("button", { name: "Salvar alterações" }).click();
-  await expect(page.getByText("Informações atualizadas com sucesso.").last()).toBeVisible();
+  expect((await gravou).ok()).toBe(true);
   await page.reload();
   await expect(page.locator("#phone")).toHaveValue(original);
 });

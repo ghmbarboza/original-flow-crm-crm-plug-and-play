@@ -14,7 +14,7 @@ import { StepCanal } from "@/components/setup/StepCanal";
 import { StepConcluido } from "@/components/setup/StepConcluido";
 import { StepKit } from "@/components/setup/StepKit";
 import { useSetupWizard } from "@/contexts/SetupWizardContext";
-import { PESO_LABEL, SETUP_STEPS, useSetupProgress, type SetupStepKey } from "@/hooks/useSetup";
+import { PESO_LABEL, SETUP_STEPS, useOrganization, useSetupProgress, type SetupStepKey } from "@/hooks/useSetup";
 
 /**
  * Assistente de configuração como MODAL sobre a plataforma.
@@ -28,6 +28,10 @@ import { PESO_LABEL, SETUP_STEPS, useSetupProgress, type SetupStepKey } from "@/
 export function SetupWizardDialog() {
   const { aberto, fechar } = useSetupWizard();
   const { data: progresso, isLoading } = useSetupProgress();
+  // As etapas preenchem o formulário com a organização uma vez só: se aparecessem
+  // antes dela chegar, o que a pessoa digitou seria trocado pelo valor do banco.
+  const { isLoading: carregandoOrganizacao } = useOrganization();
+  const carregando = isLoading || carregandoOrganizacao;
   const [step, setStep] = useState<SetupStepKey | null>(null);
 
   useEffect(() => {
@@ -105,7 +109,7 @@ export function SetupWizardDialog() {
 
         {/* Scroll interno: QR Code, seletor de vozes e geração do prompt são altos. */}
         <div className="min-h-0 flex-1 overflow-y-auto p-5" data-testid={`setup-step-${step ?? "loading"}`}>
-          {isLoading || !step ? (
+          {carregando || !step ? (
             <div className="flex items-center justify-center gap-2 py-12" style={{ color: "var(--via-text-muted)" }}>
               <Loader2 className="h-5 w-5 animate-spin" strokeWidth={1.5} />
               Carregando configuração…
