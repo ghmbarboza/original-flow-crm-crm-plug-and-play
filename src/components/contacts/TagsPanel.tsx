@@ -13,7 +13,7 @@ import { useCreateTag, useDeleteTag, useTags, useUpdateTag, type Tag } from "@/h
 import { cn } from "@/lib/utils";
 
 /** Seletor de cor restrito à paleta VIA — nunca um input[type=color] livre. */
-function ColorPicker({ value, onChange }: { value: string; onChange: (color: string) => void }) {
+export function ColorPicker({ value, onChange }: { value: string; onChange: (color: string) => void }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {VIA_STAGE_COLORS.map((option) => (

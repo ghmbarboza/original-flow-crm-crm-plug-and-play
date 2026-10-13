@@ -59,8 +59,8 @@ export default function AutomationsTab() {
           <HistoricoSettings />
         </div>
         <SecaoTitulo
-          titulo="Por etapa do funil"
-          descricao="O que acontece automaticamente quando um negócio entra em cada etapa."
+          titulo="Etapas do funil"
+          descricao="Crie, renomeie, reordene e exclua etapas, e defina o que acontece quando um negócio entra em cada uma."
         />
         <PipelineSettings />
       </TabsContent>

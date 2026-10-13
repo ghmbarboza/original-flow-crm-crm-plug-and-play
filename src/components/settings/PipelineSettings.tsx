@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { CalendarClock, ListChecks, MessageCircleReply, Pencil } from "lucide-react";
+import {
+  ArrowDown, ArrowUp, CalendarClock, GripVertical, ListChecks, MessageCircleReply, Pencil, Plus,
+  Settings2, Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -15,6 +18,10 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useStages, useUpdateStageConfig, type PipelineStage } from "@/hooks/useDeals";
+import { useReorderStages } from "@/hooks/usePipelineStages";
+import { moverEtapa } from "@/lib/etapasFunil";
+import { StageDeleteDialog } from "@/components/settings/pipeline/StageDeleteDialog";
+import { StageFormDialog } from "@/components/settings/pipeline/StageFormDialog";
 
 const QUALQUER_ANTERIOR = "__any__";
 import {
@@ -22,13 +29,13 @@ import {
 } from "@/lib/required-fields";
 
 /**
- * Configurações > Automações > Funil — automações por etapa.
+ * Configurações > Automações > Funil — etapas e automações por etapa.
  *
- * As etapas em si (nome, cor, ordem) nascem no setup e não são editadas aqui;
- * esta aba configura o que acontece QUANDO um deal entra em cada etapa:
- * mensagem automática (Parte 3 do Sprint 10A) e campos obrigatórios para
- * entrar na etapa (Parte 5). A Parte 9 (gatilho por resposta) estende esta
- * mesma tela.
+ * As etapas nascem no setup e são editadas aqui: criar, renomear, trocar a
+ * cor, reordenar (arrastando ou pelas setas) e excluir. "Configurar" define o
+ * que acontece QUANDO um deal entra na etapa: mensagem automática (Parte 3 do
+ * Sprint 10A), campos obrigatórios para entrar (Parte 5) e gatilho por
+ * resposta (Parte 9).
  *
  * O agendamento em si é o trigger schedule_stage_message no banco — esta tela
  * só grava o template e o delay na etapa. A validação dos campos obrigatórios
@@ -37,6 +44,14 @@ import {
 export default function PipelineSettings() {
   const { data: stages, isLoading } = useStages();
   const salvar = useUpdateStageConfig();
+  const reordenar = useReorderStages();
+
+  // Etapa aberta no formulário: uma etapa, "nova" ou nada.
+  const [formulario, setFormulario] = useState<PipelineStage | "nova" | null>(null);
+  const [excluindo, setExcluindo] = useState<PipelineStage | null>(null);
+  const [arrastando, setArrastando] = useState<string | null>(null);
+  // Ordem escolhida enquanto o banco ainda não confirmou.
+  const [ordemPendente, setOrdemPendente] = useState<string[] | null>(null);
 
   const [editando, setEditando] = useState<PipelineStage | null>(null);
   const [template, setTemplate] = useState("");
@@ -86,20 +101,63 @@ export default function PipelineSettings() {
 
   if (isLoading) return <Skeleton className="h-40 w-full" />;
 
+  const etapas = ordemPendente
+    ? ordemPendente.flatMap((id) => (stages ?? []).filter((s) => s.id === id))
+    : stages ?? [];
+  const pipelineId = etapas[0]?.pipeline_id;
+
+  const mover = (de: number, para: number) => {
+    if (!pipelineId || reordenar.isPending) return;
+    const ids = etapas.map((s) => s.id);
+    const novaOrdem = moverEtapa(ids, de, para);
+    if (novaOrdem.join() === ids.join()) return;
+    setOrdemPendente(novaOrdem);
+    reordenar.mutate(
+      { pipelineId, stageIds: novaOrdem },
+      {
+        onError: (e) => toast.error(e instanceof Error ? e.message : "Não foi possível reordenar as etapas."),
+        onSettled: () => setOrdemPendente(null),
+      },
+    );
+  };
+
+  const soltar = (destino: number) => {
+    const origem = etapas.findIndex((s) => s.id === arrastando);
+    setArrastando(null);
+    if (origem >= 0) mover(origem, destino);
+  };
+
   return (
     <div className="space-y-4">
       <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
         Quando um deal entra numa etapa com mensagem automática, ela é agendada para o contato
         vinculado após o atraso configurado. Mover o deal para outra etapa cancela o que ainda
         não foi enviado. Variáveis: {"{{contact.first_name}}"}, {"{{contact.last_name}}"}, {"{{contact.name}}"}.
-        Etapas também podem exigir campos preenchidos para receber um negócio.
+        Etapas também podem exigir campos preenchidos para receber um negócio. Arraste pela alça
+        ou use as setas para mudar a ordem das colunas do Kanban.
       </p>
 
       <ul className="space-y-2">
-        {(stages ?? []).map((s) => {
+        {etapas.map((s, indice) => {
           const nRegras = parseRequiredFields(s.required_fields).length;
           return (
-            <li key={s.id} className="via-card flex flex-wrap items-center gap-3 p-4" data-testid="pipeline-stage-row">
+            <li
+              key={s.id}
+              className="via-card flex flex-wrap items-center gap-3 p-4"
+              style={{ opacity: arrastando === s.id ? 0.5 : 1 }}
+              data-testid="pipeline-stage-row"
+              draggable
+              onDragStart={(e) => {
+                // O Firefox só inicia o arrastar se houver dado no evento.
+                e.dataTransfer.setData("text/plain", s.id);
+                e.dataTransfer.effectAllowed = "move";
+                setArrastando(s.id);
+              }}
+              onDragOver={(e) => { if (arrastando) e.preventDefault(); }}
+              onDrop={(e) => { e.preventDefault(); soltar(indice); }}
+              onDragEnd={() => setArrastando(null)}
+            >
+              <GripVertical className="h-4 w-4 shrink-0 cursor-grab" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} aria-hidden />
               <span aria-hidden className="h-3 w-3 shrink-0 rounded-full" style={{ background: s.color }} />
               <span className="min-w-32 font-medium" style={{ color: "var(--via-text-primary)" }}>{s.name}</span>
               <span className="flex-1 space-y-0.5 text-sm" style={{ color: "var(--via-text-muted)" }}>
@@ -125,14 +183,65 @@ export default function PipelineSettings() {
                   </span>
                 )}
               </span>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => abrir(s)} data-testid={`pipeline-stage-config-${s.order}`}>
-                <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Configurar
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon" variant="ghost" className="h-8 w-8" aria-label={`Subir a etapa ${s.name}`}
+                  disabled={indice === 0} onClick={() => mover(indice, indice - 1)}
+                  data-testid={`pipeline-stage-subir-${indice}`}
+                >
+                  <ArrowUp className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+                <Button
+                  size="icon" variant="ghost" className="h-8 w-8" aria-label={`Descer a etapa ${s.name}`}
+                  disabled={indice === etapas.length - 1} onClick={() => mover(indice, indice + 1)}
+                  data-testid={`pipeline-stage-descer-${indice}`}
+                >
+                  <ArrowDown className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+                <Button
+                  size="icon" variant="ghost" className="h-8 w-8" aria-label={`Editar a etapa ${s.name}`}
+                  onClick={() => setFormulario(s)} data-testid={`pipeline-stage-editar-${indice}`}
+                >
+                  <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+                <Button
+                  size="icon" variant="ghost" className="h-8 w-8" aria-label={`Excluir a etapa ${s.name}`}
+                  onClick={() => setExcluindo(s)} data-testid={`pipeline-stage-excluir-${indice}`}
+                >
+                  <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => abrir(s)} data-testid={`pipeline-stage-config-${indice}`}>
+                  <Settings2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Configurar
+                </Button>
+              </div>
             </li>
           );
         })}
       </ul>
+
+      {pipelineId ? (
+        <Button variant="outline" className="gap-1.5" onClick={() => setFormulario("nova")} data-testid="pipeline-stage-nova">
+          <Plus className="h-4 w-4" strokeWidth={1.5} />
+          Nova etapa
+        </Button>
+      ) : (
+        <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
+          O funil ainda não tem etapas. Elas são criadas no assistente de configuração inicial.
+        </p>
+      )}
+
+      {formulario && pipelineId && (
+        <StageFormDialog
+          etapa={formulario === "nova" ? null : formulario}
+          etapas={etapas}
+          pipelineId={pipelineId}
+          onClose={() => setFormulario(null)}
+        />
+      )}
+      {excluindo && (
+        <StageDeleteDialog etapa={excluindo} unica={etapas.length === 1} onClose={() => setExcluindo(null)} />
+      )}
 
       <Dialog open={!!editando} onOpenChange={(open) => !open && setEditando(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">

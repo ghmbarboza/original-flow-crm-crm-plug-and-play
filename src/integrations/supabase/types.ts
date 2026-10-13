@@ -5919,6 +5919,10 @@ export type Database = {
         Returns: undefined
       }
       registrar_url_do_projeto: { Args: { p_url: string }; Returns: undefined }
+      reorder_pipeline_stages: {
+        Args: { _pipeline_id: string; _stage_ids: string[] }
+        Returns: undefined
+      }
       renderizar_modelo: {
         Args: { p_template: string; p_vars: Json }
         Returns: string
