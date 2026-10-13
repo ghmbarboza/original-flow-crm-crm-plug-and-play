@@ -5799,6 +5799,13 @@ export type Database = {
       }
       garantir_infra_do_projeto: { Args: { p_url: string }; Returns: Json }
       get_handle_new_user_def: { Args: never; Returns: string }
+      get_org_ai_keys: {
+        Args: { _org_id: string }
+        Returns: {
+          api_key: string
+          service_name: string
+        }[]
+      }
       get_org_api_key: {
         Args: { _org_id: string; _service: string }
         Returns: string
@@ -5919,13 +5926,13 @@ export type Database = {
         Returns: undefined
       }
       registrar_url_do_projeto: { Args: { p_url: string }; Returns: undefined }
-      reorder_pipeline_stages: {
-        Args: { _pipeline_id: string; _stage_ids: string[] }
-        Returns: undefined
-      }
       renderizar_modelo: {
         Args: { p_template: string; p_vars: Json }
         Returns: string
+      }
+      reorder_pipeline_stages: {
+        Args: { _pipeline_id: string; _stage_ids: string[] }
+        Returns: undefined
       }
       segredo_conexao_crm: { Args: { p_connection: string }; Returns: string }
       semear_biblioteca_modelos: { Args: never; Returns: number }
