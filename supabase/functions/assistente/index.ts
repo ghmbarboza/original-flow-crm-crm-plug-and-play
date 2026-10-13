@@ -75,6 +75,7 @@ Deno.serve(async (req) => {
 
     const ctx = { db, orgId: perfil.org_id as string, userId: user.id };
     const { texto } = await chamarIA({
+      organizacao: { admin: createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } }), orgId: ctx.orgId },
       tarefa: "chat",
       maxTokens: 1500,
       system: instrucoes({ nomeUsuario: (perfil.full_name as string | null) ?? "usuário", papel: ehAdmin ? "admin" : "member", empresa: (org?.name as string | undefined) ?? "sua empresa", hoje, tela }),

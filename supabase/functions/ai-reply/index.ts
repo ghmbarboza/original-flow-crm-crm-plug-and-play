@@ -838,6 +838,7 @@ Deno.serve(async (req) => {
     };
 
     const { texto } = await chamarIA({
+      organizacao: { admin, orgId: conversation.org_id },
       tarefa: "chat",
       maxTokens: 1024,
       system: knowledge,

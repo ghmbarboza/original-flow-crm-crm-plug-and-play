@@ -146,6 +146,7 @@ Deno.serve(async (req) => {
 
     try {
       const { texto } = await chamarIA({
+        organizacao: { admin, orgId: profile.org_id },
         tarefa: "estruturado",
         maxTokens: 400,
         system:

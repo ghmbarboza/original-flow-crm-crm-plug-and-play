@@ -4,7 +4,7 @@
 // ElevenLabs, número Twilio importado lá, ligação de saída pela API deles).
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { chamarIA, extrairJson } from "./ai.ts";
+import { chamarIA, extrairJson, type PedidoIA } from "./ai.ts";
 import { blocoDeVerdade, carregarFatosCanonicos } from "./conhecimento.ts";
 import { carregarPolitica, fusoDaOrg, instrucaoAgenda } from "./agenda.ts";
 
@@ -231,11 +231,14 @@ export function transcricaoEmTexto(transcript: { role?: string; message?: string
 }
 
 /** Classifica a ligação pela transcrição; sem transcrição vira 'no_answer'/'other' sem chamar a IA. */
-export async function classificarLigacao(transcript: { role?: string; message?: string | null }[], resumo: string | null): Promise<ClassificacaoLigacao> {
+export async function classificarLigacao(
+  transcript: { role?: string; message?: string | null }[], resumo: string | null, organizacao?: PedidoIA["organizacao"],
+): Promise<ClassificacaoLigacao> {
   const texto = transcricaoEmTexto(transcript);
   const falasDoCliente = transcript.filter((t) => t.role !== "agent" && t.message).length;
   if (falasDoCliente === 0) return { category: "no_answer", confidence: 90, summary: resumo ?? "Sem fala do cliente.", next_action: "Tentar de novo em outro horário." };
   const { texto: saida } = await chamarIA({
+    organizacao,
     tarefa: "estruturado", maxTokens: 900,
     system: "Você responde somente com JSON válido, sem comentários nem cercas de código. Português do Brasil.",
     messages: [{ role: "user", content: [

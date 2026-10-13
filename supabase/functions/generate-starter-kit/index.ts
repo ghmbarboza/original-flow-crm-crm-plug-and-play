@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
     let ultimoErro = "A IA não devolveu um kit válido.";
     for (let tentativa = 0; tentativa < 2 && !kit; tentativa++) {
       const { texto: resposta } = await chamarIA({
+        organizacao: { admin, orgId },
         tarefa: "estruturado",
         maxTokens: 6000,
         system: "Você responde somente com JSON válido, sem comentários nem cercas de código.",

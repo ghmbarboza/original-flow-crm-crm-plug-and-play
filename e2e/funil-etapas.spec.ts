@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { supabaseCtx } from "./utils/supabase";
+import { test, expect, type Page } from "@playwright/test";
+import { supabaseCtx, type SupabaseCtx } from "./utils/supabase";
 
 /**
  * Configurações > Automações > Funil: as etapas são editáveis na tela (criar,
@@ -61,10 +61,15 @@ test("Funil: cria, reordena, renomeia e exclui uma etapa", async ({ page }) => {
     await expect(linhas).toHaveCount(antes);
     await expect(page.getByText(renomeada)).toHaveCount(0);
   } finally {
-    const resp = await page.request.delete(
-      `${ctx.base}/rest/v1/pipeline_stages?org_id=eq.${ctx.orgId}&name=like.${encodeURIComponent(`${nome}*`)}`,
-      { headers: { apikey: ctx.apikey, Authorization: ctx.authorization } },
-    );
-    if (!resp.ok()) throw new Error(`Limpeza da etapa de teste falhou: ${resp.status()}`);
+    await removerEtapaDeTeste(page, ctx, nome);
   }
 });
+
+/** Apaga a etapa criada pelo teste (com o nome original ou já renomeada). */
+async function removerEtapaDeTeste(page: Page, ctx: SupabaseCtx, nome: string): Promise<void> {
+  const resp = await page.request.delete(
+    `${ctx.base}/rest/v1/pipeline_stages?org_id=eq.${ctx.orgId}&name=like.${encodeURIComponent(`${nome}*`)}`,
+    { headers: { apikey: ctx.apikey, Authorization: ctx.authorization } },
+  );
+  if (!resp.ok()) throw new Error(`Limpeza da etapa de teste falhou: ${resp.status()}`);
+}

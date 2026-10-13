@@ -29,6 +29,7 @@ import { useWebhookEndpoints, useWebhookInboundKeys } from "@/hooks/useWebhooks"
 import ImportHistorySettings from "@/components/settings/ImportHistorySettings";
 import { CredenciaisServico, useCredenciaisProntas } from "@/components/settings/CredenciaisServico";
 import { GmailSetup } from "@/components/settings/GmailSetup";
+import { ProvedoresIACard } from "@/components/settings/ProvedoresIACard";
 
 const CALLBACK_NYLAS = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calendar-oauth-callback`;
 const CALLBACK_SALESFORCE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crm-oauth-callback`;
@@ -154,6 +155,8 @@ export default function IntegrationsTab() {
           )}
         </div>
       </IntegrationCard>
+
+      <ProvedoresIACard abrirPorPadrao={alvo === "ia"} />
 
       <IntegrationCard
         icon={AudioLines}

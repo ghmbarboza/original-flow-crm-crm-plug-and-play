@@ -5,21 +5,50 @@
 // ANTHROPIC_API_KEY, que nunca foi configurado neste projeto — as três
 // respondiam 500 e o wizard de setup ficava intransponível no passo 3.
 //
-// ESCOLHA DE PROVEDOR (nesta ordem):
-//   1. ANTHROPIC_API_KEY configurada  → API da Anthropic direta.
-//   2. LOVABLE_API_KEY presente       → AI Gateway do Lovable.
-// A chave da Lovable é provisionada automaticamente no projeto, então o caminho
-// 2 funciona sem ninguém configurar nada. O caminho 1 existe para quem quiser
-// rodar em Claude: basta cadastrar o secret no Supabase e as três functions
-// passam a usá-lo, sem alteração de código nem de tela.
+// FILA DE PROVEDORES (tenta nesta ordem; se um falha, vai para o próximo):
+//   1. Chaves da organização, cadastradas em Configurações > Integrações e
+//      guardadas no Vault: Anthropic, depois OpenAI, depois Gemini.
+//   2. ANTHROPIC_API_KEY do projeto   → API da Anthropic direta.
+//   3. LOVABLE_API_KEY do projeto     → AI Gateway do Lovable.
+// A chave da Lovable é provisionada automaticamente no projeto, então o último
+// caminho funciona sem ninguém configurar nada e serve de reserva para quem
+// cadastrou chave própria. A fila só anda enquanto nenhuma ferramenta rodou:
+// recomeçar em outro provedor depois disso repetiria a ação (mover negócio,
+// agendar) em nome do cliente.
 //
 // CONSEQUÊNCIA QUE VALE SABER: o Gateway não serve modelos Claude — só Google e
 // OpenAI. Então, sem o secret da Anthropic, a IA do produto não é Claude. Os
 // prompts das três functions são agnósticos de fornecedor (pedem JSON ou texto
 // puro), mas a redação das respostas muda de modelo para modelo.
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+
+export type ProvedorIA = "anthropic" | "openai" | "gemini" | "gateway";
+
+// Os três falam o formato de chat da OpenAI; muda o endereço e o nome do campo
+// de limite de tokens (a OpenAI aposentou max_tokens nos modelos novos).
+const COMPATIVEIS: Record<Exclude<ProvedorIA, "anthropic">, { url: string; campoLimite: string }> = {
+  gateway: { url: "https://ai.gateway.lovable.dev/v1/chat/completions", campoLimite: "max_tokens" },
+  openai: { url: "https://api.openai.com/v1/chat/completions", campoLimite: "max_completion_tokens" },
+  gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", campoLimite: "max_tokens" },
+};
+
+// Nome do serviço no Vault (api_keys_registry.service_name) de cada chave que a
+// organização pode cadastrar. A ordem aqui é a ordem de preferência.
+export const SERVICOS_DE_IA = {
+  anthropic: "anthropic",
+  openai: "openai",
+  gemini: "gemini",
+} as const;
+
+const ENV_DO_MODELO: Record<ProvedorIA, string> = {
+  gateway: "AI_GATEWAY_MODEL",
+  anthropic: "AI_ANTHROPIC_MODEL",
+  openai: "AI_OPENAI_MODEL",
+  gemini: "AI_GEMINI_MODEL",
+};
 
 // "chat" = resposta curta para cliente, prioriza latência.
 // "estruturado" = geração longa em JSON/XML, prioriza fidelidade ao formato.
@@ -41,6 +70,8 @@ export type TarefaIA = "chat" | "estruturado";
 const PADRAO = {
   gateway: { chat: "google/gemini-2.5-flash", estruturado: "google/gemini-2.5-flash" },
   anthropic: { chat: "claude-opus-4-8", estruturado: "claude-sonnet-5" },
+  openai: { chat: "gpt-4.1-mini", estruturado: "gpt-4.1" },
+  gemini: { chat: "gemini-2.5-flash", estruturado: "gemini-2.5-flash" },
 } as const;
 
 export interface MensagemIA {
@@ -79,13 +110,27 @@ export interface PedidoIA {
   executarFerramenta?: ExecutorFerramenta;
   /** Obriga o modelo a chamar alguma ferramenta na primeira rodada (antes de responder). */
   exigirFerramenta?: boolean;
+  /**
+   * Organização dona da chamada. Com ela, as chaves próprias cadastradas em
+   * Integrações entram na frente da fila; sem ela, só as chaves do projeto.
+   */
+  organizacao?: { admin: SupabaseClient; orgId: string | null | undefined };
 }
 
 export interface RespostaIA {
   texto: string;
-  provedor: "anthropic" | "gateway";
+  provedor: ProvedorIA;
   modelo: string;
 }
+
+/** Um provedor pronto para ser chamado: qual, com que chave e de quem é a chave. */
+export interface AlvoIA {
+  provedor: ProvedorIA;
+  apiKey: string;
+  origem: "organizacao" | "projeto";
+}
+
+export type ChavesDaOrganizacao = Partial<Record<keyof typeof SERVICOS_DE_IA, string | null>>;
 
 /**
  * Erro de IA com mensagem já pronta para o usuário final.
@@ -105,12 +150,17 @@ export class ErroIA extends Error {
   }
 }
 
-function modelo(provedor: "anthropic" | "gateway", tarefa: TarefaIA): string {
-  const override = provedor === "gateway"
-    ? Deno.env.get("AI_GATEWAY_MODEL")
-    : Deno.env.get("AI_ANTHROPIC_MODEL");
-  return override?.trim() || PADRAO[provedor][tarefa];
+function modelo(provedor: ProvedorIA, tarefa: TarefaIA): string {
+  return Deno.env.get(ENV_DO_MODELO[provedor])?.trim() || PADRAO[provedor][tarefa];
 }
+
+// Quanto do corpo de erro do provedor vai para o log (ele pode citar parte da chave).
+const MAX_CORPO_NO_LOG = 300;
+
+// Tempo que um provedor tem para responder quando ainda existe outro na fila.
+// Sem isso, um provedor que trava (em vez de errar) consumiria o tempo todo da
+// function e a reserva nunca seria tentada. O último da fila não tem limite.
+const LIMITE_COM_RESERVA_MS = 45_000;
 
 /** Traduz falhas do provedor em mensagens que dizem o que fazer a respeito. */
 function traduzirFalha(provedor: string, status: number, corpo: string): ErroIA {
@@ -121,12 +171,12 @@ function traduzirFalha(provedor: string, status: number, corpo: string): ErroIA 
     return new ErroIA(402, "Os créditos de IA do projeto acabaram. Recarregue para continuar usando os recursos de IA.", corpo);
   }
   if (status === 401 || status === 403) {
-    return new ErroIA(502, "A credencial de IA foi recusada pelo provedor. Verifique a configuração do projeto.", `${provedor}: ${corpo}`);
+    return new ErroIA(502, "A credencial de IA foi recusada pelo provedor. Verifique a configuração do projeto.", `${provedor} ${status}: ${corpo.slice(0, MAX_CORPO_NO_LOG)}`);
   }
-  return new ErroIA(502, "A IA não respondeu como esperado. Tente de novo.", `${provedor} ${status}: ${corpo.slice(0, 300)}`);
+  return new ErroIA(502, "A IA não respondeu como esperado. Tente de novo.", `${provedor} ${status}: ${corpo.slice(0, MAX_CORPO_NO_LOG)}`);
 }
 
-async function viaAnthropic(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
+async function viaAnthropic(p: PedidoIA, apiKey: string, limiteMs?: number): Promise<RespostaIA> {
   const m = modelo("anthropic", p.tarefa);
   const comFerramentas = !!p.tools?.length && !!p.executarFerramenta;
 
@@ -138,6 +188,7 @@ async function viaAnthropic(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
   for (let rodada = 0; ; rodada++) {
     const resp = await fetch(ANTHROPIC_URL, {
       method: "POST",
+      ...(limiteMs ? { signal: AbortSignal.timeout(limiteMs) } : {}),
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
@@ -187,8 +238,11 @@ async function viaAnthropic(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
   }
 }
 
-async function viaGateway(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
-  const m = modelo("gateway", p.tarefa);
+async function viaCompativel(
+  p: PedidoIA, provedor: Exclude<ProvedorIA, "anthropic">, apiKey: string, limiteMs?: number,
+): Promise<RespostaIA> {
+  const m = modelo(provedor, p.tarefa);
+  const { url, campoLimite } = COMPATIVEIS[provedor];
   const comFerramentas = !!p.tools?.length && !!p.executarFerramenta;
 
   // Formato compatível com OpenAI: o system vai como primeira mensagem, não
@@ -198,8 +252,9 @@ async function viaGateway(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
     : p.messages.map((msg) => ({ ...msg }));
 
   for (let rodada = 0; ; rodada++) {
-    const resp = await fetch(GATEWAY_URL, {
+    const resp = await fetch(url, {
       method: "POST",
+      ...(limiteMs ? { signal: AbortSignal.timeout(limiteMs) } : {}),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -207,7 +262,7 @@ async function viaGateway(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
       body: JSON.stringify({
         model: m,
         messages,
-        max_tokens: p.maxTokens,
+        [campoLimite]: p.maxTokens,
         ...(comFerramentas
           ? {
               tools: p.tools!.map((t) => ({
@@ -220,7 +275,7 @@ async function viaGateway(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
       }),
     });
 
-    if (!resp.ok) throw traduzirFalha("gateway", resp.status, await resp.text());
+    if (!resp.ok) throw traduzirFalha(provedor, resp.status, await resp.text());
 
     const payload = await resp.json();
     const message = payload?.choices?.[0]?.message ?? {};
@@ -242,28 +297,99 @@ async function viaGateway(p: PedidoIA, apiKey: string): Promise<RespostaIA> {
       continue;
     }
 
-    return { texto: message.content ?? "", provedor: "gateway", modelo: m };
+    return { texto: message.content ?? "", provedor, modelo: m };
   }
 }
 
+/** Monta a fila: chaves da organização na ordem de preferência, depois as do projeto. */
+export function filaDeProvedores(
+  daOrganizacao: ChavesDaOrganizacao,
+  doProjeto: { anthropic?: string | null; lovable?: string | null },
+): AlvoIA[] {
+  const fila: AlvoIA[] = [];
+  for (const provedor of Object.keys(SERVICOS_DE_IA) as Array<keyof typeof SERVICOS_DE_IA>) {
+    const apiKey = daOrganizacao[provedor]?.trim();
+    if (apiKey) fila.push({ provedor, apiKey, origem: "organizacao" });
+  }
+  const anthropic = doProjeto.anthropic?.trim();
+  if (anthropic) fila.push({ provedor: "anthropic", apiKey: anthropic, origem: "projeto" });
+  const lovable = doProjeto.lovable?.trim();
+  if (lovable) fila.push({ provedor: "gateway", apiKey: lovable, origem: "projeto" });
+  return fila;
+}
+
+/** Chaves de IA que a organização cadastrou em Integrações (Vault). */
+async function chavesDaOrganizacao(org: PedidoIA["organizacao"]): Promise<ChavesDaOrganizacao> {
+  if (!org?.orgId) return {};
+  // get_org_ai_keys só devolve chave cadastrada por administrador ativo da
+  // organização (ver a migration): quem tem a chave em uso lê as conversas.
+  const { data, error } = await org.admin.rpc("get_org_ai_keys", { _org_id: org.orgId });
+  if (error) {
+    // Segue com as chaves do projeto: o atendimento não para por isso.
+    console.error("[ai] falha ao ler as chaves de IA da organização:", error.message);
+    return {};
+  }
+  const linhas = (data ?? []) as Array<{ service_name: string; api_key: string | null }>;
+  const chaves: ChavesDaOrganizacao = {};
+  for (const [provedor, servico] of Object.entries(SERVICOS_DE_IA)) {
+    chaves[provedor as keyof typeof SERVICOS_DE_IA] = linhas.find((l) => l.service_name === servico)?.api_key ?? null;
+  }
+  return chaves;
+}
+
 /**
- * Chama o LLM pelo provedor disponível.
+ * Tenta cada provedor da fila até um responder.
+ *
+ * Só passa para o próximo se nenhuma ferramenta rodou na tentativa que falhou.
+ * Quando todos falham, o erro devolvido é o do primeiro: é o provedor que a
+ * pessoa escolheu, e é a mensagem dele que diz o que ela precisa resolver.
+ */
+export async function chamarComFila(p: PedidoIA, fila: AlvoIA[]): Promise<RespostaIA> {
+  if (fila.length === 0) {
+    throw new ErroIA(
+      500,
+      "Nenhum provedor de IA configurado. Cadastre uma chave em Configurações > Integrações ou garanta que LOVABLE_API_KEY esteja disponível no projeto.",
+    );
+  }
+
+  let primeiroErro: unknown;
+  for (const [posicao, alvo] of fila.entries()) {
+    const limiteMs = posicao < fila.length - 1 ? LIMITE_COM_RESERVA_MS : undefined;
+    let ferramentaRodou = false;
+    const pedido: PedidoIA = p.executarFerramenta
+      ? { ...p, executarFerramenta: (nome, args) => { ferramentaRodou = true; return p.executarFerramenta!(nome, args); } }
+      : p;
+    try {
+      return alvo.provedor === "anthropic"
+        ? await viaAnthropic(pedido, alvo.apiKey, limiteMs)
+        : await viaCompativel(pedido, alvo.provedor, alvo.apiKey, limiteMs);
+    } catch (erro) {
+      const falha = erro instanceof ErroIA
+        ? erro
+        : new ErroIA(502, "A IA não respondeu como esperado. Tente de novo.", `${alvo.provedor}: ${erro instanceof Error ? erro.message : String(erro)}`);
+      console.error(`[ai] ${alvo.provedor} (chave ${alvo.origem === "organizacao" ? "da organização" : "do projeto"}) falhou: ${falha.message}`);
+      if (ferramentaRodou) throw falha;
+      // Chave da organização: a mensagem aponta para onde a pessoa resolve, e
+      // não para "os créditos do projeto", que não é o que falhou.
+      primeiroErro ??= alvo.origem === "organizacao"
+        ? new ErroIA(falha.status, `A IA não respondeu com a sua chave (${alvo.provedor}) nem pela reserva. Confira a chave e o saldo no provedor, em Configurações > Integrações.`, falha.message)
+        : falha;
+    }
+  }
+  throw primeiroErro;
+}
+
+/**
+ * Chama o LLM pela fila de provedores disponíveis para a organização.
  *
  * Lança ErroIA — quem chama repassa `.status` e `.publico` na resposta HTTP.
  */
 export async function chamarIA(p: PedidoIA): Promise<RespostaIA> {
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")?.trim();
-  if (anthropicKey) return await viaAnthropic(p, anthropicKey);
-
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY")?.trim();
-  if (lovableKey) return await viaGateway(p, lovableKey);
-
-  // Sem nenhum dos dois não há como degradar: é configuração ausente, e dizer
-  // qual resolve poupa o próximo a investigar.
-  throw new ErroIA(
-    500,
-    "Nenhum provedor de IA configurado. Cadastre ANTHROPIC_API_KEY no Supabase para usar Claude, ou garanta que LOVABLE_API_KEY esteja disponível no projeto.",
-  );
+  const fila = filaDeProvedores(await chavesDaOrganizacao(p.organizacao), {
+    anthropic: Deno.env.get("ANTHROPIC_API_KEY"),
+    lovable: Deno.env.get("LOVABLE_API_KEY"),
+  });
+  return await chamarComFila(p, fila);
 }
 
 /** Extrai JSON tolerando cercas de código, que vários modelos adicionam sozinhos. */

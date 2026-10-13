@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
     let ultimoErro: { error: string; blocos_faltando?: string[] } | null = null;
     for (let tentativa = 1; tentativa <= TENTATIVAS && !systemPrompt; tentativa++) {
       const { texto } = await chamarIA({
+        organizacao: { admin, orgId },
         tarefa: "estruturado",
         maxTokens: 8000,
         messages: [{ role: "user", content: promptDoGerador(org as OrgContexto, agentName) }],

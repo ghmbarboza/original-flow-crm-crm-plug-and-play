@@ -80,7 +80,12 @@ Deno.serve(async (req) => {
       return json({ error: "O texto é longo demais para melhorar automaticamente." }, 400);
     }
 
+    // A organização define de quem é a chave de IA usada (ver _shared/ai.ts).
+    const { data: perfil } = await admin
+      .from("profiles").select("org_id").eq("id", userData.user.id).maybeSingle();
+
     const { texto: bruto } = await chamarIA({
+      organizacao: { admin, orgId: perfil?.org_id },
       tarefa: "chat",
       // Folga sobre o limite de caracteres: o modelo conta tokens, não chars.
       maxTokens: Math.min(2000, Math.ceil(maxChars / 2) + 300),

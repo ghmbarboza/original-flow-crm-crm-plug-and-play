@@ -196,6 +196,7 @@ Deno.serve(async (req) => {
         "Regras: português do Brasil, no máximo 3 frases curtas, sem assunto, sem assinatura formal, sem inventar dados. Responda apenas com o texto da mensagem.",
       ].filter(Boolean).join("\n");
       const { texto: gerado } = await chamarIA({
+        organizacao: { admin, orgId },
         tarefa: "chat",
         maxTokens: MAX_TOKENS_ABERTURA,
         system,

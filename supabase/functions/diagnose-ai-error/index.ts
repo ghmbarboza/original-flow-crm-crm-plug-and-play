@@ -131,6 +131,7 @@ Responda SOMENTE com JSON válido, sem cercas de código:
 {"bloco":"guidelines","causa":"explicação curta do que faltou ou falhou","sugestao":"trecho a inserir no bloco","confianca":"alta|media|baixa"}`;
 
     const { texto } = await chamarIA({
+      organizacao: { admin, orgId },
       tarefa: "estruturado",
       maxTokens: 1500,
       messages: [{ role: "user", content: prompt }],

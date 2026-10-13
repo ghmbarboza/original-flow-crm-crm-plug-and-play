@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
+import { API_KEYS_REGISTRY_KEY } from "@/hooks/useApiKeysRegistry";
 
 /**
  * Bloco padrão de credenciais de um serviço externo (Vault por organização).
@@ -72,6 +73,8 @@ export function CredenciaisServico({ campos, testIdPrefix, mensagemSalvo = "Cred
       setValores({});
       queryClient.invalidateQueries({ queryKey: ["org-api-keys-lote", orgId] });
       queryClient.invalidateQueries({ queryKey: ["org-api-key", orgId] });
+      // A lista de chaves no fim de Integrações também mostra a que acabou de entrar.
+      queryClient.invalidateQueries({ queryKey: API_KEYS_REGISTRY_KEY });
       queryClient.invalidateQueries({ queryKey: ["voice-status", orgId] });
       toast.success(mensagemSalvo);
     },

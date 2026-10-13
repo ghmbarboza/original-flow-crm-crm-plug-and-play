@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       if (!error) recordingPath = path;
     }
 
-    const classificacao = await classificarLigacao(transcript, resumo);
+    const classificacao = await classificarLigacao(transcript, resumo, { admin, orgId: call.org_id });
     const falou = transcript.some((t) => t.role !== "agent" && t.message);
     const status = falou ? "completed" : (classificacao.category === "no_answer" ? "no_answer" : "completed");
     await admin.from("calls").update({

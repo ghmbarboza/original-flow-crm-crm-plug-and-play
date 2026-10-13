@@ -6,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Mesmos nomes de SERVICOS_DE_IA em _shared/ai.ts.
+const SERVICOS_SO_ADMIN = ["anthropic", "openai", "gemini"];
+
 async function getUser(req: Request, admin: SupabaseClient) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return null;
@@ -31,6 +34,18 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Parâmetros inválidos" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Chave de IA vale para o atendimento da organização inteira, e quem a
+    // controla lê as conversas no painel do provedor: só administrador cadastra.
+    // (A leitura confere de novo, em get_org_ai_keys.)
+    if (SERVICOS_SO_ADMIN.includes(service_name)) {
+      const { data: ehAdmin } = await admin.rpc("has_role", { _user_id: user.id, _role: "admin" });
+      if (ehAdmin !== true) {
+        return new Response(JSON.stringify({ error: "Só administradores cadastram a chave de IA da conta." }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const secretName = `${service_name}_${user.id}`;

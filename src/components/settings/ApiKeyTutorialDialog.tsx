@@ -11,13 +11,15 @@ interface Props {
   service: string;
   /** Variante do botão que abre o passo a passo. */
   variant?: "link" | "outline";
+  /** Texto do botão, para quando há mais de um passo a passo lado a lado. */
+  rotulo?: string;
 }
 
 /**
  * Passo a passo escrito, dentro do app, de como obter a chave de um serviço.
  * O link externo fica no rodapé como complemento, não como única saída.
  */
-export function ApiKeyTutorialDialog({ service, variant = "link" }: Props) {
+export function ApiKeyTutorialDialog({ service, variant = "link", rotulo = "Ver passo a passo" }: Props) {
   const [open, setOpen] = useState(false);
   const tutorial = tutorialDoServico(service);
   if (!tutorial) return null;
@@ -32,7 +34,7 @@ export function ApiKeyTutorialDialog({ service, variant = "link" }: Props) {
           className={variant === "link" ? "h-auto p-0 text-sm text-primary hover:bg-transparent hover:underline" : ""}
           data-testid="api-key-tutorial-trigger"
         >
-          <BookOpen className="mr-1 h-3.5 w-3.5" /> Ver passo a passo
+          <BookOpen className="mr-1 h-3.5 w-3.5" /> {rotulo}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">

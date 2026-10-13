@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
     ].filter((l) => l !== "").join("\n");
 
     const { texto } = await chamarIA({
+      organizacao: { admin, orgId: conv.org_id },
       tarefa: "estruturado", maxTokens: 1200,
       system: "Você responde somente com JSON válido, sem comentários nem cercas de código. Português do Brasil.",
       messages: [{ role: "user", content: prompt }],

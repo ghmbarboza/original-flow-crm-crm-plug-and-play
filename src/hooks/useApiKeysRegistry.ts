@@ -34,5 +34,7 @@ export function useInvalidateApiKeysRegistry() {
     // O status "Voz da agente" e o VoicePicker derivam de ["org-api-key", ...];
     // com staleTime Infinity, sem esta invalidação o card só atualiza com F5.
     queryClient.invalidateQueries({ queryKey: ["org-api-key"] });
+    // Cards que conferem várias chaves de uma vez (Twilio, Nylas, IA).
+    queryClient.invalidateQueries({ queryKey: ["org-api-keys-lote"] });
   };
 }
