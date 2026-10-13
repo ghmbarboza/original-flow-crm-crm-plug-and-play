@@ -22,6 +22,8 @@ import { useReorderStages } from "@/hooks/usePipelineStages";
 import { moverEtapa } from "@/lib/etapasFunil";
 import { StageDeleteDialog } from "@/components/settings/pipeline/StageDeleteDialog";
 import { StageFormDialog } from "@/components/settings/pipeline/StageFormDialog";
+import { FunilToolbar } from "@/components/settings/pipeline/FunilToolbar";
+import { useFunilAtivo } from "@/hooks/usePipelines";
 
 const QUALQUER_ANTERIOR = "__any__";
 import {
@@ -42,7 +44,8 @@ import {
  * roda no cliente ao mover o deal (Kanban e ficha do negócio).
  */
 export default function PipelineSettings() {
-  const { data: stages, isLoading } = useStages();
+  const { funis, funil, funilId, escolher } = useFunilAtivo();
+  const { data: stages, isLoading } = useStages(funilId);
   const salvar = useUpdateStageConfig();
   const reordenar = useReorderStages();
 
@@ -104,7 +107,7 @@ export default function PipelineSettings() {
   const etapas = ordemPendente
     ? ordemPendente.flatMap((id) => (stages ?? []).filter((s) => s.id === id))
     : stages ?? [];
-  const pipelineId = etapas[0]?.pipeline_id;
+  const pipelineId = funilId;
 
   const mover = (de: number, para: number) => {
     if (!pipelineId || reordenar.isPending) return;
@@ -129,6 +132,7 @@ export default function PipelineSettings() {
 
   return (
     <div className="space-y-4">
+      <FunilToolbar funis={funis} funil={funil} etapas={etapas} onEscolher={escolher} />
       <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
         Quando um deal entra numa etapa com mensagem automática, ela é agendada para o contato
         vinculado após o atraso configurado. Mover o deal para outra etapa cancela o que ainda
@@ -227,7 +231,7 @@ export default function PipelineSettings() {
         </Button>
       ) : (
         <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
-          O funil ainda não tem etapas. Elas são criadas no assistente de configuração inicial.
+          Nenhum funil ainda. Crie o primeiro em "Novo funil" ou pelo assistente de configuração inicial.
         </p>
       )}
 

@@ -2,7 +2,7 @@
 // autenticada e os dados; o roteador confere o escopo antes de chamar.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { moverNegocio } from "../_shared/negocio.ts";
+import { funilDoNegocio, funilPadrao, moverNegocio } from "../_shared/negocio.ts";
 import { entregarTexto } from "../_shared/entrega.ts";
 
 export class ErroApi extends Error {
@@ -228,15 +228,17 @@ async function criarNegocio(admin: SupabaseClient, chave: Chave, d: Dados): Prom
     if (!c) throw new ErroApi(422, "Informe contact_id ou email/phone de um contato existente.");
     contatoId = c.id as string;
   }
-  const pipelineId = texto(d.pipeline_id);
-  const etapa = await etapaPorIdOuNome(admin, chave.orgId, texto(d.stage ?? d.stage_id), pipelineId);
-  let stageId = etapa?.id ?? null;
-  if (!stageId) {
-    let q = admin.from("pipeline_stages").select("id, win_probability").eq("org_id", chave.orgId).order("order", { ascending: true });
-    if (pipelineId) q = q.eq("pipeline_id", pipelineId);
-    const { data } = await q.limit(1).maybeSingle();
-    stageId = data?.id ?? null;
+  // Sem pipeline_id, vale o funil padrão: com dois funis, "primeira etapa" ou
+  // um nome repetido sem funil cairia em qualquer um.
+  const referencia = texto(d.stage ?? d.stage_id);
+  const pipelineId = texto(d.pipeline_id) ?? (referencia && UUID.test(referencia) ? null : await funilPadrao(admin, chave.orgId));
+  let etapa = await etapaPorIdOuNome(admin, chave.orgId, referencia, pipelineId);
+  if (!etapa && pipelineId) {
+    const { data } = await admin.from("pipeline_stages").select("id, name, pipeline_id, win_probability")
+      .eq("org_id", chave.orgId).eq("pipeline_id", pipelineId).order("order", { ascending: true }).limit(1).maybeSingle();
+    etapa = data ?? null;
   }
+  const stageId = etapa?.id ?? null;
   const ownerId = await usuarioPorEmail(admin, chave.orgId, texto(d.owner_email));
   let companyId = texto(d.company_id);
   const { data: org } = await admin.from("organizations").select("business_model").eq("id", chave.orgId).maybeSingle();
@@ -312,10 +314,21 @@ async function atualizarNegocio(admin: SupabaseClient, chave: Chave, id: string,
   if (error) throw new ErroApi(500, error.message);
 
   // Etapa por último, pela RPC, para o histórico registrar quem moveu.
-  const etapa = await etapaPorIdOuNome(admin, chave.orgId, texto(d.stage ?? d.stage_id), texto(d.pipeline_id));
+  // Sem pipeline_id, o nome da etapa vale dentro do funil do negócio. Trocar de
+  // funil exige pipeline_id explícito (ou o id da etapa de destino).
+  const referencia = texto(d.stage ?? d.stage_id);
+  const funilPedido = texto(d.pipeline_id);
+  const porId = !!referencia && UUID.test(referencia);
+  const funilAtual = await funilDoNegocio(admin, id);
+  // Negócio sem etapa não tem funil: o nome vale no funil padrão, como no webhook.
+  const funilDoNome = porId ? null : funilAtual ?? await funilPadrao(admin, chave.orgId);
+  const etapa = await etapaPorIdOuNome(admin, chave.orgId, referencia, funilPedido ?? funilDoNome);
   let moved = false;
   if (etapa && etapa.id !== deal.stage_id) {
-    moved = await moverNegocio(admin, id, etapa.id, "automacao", `Integração "${chave.nome}"${texto(d.reason) ? `: ${texto(d.reason)}` : ""}`);
+    moved = await moverNegocio(
+      admin, id, etapa.id, "automacao", `Integração "${chave.nome}"${texto(d.reason) ? `: ${texto(d.reason)}` : ""}`,
+      { trocarFunil: !!funilPedido || porId },
+    );
     if (!moved) throw new ErroApi(409, "Não foi possível mover: o negócio não está aberto.");
   }
   return { status: 200, body: { deal_id: id, moved } };

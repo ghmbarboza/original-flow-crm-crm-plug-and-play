@@ -5930,6 +5930,7 @@ export type Database = {
         Args: { p_template: string; p_vars: Json }
         Returns: string
       }
+      set_default_pipeline: { Args: { _pipeline_id: string }; Returns: undefined }
       reorder_pipeline_stages: {
         Args: { _pipeline_id: string; _stage_ids: string[] }
         Returns: undefined

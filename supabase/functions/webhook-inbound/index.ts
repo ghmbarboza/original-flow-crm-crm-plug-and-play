@@ -15,7 +15,9 @@
 // vezes: a repetição devolve a resposta original com "duplicate": true.
 // Toda chamada autenticada fica em webhook_inbound_logs.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { garantirNegocioAberto } from "../_shared/negocio.ts";
+import {
+  etapasDaOrganizacao, funilDoNegocio, funilPadrao, garantirNegocioAberto, primeiraEtapaDoFunil, resolverEtapaPorNome,
+} from "../_shared/negocio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -230,17 +232,22 @@ async function upsertContato(ctx: Ctx, dados: Dados, sobrescrever: boolean, exig
   return { contatoId, criado, pessoa };
 }
 
-async function etapaPorNome(ctx: Ctx, nome: string | null): Promise<string | null> {
+/**
+ * Etapa pelo nome, a partir de um funil de referência. Em negócio novo a
+ * referência é o funil padrão; em negócio existente é o funil dele, e o nome
+ * nunca o tira de lá (`soNoFunil`).
+ */
+async function etapaPorNome(ctx: Ctx, nome: string | null, pipelineId: string | null, soNoFunil = false): Promise<string | null> {
   if (!nome) return null;
-  const { data } = await ctx.admin.from("pipeline_stages").select("id").eq("org_id", ctx.orgId).ilike("name", nome).limit(1).maybeSingle();
-  if (!data) throw new ErroEntrada(422, `Etapa "${nome}" não existe no funil.`);
-  return data.id;
+  const achada = resolverEtapaPorNome(await etapasDaOrganizacao(ctx.admin, ctx.orgId), nome, pipelineId, { soNoFunil });
+  if ("etapa" in achada) return achada.etapa.id;
+  if (achada.erro === "ambigua") throw new ErroEntrada(422, `Mais de um funil tem a etapa "${nome}". Renomeie uma delas ou crie o negócio pela API, que aceita o funil.`);
+  throw new ErroEntrada(422, soNoFunil ? `Etapa "${nome}" não existe no funil deste negócio.` : `Etapa "${nome}" não existe no funil.`);
 }
 
-async function primeiraEtapa(ctx: Ctx): Promise<string | null> {
-  const { data } = await ctx.admin.from("pipeline_stages").select("id").eq("org_id", ctx.orgId)
-    .order("order", { ascending: true }).limit(1).maybeSingle();
-  return data?.id ?? null;
+async function primeiraEtapa(ctx: Ctx, pipelineId: string | null): Promise<string | null> {
+  if (!pipelineId) return null;
+  return primeiraEtapaDoFunil(await etapasDaOrganizacao(ctx.admin, ctx.orgId), pipelineId)?.id ?? null;
 }
 
 async function negocioAbertoDoContato(ctx: Ctx, contatoId: string): Promise<string | null> {
@@ -259,7 +266,8 @@ async function criarNegocio(ctx: Ctx, dados: Dados) {
   const n = blocoNegocio(dados);
   const titulo = texto(primeiro(n, "title", "titulo", "name", "nome_negocio"))
     ?? `Negócio ${contato?.pessoa.primeiroNome ?? ""}`.trim();
-  const etapa = (await etapaPorNome(ctx, texto(primeiro(n, "stage", "etapa")))) ?? await primeiraEtapa(ctx);
+  const padrao = await funilPadrao(ctx.admin, ctx.orgId);
+  const etapa = (await etapaPorNome(ctx, texto(primeiro(n, "stage", "etapa")), padrao)) ?? await primeiraEtapa(ctx, padrao);
   const { data, error } = await ctx.admin.from("deals").insert({
     org_id: ctx.orgId,
     title: titulo,
@@ -304,7 +312,10 @@ async function atualizarNegocio(ctx: Ctx, dados: Dados, statusForcado?: "won" | 
   if (valor !== null) mudancas.value = valor;
   const titulo = texto(primeiro(n, "title", "titulo"));
   if (titulo) mudancas.title = titulo;
-  const etapa = await etapaPorNome(ctx, texto(primeiro(n, "stage", "etapa")));
+  const nomeEtapa = texto(primeiro(n, "stage", "etapa"));
+  const funilAtual = nomeEtapa ? await funilDoNegocio(ctx.admin, dealId) : null;
+  // Negócio sem etapa não tem funil: a referência volta a ser o padrão.
+  const etapa = await etapaPorNome(ctx, nomeEtapa, funilAtual ?? await funilPadrao(ctx.admin, ctx.orgId), funilAtual !== null);
   if (etapa) mudancas.stage_id = etapa;
   // Dono pelo e-mail do usuário do CRM (o trigger de notificação avisa quem recebeu).
   const donoEmail = texto(primeiro(n, "owner_email", "owner", "responsavel_email", "responsavel"));

@@ -13,12 +13,17 @@ import { DealFormDialog } from "@/components/deals/DealFormDialog";
 import { DealPreviewDrawer } from "@/components/deals/DealPreviewDrawer";
 import { useDeals, useStages, type Deal } from "@/hooks/useDeals";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
+import { useFunilAtivo } from "@/hooks/usePipelines";
+import { negociosDoFunil } from "@/lib/funis";
 
 const ALL = "__all__";
 
 export default function DealsPage() {
-  const { data: deals, isLoading, error } = useDeals();
-  const { data: stages } = useStages();
+  const { data: todos, isLoading, error } = useDeals();
+  const { funis, funilId, padraoId, escolher } = useFunilAtivo();
+  const { data: stages } = useStages(funilId);
+  // Kanban e lista mostram um funil por vez.
+  const deals = useMemo(() => negociosDoFunil(todos ?? [], funilId, padraoId), [todos, funilId, padraoId]);
   const { data: members } = useOrgMembers();
 
   const [selected, setSelected] = useState<Deal | null>(null);
@@ -32,7 +37,7 @@ export default function DealsPage() {
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
 
   const filtered = useMemo(() => {
-    return (deals ?? []).filter((deal) => {
+    return deals.filter((deal) => {
       if (stageFilter !== ALL && deal.stage_id !== stageFilter) return false;
       if (ownerFilter !== ALL && deal.owner_id !== ownerFilter) return false;
       if (statusFilter !== ALL && deal.status !== statusFilter) return false;
@@ -68,10 +73,25 @@ export default function DealsPage() {
               Negócios
             </h1>
           </div>
-          <Button onClick={() => openCreate()} className="gap-1.5" data-testid="deal-new">
-            <Plus className="h-4 w-4" strokeWidth={1.5} />
-            Novo negócio
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {funis.length > 1 && (
+              <Select
+                value={funilId ?? ""}
+                onValueChange={(id) => { escolher(id); setStageFilter(ALL); }}
+              >
+                <SelectTrigger className="w-56" aria-label="Funil" data-testid="deals-funil">
+                  <SelectValue placeholder="Funil" />
+                </SelectTrigger>
+                <SelectContent>
+                  {funis.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            <Button onClick={() => openCreate()} className="gap-1.5" data-testid="deal-new">
+              <Plus className="h-4 w-4" strokeWidth={1.5} />
+              Novo negócio
+            </Button>
+          </div>
         </div>
 
         {error && (
@@ -94,7 +114,8 @@ export default function DealsPage() {
 
           <TabsContent value="kanban" className="pt-4">
             <DealsKanban
-              deals={deals ?? []}
+              pipelineId={funilId}
+              deals={deals}
               isLoading={isLoading}
               onSelect={setSelected}
               onCreate={openCreate}
@@ -160,6 +181,7 @@ export default function DealsPage() {
         onOpenChange={setFormOpen}
         deal={editing}
         defaultStageId={createStageId}
+        defaultPipelineId={funilId}
       />
     </AppShell>
   );

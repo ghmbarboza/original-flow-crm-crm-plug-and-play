@@ -14,6 +14,8 @@ import { useContacts } from "@/hooks/useContacts";
 import { useOrganization } from "@/hooks/useSetup";
 import { escondeEmpresa, exigeEmpresa } from "@/lib/produtos";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
+import { usePipelines } from "@/hooks/usePipelines";
+import { etapaDoFormulario } from "@/lib/funis";
 import {
   useCreateDeal, useStages, useUpdateDeal, type Deal,
 } from "@/hooks/useDeals";
@@ -27,6 +29,8 @@ interface Props {
   deal?: Deal | null;
   /** Etapa inicial ao criar (ex.: botão "+" no topo de uma coluna do Kanban). */
   defaultStageId?: string | null;
+  /** Funil inicial ao criar (o que está aberto no Kanban); sem ele, o padrão. */
+  defaultPipelineId?: string | null;
   /** Contato já vinculado (criar negócio a partir da ficha ou da conversa). */
   defaultContactId?: string | null;
   /** Título sugerido, para quem chega pelo contato não escrever do zero. */
@@ -34,10 +38,15 @@ interface Props {
 }
 
 export function DealFormDialog({
-  open, onOpenChange, deal, defaultStageId, defaultContactId, defaultTitle,
+  open, onOpenChange, deal, defaultStageId, defaultPipelineId, defaultContactId, defaultTitle,
 }: Props) {
   const isEdit = !!deal;
-  const { data: stages } = useStages();
+  const { data: funis } = usePipelines();
+  // Funil das etapas oferecidas: ao editar, o do próprio negócio. null = padrão.
+  const [funilId, setFunilId] = useState<string | null>(null);
+  // Trocou de funil no formulário: a etapa antiga não vale mais e cai na primeira do novo.
+  const [funilTrocado, setFunilTrocado] = useState(false);
+  const { data: stages, isLoading: carregandoEtapas } = useStages(funilId);
   const { data: companies } = useCompanies();
   const { data: contacts } = useContacts();
   const { data: members } = useOrgMembers();
@@ -58,6 +67,8 @@ export function DealFormDialog({
 
   useEffect(() => {
     if (!open) return;
+    setFunilId(deal ? deal.stage?.pipeline_id ?? null : defaultPipelineId ?? null);
+    setFunilTrocado(false);
     setForm({
       title: deal?.title ?? defaultTitle ?? "",
       value: deal ? String(deal.value ?? "") : "",
@@ -67,15 +78,21 @@ export function DealFormDialog({
       owner_id: deal?.owner_id ?? NONE,
       close_date: deal?.close_date ?? "",
     });
-  }, [open, deal, defaultStageId, defaultContactId, defaultTitle]);
+  }, [open, deal, defaultStageId, defaultPipelineId, defaultContactId, defaultTitle]);
 
-  // Ao criar sem etapa escolhida, cai na primeira do pipeline.
-  useEffect(() => {
-    if (!open || isEdit) return;
-    if (form.stage_id === NONE && stages && stages.length > 0) {
-      setForm((f) => ({ ...f, stage_id: stages[0].id }));
-    }
-  }, [open, isEdit, stages, form.stage_id]);
+  // Etapa que será gravada, sempre do funil mostrado: ao criar sem etapa ou ao
+  // trocar de funil, cai na primeira etapa dele. Calculada no desenho, e não
+  // por efeito: um efeito rodava com as etapas do funil anterior e gravava o
+  // negócio em um funil diferente do que a tela mostrava.
+  const precisaDeEtapa = !isEdit || funilTrocado;
+  const etapaId = etapaDoFormulario(form.stage_id === NONE ? null : form.stage_id, stages ?? [], !precisaDeEtapa);
+
+  const trocarFunil = (id: string) => {
+    setFunilId(id);
+    setFunilTrocado(true);
+    setForm((f) => ({ ...f, stage_id: NONE }));
+  };
+  const funilNoSeletor = funilId ?? funis?.find((f) => f.is_default)?.id ?? funis?.[0]?.id ?? "";
 
   const isSaving = createDeal.isPending || updateDeal.isPending;
 
@@ -91,7 +108,11 @@ export function DealFormDialog({
       toast.error("Neste modelo de negócio (B2B) todo negócio precisa de uma empresa.");
       return;
     }
-    const stageId = form.stage_id === NONE ? null : form.stage_id;
+    if (precisaDeEtapa && !etapaId) {
+      toast.error("Este funil ainda não tem etapas. Crie uma etapa em Configurações > Automações > Funil.");
+      return;
+    }
+    const stageId = etapaId;
     // A probabilidade acompanha a etapa escolhida.
     const stage = stages?.find((s) => s.id === stageId);
 
@@ -168,10 +189,23 @@ export function DealFormDialog({
                 onChange={(e) => setForm({ ...form, close_date: e.target.value })}
               />
             </div>
+            {(funis?.length ?? 0) > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="funil">Funil</Label>
+                <Select value={funilNoSeletor} onValueChange={trocarFunil}>
+                  <SelectTrigger id="funil" data-testid="deal-funil">
+                    <SelectValue placeholder="Funil" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(funis ?? []).map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="stage">Etapa</Label>
               <Select
-                value={form.stage_id}
+                value={etapaId ?? NONE}
                 onValueChange={(value) => setForm({ ...form, stage_id: value })}
               >
                 <SelectTrigger id="stage">
@@ -251,7 +285,7 @@ export function DealFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving} data-testid="deal-submit">
+            <Button type="submit" disabled={isSaving || (precisaDeEtapa && carregandoEtapas)} data-testid="deal-submit">
               {isSaving ? "Salvando…" : isEdit ? "Salvar" : "Criar negócio"}
             </Button>
           </DialogFooter>

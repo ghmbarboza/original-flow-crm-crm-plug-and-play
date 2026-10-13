@@ -27,7 +27,8 @@ export const EMPTY_QUALIFICATION: Qualification = {
 
 /** Deal no recorte do Kanban e da lista: já traz etapa, contato e empresa embutidos. */
 export interface Deal extends DealRow {
-  stage: { id: string; name: string; color: string; order: number } | null;
+  /** A etapa diz em que funil o negócio está (`pipeline_id`); sem etapa, não está em funil nenhum. */
+  stage: { id: string; name: string; color: string; order: number; pipeline_id: string } | null;
   contact: {
     id: string;
     first_name: string;
@@ -43,7 +44,7 @@ export interface Deal extends DealRow {
 // obrigatórios por etapa (Parte 5) rodar sem uma segunda query.
 const SELECT = `
   *,
-  stage:pipeline_stages(id, name, color, order),
+  stage:pipeline_stages(id, name, color, order, pipeline_id),
   contact:contacts(id, first_name, last_name, email, phone, whatsapp_phone),
   company:companies(id, name)
 ` as const;
@@ -85,22 +86,31 @@ export function useUpdateStageConfig() {
   });
 }
 
-export function useStages() {
+/**
+ * Etapas de um funil, em ordem. Sem `funilId`, as do funil padrão (é o que as
+ * telas de configuração de entrada automática usam). A chave de cache começa
+ * por ["pipeline-stages", orgId], então invalidar esse prefixo recarrega todos
+ * os funis.
+ */
+export function useStages(funilId?: string | null) {
   const orgId = useOrgId();
   return useQuery({
-    queryKey: ["pipeline-stages", orgId],
+    queryKey: ["pipeline-stages", orgId, funilId ?? "padrao"],
     enabled: !!orgId,
     queryFn: async (): Promise<PipelineStage[]> => {
-      // Pega o pipeline default; se não houver flag, o primeiro criado.
-      const { data: pipelines, error: pErr } = await supabase
-        .from("pipelines")
-        .select("id, is_default, created_at")
-        .eq("org_id", orgId!)
-        .order("is_default", { ascending: false })
-        .order("created_at", { ascending: true })
-        .limit(1);
-      if (pErr) throw pErr;
-      const pipelineId = pipelines?.[0]?.id;
+      let pipelineId = funilId ?? null;
+      if (!pipelineId) {
+        // Pega o pipeline default; se não houver flag, o primeiro criado.
+        const { data: pipelines, error: pErr } = await supabase
+          .from("pipelines")
+          .select("id, is_default, created_at")
+          .eq("org_id", orgId!)
+          .order("is_default", { ascending: false })
+          .order("created_at", { ascending: true })
+          .limit(1);
+        if (pErr) throw pErr;
+        pipelineId = pipelines?.[0]?.id ?? null;
+      }
       if (!pipelineId) return [];
 
       const { data, error } = await supabase

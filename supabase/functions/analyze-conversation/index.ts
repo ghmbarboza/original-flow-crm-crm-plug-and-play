@@ -11,7 +11,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { chamadaInterna, naoAutorizado } from "../_shared/seguranca.ts";
 import { chamarIA, extrairJson } from "../_shared/ai.ts";
 import { fundirAnalise, lerMemoria, type AnaliseDaIA } from "../_shared/leadState.ts";
-import { moverNegocio } from "../_shared/negocio.ts";
+import { carregarFunil, moverNegocio } from "../_shared/negocio.ts";
 
 const MAX_MENSAGENS = 40;
 const MAX_CHARS_MENSAGEM = 600;
@@ -115,7 +115,12 @@ Deno.serve(async (req) => {
       dealId = d?.id ?? null;
       stageId = d?.stage_id ?? null;
     }
-    const { data: etapas } = await admin.from("pipeline_stages").select("id, name, ai_trigger_criteria, pipeline_id, \"order\"").eq("org_id", conv.org_id).order("order");
+    // Só as etapas do funil em que o negócio está (sem negócio, o padrão): com
+    // dois funis, o modelo não pode escolher etapa de outro.
+    const doFunil = (await carregarFunil(admin, conv.org_id, stageId)).map((e) => e.id);
+    const { data: etapas } = doFunil.length > 0
+      ? await admin.from("pipeline_stages").select("id, name, ai_trigger_criteria, pipeline_id, \"order\"").in("id", doFunil).order("order")
+      : { data: [] };
     // Mesma allowlist que a ferramenta mover_etapa da ai-reply: a análise não pode levar o negócio a etapas que o admin vetou.
     const funil = ((config?.funnel_actions ?? {}) as { mode?: string; enabled?: boolean; allowed_stage_ids?: string[] });
     const permitidas = new Set(Array.isArray(funil.allowed_stage_ids) ? funil.allowed_stage_ids : []);

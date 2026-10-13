@@ -451,7 +451,7 @@ export function useApplyPipeline() {
       return { substituiu: !temDeals, etapas: stages.length };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stages"] });
+      queryClient.invalidateQueries({ queryKey: ["pipeline-stages"] });
       queryClient.invalidateQueries({ queryKey: ["deals"] });
     },
   });

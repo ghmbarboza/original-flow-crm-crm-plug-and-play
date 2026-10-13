@@ -11,6 +11,8 @@ import { formatCurrency } from "@/lib/format";
 import { missingRequiredFields, parseRequiredFields } from "@/lib/required-fields";
 
 interface Props {
+  /** Funil desenhado: uma coluna por etapa dele. */
+  pipelineId: string | null;
   deals: Deal[];
   isLoading: boolean;
   onSelect: (deal: Deal) => void;
@@ -22,8 +24,8 @@ function stageTotal(deals: Deal[]) {
   return deals.reduce((sum, d) => sum + Number(d.value ?? 0), 0);
 }
 
-export function DealsKanban({ deals, isLoading, onSelect, onCreate }: Props) {
-  const { data: stages, isLoading: loadingStages } = useStages();
+export function DealsKanban({ pipelineId, deals, isLoading, onSelect, onCreate }: Props) {
+  const { data: stages, isLoading: loadingStages } = useStages(pipelineId);
   const moveStage = useMoveDealStage();
 
   const [dragging, setDragging] = useState<Deal | null>(null);

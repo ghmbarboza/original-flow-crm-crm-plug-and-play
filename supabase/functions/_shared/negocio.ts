@@ -39,15 +39,11 @@ export async function garantirNegocioAberto(
     .maybeSingle();
   if (aberto?.id) return aberto.id;
 
-  // Primeira etapa do funil = menor `order`. O funil pode ter sido renomeado ou
-  // reordenado pelo cliente, então nada de nome fixo.
-  const { data: etapa } = await admin
-    .from("pipeline_stages")
-    .select("id, pipeline_id")
-    .eq("org_id", orgId)
-    .order("order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  // Primeira etapa do funil PADRÃO = menor `order` dele. O funil pode ter sido
+  // renomeado ou reordenado pelo cliente, então nada de nome fixo. Sem o filtro
+  // de funil, uma organização com dois funis teria duas etapas na posição 0 e o
+  // negócio nasceria em qualquer um.
+  const [etapa] = await carregarFunil(admin, orgId, null);
   if (!etapa?.id) return null;
 
   const { data: criado, error } = await admin
@@ -85,12 +81,16 @@ export async function moverNegocio(
   stageId: string,
   origem: OrigemMovimento,
   motivo: string | null,
+  opcoes: { trocarFunil?: boolean } = {},
 ): Promise<boolean> {
+  // Sem `trocarFunil`, a RPC recusa etapa de outro funil: IA, automação e
+  // integração movem o negócio dentro do funil em que ele está.
   const { data, error } = await admin.rpc("mover_negocio", {
     p_deal: dealId,
     p_stage: stageId,
     p_origem: origem,
     p_motivo: motivo,
+    p_trocar_funil: opcoes.trocarFunil === true,
   });
   if (error) {
     console.error(`[negocio] mover_negocio falhou (${dealId} -> ${stageId}): ${error.message}`);
@@ -104,6 +104,59 @@ export interface EtapaDoFunil {
   name: string;
   order: number;
   pipeline_id: string;
+}
+
+/** Funil padrão da organização (o marcado como padrão; sem marca, o mais antigo). */
+export async function funilPadrao(admin: SupabaseClient, orgId: string): Promise<string | null> {
+  const { data } = await admin
+    .from("pipelines").select("id").eq("org_id", orgId)
+    .order("is_default", { ascending: false }).order("created_at", { ascending: true })
+    .limit(1).maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
+/** Funil em que o negócio está hoje (pela etapa dele); null se está sem etapa. */
+export async function funilDoNegocio(admin: SupabaseClient, dealId: string): Promise<string | null> {
+  const { data } = await admin
+    .from("deals").select("stage:pipeline_stages(pipeline_id)").eq("id", dealId).maybeSingle();
+  const etapa = data?.stage as { pipeline_id?: string } | { pipeline_id?: string }[] | null | undefined;
+  const linha = Array.isArray(etapa) ? etapa[0] : etapa;
+  return linha?.pipeline_id ?? null;
+}
+
+/** Todas as etapas da organização, de todos os funis, em ordem. */
+export async function etapasDaOrganizacao(admin: SupabaseClient, orgId: string): Promise<EtapaDoFunil[]> {
+  const { data } = await admin
+    .from("pipeline_stages").select("id, name, order, pipeline_id")
+    .eq("org_id", orgId).order("order", { ascending: true });
+  return (data ?? []) as EtapaDoFunil[];
+}
+
+/** Etapa de menor ordem do funil pedido. */
+export function primeiraEtapaDoFunil<T extends EtapaDoFunil>(etapas: readonly T[], pipelineId: string): T | null {
+  const doFunil = etapas.filter((e) => e.pipeline_id === pipelineId);
+  return doFunil.reduce<T | null>((menor, e) => (!menor || e.order < menor.order ? e : menor), null);
+}
+
+const mesmoNome = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Acha a etapa pelo nome sem misturar funis.
+ *
+ * Nomes como "Proposta" se repetem entre funis, então o nome sozinho não
+ * identifica a etapa. Vale primeiro a do funil preferido. Fora dele só vale se
+ * o nome existir em um único funil; repetido, devolve "ambigua" em vez de
+ * escolher. Com `soNoFunil`, nunca sai do funil preferido (é o caso de mover um
+ * negócio que já existe: o nome da etapa não pode trocá-lo de funil).
+ */
+export function resolverEtapaPorNome<T extends EtapaDoFunil>(
+  etapas: readonly T[], nome: string, pipelinePreferido: string | null, opcoes: { soNoFunil?: boolean } = {},
+): { etapa: T } | { erro: "inexistente" | "ambigua" } {
+  const comNome = etapas.filter((e) => mesmoNome(e.name, nome));
+  const noFunil = comNome.find((e) => e.pipeline_id === pipelinePreferido);
+  if (noFunil) return { etapa: noFunil };
+  if (opcoes.soNoFunil || comNome.length === 0) return { erro: "inexistente" };
+  return comNome.length === 1 ? { etapa: comNome[0] } : { erro: "ambigua" };
 }
 
 /**
@@ -120,13 +173,7 @@ export async function carregarFunil(
     const { data } = await admin.from("pipeline_stages").select("pipeline_id").eq("id", dealStageId).maybeSingle();
     pipelineId = (data?.pipeline_id as string | undefined) ?? null;
   }
-  if (!pipelineId) {
-    const { data } = await admin
-      .from("pipelines").select("id").eq("org_id", orgId)
-      .order("is_default", { ascending: false }).order("created_at", { ascending: true })
-      .limit(1).maybeSingle();
-    pipelineId = (data?.id as string | undefined) ?? null;
-  }
+  pipelineId ??= await funilPadrao(admin, orgId);
   if (!pipelineId) return [];
   const { data } = await admin
     .from("pipeline_stages").select("id, name, order, pipeline_id")

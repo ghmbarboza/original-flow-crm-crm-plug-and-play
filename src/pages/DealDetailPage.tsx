@@ -25,6 +25,7 @@ import { RequiredFieldsDialog } from "@/components/deals/RequiredFieldsDialog";
 import {
   contactName, useDeal, useLossReasons, useMoveDealStage, useStages, useUpdateDeal,
 } from "@/hooks/useDeals";
+import { usePipelines } from "@/hooks/usePipelines";
 import { useOrgMemberNames } from "@/hooks/useOrgMembers";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { missingRequiredFields, parseRequiredFields } from "@/lib/required-fields";
@@ -49,7 +50,11 @@ export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: deal, isLoading, error } = useDeal(id ?? null);
-  const { data: stages } = useStages();
+  // Etapas do funil em que o negócio está: oferecer as do funil padrão trocaria
+  // o negócio de funil sem a pessoa perceber.
+  const { data: stages } = useStages(deal?.stage?.pipeline_id);
+  const { data: funis } = usePipelines();
+  const funilDoNegocio = funis && funis.length > 1 ? funis.find((f) => f.id === deal?.stage?.pipeline_id) : undefined;
   const { data: lossReasons } = useLossReasons();
   const ownerNames = useOrgMemberNames();
   const moveStage = useMoveDealStage();
@@ -210,6 +215,11 @@ export default function DealDetailPage() {
                 <span className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
                   Etapa
                 </span>
+                {funilDoNegocio && (
+                  <span className="text-sm" style={{ color: "var(--via-text-muted)" }} data-testid="deal-funil-nome">
+                    Funil {funilDoNegocio.name}
+                  </span>
+                )}
                 <Select
                   value={deal.stage_id ?? ""}
                   onValueChange={handleStageChange}

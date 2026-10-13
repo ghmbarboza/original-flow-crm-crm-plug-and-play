@@ -3,6 +3,7 @@
 // import-run (CSV pela tela) e pelo crm-connect (sincronização com outros CRMs).
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { funilPadrao } from "./negocio.ts";
 
 const STATUS_CONTATO = new Set(["lead", "prospect", "customer", "churned"]);
 const STATUS_NEGOCIO = new Set(["open", "won", "lost"]);
@@ -22,6 +23,8 @@ export interface Ctx {
   cacheUsuarios: Map<string, string | null>;
   cacheEmpresas: Map<string, string>;
   cacheEtapas: { id: string; name: string; pipeline_id: string; win_probability: number }[] | null;
+  /** Funil padrão da organização; undefined enquanto não foi consultado. */
+  cacheFunilPadrao?: string | null;
   /** Buscas-ou-criações em andamento: linhas paralelas com a mesma empresa ou tag esperam a mesma promessa. */
   emAndamento: Map<string, Promise<unknown>>;
 }
@@ -157,16 +160,26 @@ async function etapaDaLinha(ctx: Ctx, nomeOrigem: string | null, pipelineNome: s
     const m = lista.find((e) => e.id === ctx.mapaEtapas[nomeOrigem]);
     if (m) return m;
   }
+  // Funil da linha (coluna "pipeline" da planilha ou do CRM de origem); sem ele,
+  // o funil padrão. O nome da etapa é procurado primeiro dentro desse funil:
+  // "Proposta" existe em mais de um.
+  let funil: string | null = null;
+  if (pipelineNome) {
+    const { data: p } = await ctx.admin.from("pipelines").select("id").eq("org_id", ctx.orgId).ilike("name", pipelineNome).limit(1).maybeSingle();
+    funil = (p?.id as string | undefined) ?? null;
+  }
+  // A linha disse o funil: a etapa sai dele, mesmo que o nome exista em outro.
+  const funilDaLinha = funil !== null;
+  if (ctx.cacheFunilPadrao === undefined) ctx.cacheFunilPadrao = await funilPadrao(ctx.admin, ctx.orgId);
+  funil ??= ctx.cacheFunilPadrao;
+  const doFunil = lista.filter((e) => e.pipeline_id === funil);
   if (nomeOrigem) {
     const n = normalizar(nomeOrigem);
-    const igual = lista.find((e) => normalizar(e.name) === n);
+    const igual = doFunil.find((e) => normalizar(e.name) === n)
+      ?? (funilDaLinha ? undefined : lista.find((e) => normalizar(e.name) === n));
     if (igual) return igual;
   }
-  if (pipelineNome) {
-    const { data: p } = await ctx.admin.from("pipelines").select("id").eq("org_id", ctx.orgId).ilike("name", pipelineNome).maybeSingle();
-    if (p) return lista.find((e) => e.pipeline_id === p.id) ?? lista[0] ?? null;
-  }
-  return lista[0] ?? null;
+  return doFunil[0] ?? lista[0] ?? null;
 }
 
 // ---------------------------------------------------------------------------
