@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { supabaseCtx, seedWhatsAppInbox } from "./utils/supabase";
+import { removeSeededConversation, supabaseCtx, seedWhatsAppInbox } from "./utils/supabase";
 
 test("inbox WhatsApp: abrir conversa, assumir e devolver para IA", async ({ page }) => {
   // O inbox só existe com provedor configurado; semeamos config + instância +
@@ -7,6 +7,7 @@ test("inbox WhatsApp: abrir conversa, assumir e devolver para IA", async ({ page
   const ctx = await supabaseCtx(page);
   const { phone } = await seedWhatsAppInbox(page, ctx);
 
+  try {
   await page.goto("/whatsapp");
   await expect(page.getByRole("heading", { name: "Atendimento", level: 1 })).toBeVisible();
 
@@ -25,4 +26,7 @@ test("inbox WhatsApp: abrir conversa, assumir e devolver para IA", async ({ page
   await page.getByRole("button", { name: "Devolver para IA" }).click();
   await expect(page.getByText("Conversa devolvida para a IA.")).toBeVisible();
   await expect(page.getByText("IA ativa").first()).toBeVisible();
+  } finally {
+    await removeSeededConversation(page, ctx, phone);
+  }
 });

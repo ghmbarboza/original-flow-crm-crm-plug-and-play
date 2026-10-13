@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  ArrowRightLeft, Bot, CalendarClock, CheckCheck, Flag, Link2, MessageCircle, Send, StickyNote, UserCheck, X,
+  ArrowRightLeft, Bot, CalendarClock, CheckCheck, Flag, LayoutTemplate, Link2, MessageCircle, Send, StickyNote,
+  UserCheck, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +12,7 @@ import { ChannelBadge } from "@/components/whatsapp/ChannelBadge";
 import { LinkContactDialog } from "@/components/whatsapp/LinkContactDialog";
 import { ReportAIResponseDialog } from "@/components/whatsapp/ReportAIResponseDialog";
 import { TransferDialog } from "@/components/whatsapp/TransferDialog";
+import { SendTemplateDialog } from "@/components/whatsapp/SendTemplateDialog";
 import { QuickReplyPicker, type QuickReplyPickerHandle } from "@/components/whatsapp/QuickReplyPicker";
 import { AudioMessage } from "@/components/whatsapp/AudioMessage";
 import { MediaMessage } from "@/components/whatsapp/MediaMessage";
@@ -23,6 +25,7 @@ import {
 import type { WhatsAppProvider } from "@/hooks/useWhatsAppConfig";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDateTime } from "@/lib/format";
+import { conversaUsaTemplate, janelaFechada } from "@/lib/templateWhatsapp";
 import {
   useCancelScheduledMessage, useScheduledMessages,
 } from "@/hooks/useScheduledMessages";
@@ -221,6 +224,7 @@ export function MessagePanel({ conversation, provider }: Props) {
   const [transferOpen, setTransferOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [agendarOpen, setAgendarOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
   const [reportando, setReportando] = useState<string | null>(null);
 
   // Reportar é ação de quem cuida da qualidade do atendimento, não do agente
@@ -286,6 +290,15 @@ export function MessagePanel({ conversation, provider }: Props) {
   };
 
   const name = conversationName(conversation);
+
+  // WhatsApp oficial: passadas 24h da última mensagem do cliente, texto livre
+  // não é entregue. O campo de texto dá lugar ao envio de template (a nota
+  // interna continua, porque não sai para o cliente). Demonstração fica de
+  // fora: lá o envio é simulado e não há janela para respeitar.
+  const usaTemplate = conversaUsaTemplate(conversation) && !conversation.is_demo;
+  // Sem as mensagens carregadas (ainda buscando ou a leitura falhou) não dá
+  // para afirmar que a janela fechou: o campo de texto fica.
+  const soTemplate = usaTemplate && !!messages && !isNote && janelaFechada(messages);
   const tags = Array.isArray(conversation.tags) ? (conversation.tags as string[]) : [];
 
   return (
@@ -472,12 +485,41 @@ export function MessagePanel({ conversation, provider }: Props) {
                 Agendar
               </Button>
             )}
+            {usaTemplate && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setTemplateOpen(true)}
+                data-testid="inbox-template"
+              >
+                <LayoutTemplate className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Template
+              </Button>
+            )}
             {isNote && (
               <span className="text-xs" style={{ color: "var(--via-text-muted)" }}>
                 Visível só para a equipe — não vai ao cliente.
               </span>
             )}
           </div>
+          {soTemplate ? (
+            <div
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg px-3 py-2"
+              style={{ background: "var(--via-surface)" }}
+              data-testid="inbox-janela-fechada"
+            >
+              <p className="min-w-0 flex-1 text-sm" style={{ color: "var(--via-text-body)" }}>
+                Passaram 24h desde a última mensagem de {name}. Até a pessoa responder, o WhatsApp
+                só entrega template aprovado.
+              </p>
+              <Button className="gap-1.5" onClick={() => setTemplateOpen(true)} data-testid="inbox-enviar-template">
+                <Send className="h-4 w-4" strokeWidth={1.5} />
+                Enviar template
+              </Button>
+            </div>
+          ) : (
           <div className="relative flex items-end gap-2">
             {pickerAberto && (
               <QuickReplyPicker
@@ -523,6 +565,7 @@ export function MessagePanel({ conversation, provider }: Props) {
               {isNote ? "Anotar" : "Enviar"}
             </Button>
           </div>
+          )}
         </div>
       )}
 
@@ -534,6 +577,9 @@ export function MessagePanel({ conversation, provider }: Props) {
         conversation={linkOpen ? conversation : null}
         onOpenChange={setLinkOpen}
       />
+      {templateOpen && (
+        <SendTemplateDialog conversation={conversation} onOpenChange={setTemplateOpen} />
+      )}
       {conversation.contact && (
         <ScheduleMessageDialog
           open={agendarOpen}

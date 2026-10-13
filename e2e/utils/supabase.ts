@@ -26,14 +26,17 @@ export async function supabaseCtx(page: Page): Promise<SupabaseCtx> {
   const authorization = headers["authorization"] ?? `Bearer ${apikey}`;
   const base = new URL(req.url()).origin;
 
-  // org_id a partir de um contato existente do org (RLS já filtra pelo org).
+  // org_id a partir do perfil de quem está logado: funciona com a base vazia
+  // (antes vinha de um contato existente, e base sem contato travava a suíte).
+  const [, payload] = authorization.replace("Bearer ", "").split(".");
+  const userId = (JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { sub?: string }).sub;
   const resp = await page.request.get(
-    `${base}/rest/v1/contacts?select=org_id&limit=1`,
+    `${base}/rest/v1/profiles?select=org_id&id=eq.${userId}&limit=1`,
     { headers: { apikey, Authorization: authorization } },
   );
   const rows = (await resp.json()) as Array<{ org_id: string }>;
   const orgId = rows[0]?.org_id;
-  if (!orgId) throw new Error("Não foi possível resolver o org_id (crie um contato primeiro).");
+  if (!orgId) throw new Error("Não foi possível resolver o org_id pelo perfil da conta logada.");
 
   return { base, apikey, authorization, orgId };
 }
@@ -97,4 +100,13 @@ export async function seedWhatsAppInbox(page: Page, ctx: SupabaseCtx): Promise<{
   });
 
   return { phone };
+}
+
+/** Apaga a conversa semeada (o teardown global só alcança o que leva "E2E" no nome). */
+export async function removeSeededConversation(page: Page, ctx: SupabaseCtx, phone: string): Promise<void> {
+  const resp = await page.request.delete(
+    `${ctx.base}/rest/v1/conversations?org_id=eq.${ctx.orgId}&phone_number=eq.${phone}`,
+    { headers: { apikey: ctx.apikey, Authorization: ctx.authorization } },
+  );
+  if (!resp.ok()) throw new Error(`Limpeza da conversa de teste falhou: ${resp.status()} ${await resp.text()}`);
 }

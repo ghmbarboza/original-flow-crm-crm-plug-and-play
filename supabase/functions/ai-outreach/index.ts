@@ -20,9 +20,8 @@ import { dentroDoHorario, proximaAbertura } from "../_shared/horario.ts";
 import { obterOuCriarConversa } from "../_shared/conversa.ts";
 import { garantirNegocioAberto, registrarNotaIA } from "../_shared/negocio.ts";
 import { perfilDaOrigem } from "../_shared/perfilOrigem.ts";
+import { enviarTemplate, type EnvioDeTemplate } from "../_shared/templateWhatsapp.ts";
 
-const ZERNIO_API = "https://zernio.com/api/v1";
-const GRAPH_VERSION = "v21.0";
 const MAX_TOKENS_ABERTURA = 400;
 const PREVIEW_MAX = 120;
 
@@ -79,25 +78,7 @@ async function resolverCanal(admin: SupabaseClient, orgId: string): Promise<Cana
   return null;
 }
 
-async function zernioAccountId(apiKey: string, profileId: string): Promise<string | null> {
-  const url = new URL(`${ZERNIO_API}/accounts`);
-  url.searchParams.set("profileId", profileId);
-  url.searchParams.set("platform", "whatsapp");
-  url.searchParams.set("status", "connected");
-  const resp = await fetch(url.toString(), { headers: { Authorization: `Bearer ${apiKey}` } });
-  if (!resp.ok) return null;
-  const data = await resp.json().catch(() => ({}));
-  const accounts = (data.accounts ?? []) as { _id?: string; isActive?: boolean }[];
-  const account = accounts.find((a) => a.isActive) ?? accounts[0];
-  return account?._id ?? null;
-}
-
-interface Envio {
-  ok: boolean;
-  providerMessageId: string | null;
-  providerConversationId: string | null;
-  motivo?: string;
-}
+type Envio = EnvioDeTemplate;
 
 async function enviarTexto(canal: Canal, telefone: string, texto: string): Promise<Envio> {
   if (canal.provider !== "evolution" || !canal.evolution) {
@@ -113,70 +94,6 @@ async function enviarTexto(canal: Canal, telefone: string, texto: string): Promi
   }
   const result = await resp.json().catch(() => ({}));
   return { ok: true, providerMessageId: result?.key?.id ?? null, providerConversationId: null };
-}
-
-async function enviarTemplate(
-  canal: Canal,
-  telefone: string,
-  outreach: OutreachConfig,
-  params: string[],
-): Promise<Envio> {
-  const nome = outreach.template_name!;
-  const idioma = outreach.template_language || "pt_BR";
-
-  if (canal.provider === "meta_official" && canal.meta) {
-    const resp = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${canal.meta.phone_number_id}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${canal.meta.access_token}` },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: telefone,
-        type: "template",
-        template: {
-          name: nome,
-          language: { code: idioma },
-          ...(params.length > 0
-            ? { components: [{ type: "body", parameters: params.map((v) => ({ type: "text", text: v })) }] }
-            : {}),
-        },
-      }),
-    });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      return { ok: false, providerMessageId: null, providerConversationId: null, motivo: err?.error?.error_user_msg ?? err?.error?.message ?? `Meta respondeu ${resp.status}` };
-    }
-    const result = await resp.json().catch(() => ({}));
-    return { ok: true, providerMessageId: result?.messages?.[0]?.id ?? null, providerConversationId: null };
-  }
-
-  if (canal.provider === "zernio" && canal.zernio) {
-    const accountId = await zernioAccountId(canal.zernio.api_key, canal.zernio.profile_id);
-    if (!accountId) return { ok: false, providerMessageId: null, providerConversationId: null, motivo: "nenhuma conta de WhatsApp conectada no Zernio" };
-    const resp = await fetch(`${ZERNIO_API}/inbox/conversations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${canal.zernio.api_key}` },
-      body: JSON.stringify({
-        accountId,
-        participantId: telefone,
-        templateName: nome,
-        templateLanguage: idioma,
-        ...(params.length > 0 ? { templateParams: params } : {}),
-      }),
-    });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      return { ok: false, providerMessageId: null, providerConversationId: null, motivo: typeof err?.error === "string" ? err.error : `Zernio respondeu ${resp.status}` };
-    }
-    const result = await resp.json().catch(() => ({}));
-    const conversa = result?.conversation ?? result;
-    return {
-      ok: true,
-      providerMessageId: result?.message?._id ?? result?.messageId ?? null,
-      providerConversationId: conversa?._id ?? conversa?.id ?? result?.conversationId ?? null,
-    };
-  }
-
-  return { ok: false, providerMessageId: null, providerConversationId: null, motivo: "canal sem envio de template" };
 }
 
 Deno.serve(async (req) => {
@@ -342,7 +259,7 @@ Deno.serve(async (req) => {
 
     // 6. Envio e registro.
     const envio = viaTemplate
-      ? await enviarTemplate(canal, telefone, outreach, params)
+      ? await enviarTemplate(canal, telefone, { nome: outreach.template_name!, idioma: outreach.template_language || "pt_BR" }, params)
       : await enviarTexto(canal, telefone, texto);
 
     const agora = new Date().toISOString();

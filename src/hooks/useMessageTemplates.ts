@@ -81,3 +81,36 @@ export function useCreateMessageTemplate() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["message-templates", orgId] }),
   });
 }
+
+export interface SendTemplateInput {
+  conversationId: string;
+  templateName: string;
+  templateLanguage: string;
+  /** Um valor por variável do corpo, na ordem ({{1}}, {{2}}, ...). */
+  params: string[];
+}
+
+/** Envia um template aprovado dentro de uma conversa (janela de 24h fechada). */
+export function useSendTemplateMessage() {
+  const orgId = useOrgId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: SendTemplateInput) => {
+      const { data, error } = await supabase.functions.invoke("send-template-message", {
+        body: {
+          conversation_id: input.conversationId,
+          template_name: input.templateName,
+          template_language: input.templateLanguage,
+          params: input.params,
+        },
+      });
+      if (error) throw await erroDeFunction(error, "Falha ao enviar o template.");
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({ queryKey: ["messages", input.conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["conversations", orgId] });
+    },
+  });
+}
