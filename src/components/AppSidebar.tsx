@@ -48,9 +48,18 @@ export function AppSidebar() {
 
   const groups = [
     {
-      label: "CRM",
+      // 14/10/2026: Analytics no topo, com o Dashboard (que absorveu Relatórios),
+      // Lead Scoring e Metas; depois CRM e Atendimento.
+      label: "Analytics",
       items: [
         { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+        { title: "Lead Scoring", url: "/lead-scoring", icon: Award },
+        { title: "Metas", url: "/sales-goals", icon: Target },
+      ],
+    },
+    {
+      label: "CRM",
+      items: [
         { title: "Contatos", url: "/contacts", icon: Users },
         { title: "Empresas", url: "/companies", icon: Building2 },
         { title: "Negócios", url: "/deals", icon: TrendingUp },
@@ -69,13 +78,6 @@ export function AppSidebar() {
         { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
         { title: "Email", url: "/inbox", icon: Mail },
         { title: "Voz", url: "/voz", icon: Mic },
-      ],
-    },
-    {
-      label: "Analytics",
-      items: [
-        { title: "Metas", url: "/sales-goals", icon: Target },
-        { title: "Lead Scoring", url: "/lead-scoring", icon: Award },
       ],
     },
   ];
