@@ -2234,6 +2234,7 @@ export type Database = {
           ai_close_factors: Json | null
           ai_close_probability: number | null
           ai_close_probability_updated_at: string | null
+          closed_at: string | null
           close_date: string | null
           company_id: string | null
           contact_id: string | null
@@ -2258,6 +2259,7 @@ export type Database = {
           ai_close_factors?: Json | null
           ai_close_probability?: number | null
           ai_close_probability_updated_at?: string | null
+          closed_at?: string | null
           close_date?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -2282,6 +2284,7 @@ export type Database = {
           ai_close_factors?: Json | null
           ai_close_probability?: number | null
           ai_close_probability_updated_at?: string | null
+          closed_at?: string | null
           close_date?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -4569,6 +4572,11 @@ export type Database = {
           org_id: string
           period_month: number
           period_year: number
+          period_kind: string
+          period_start: string
+          period_end: string
+          filters: Json
+          name: string | null
           target_value: number
           team_id: string | null
           user_id: string | null
@@ -4585,6 +4593,11 @@ export type Database = {
           org_id: string
           period_month: number
           period_year: number
+          period_kind?: string
+          period_start?: string
+          period_end?: string
+          filters?: Json
+          name?: string | null
           target_value?: number
           team_id?: string | null
           user_id?: string | null
@@ -4601,6 +4614,11 @@ export type Database = {
           org_id?: string
           period_month?: number
           period_year?: number
+          period_kind?: string
+          period_start?: string
+          period_end?: string
+          filters?: Json
+          name?: string | null
           target_value?: number
           team_id?: string | null
           user_id?: string | null

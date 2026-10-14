@@ -89,9 +89,17 @@ test.describe("Analytics", () => {
     await page.getByRole("option", { name: "Últimos 7 dias" }).click();
     await expect(page.getByTestId("reports-period")).toContainText("Últimos 7 dias");
 
+    // O filtro só lista canais conectados: sem canal, sobra "Todos os canais".
     await page.getByTestId("reports-channel").click();
-    await page.getByRole("option", { name: "WhatsApp" }).click();
-    await expect(page.getByTestId("reports-channel")).toContainText("WhatsApp");
+    const opcoes = page.getByRole("option");
+    await expect(opcoes.first()).toHaveText("Todos os canais");
+    if ((await opcoes.count()) > 1) {
+      const canal = (await opcoes.nth(1).innerText()).trim();
+      await opcoes.nth(1).click();
+      await expect(page.getByTestId("reports-channel")).toContainText(canal);
+    } else {
+      await page.keyboard.press("Escape");
+    }
 
     // Trocar filtro refaz a consulta; a página segue de pé.
     await expectNoErrorState(page);

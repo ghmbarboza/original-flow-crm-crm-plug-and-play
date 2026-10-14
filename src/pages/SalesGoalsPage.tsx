@@ -1,116 +1,73 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Target, Trash2 } from "lucide-react";
+import { Pencil, Plus, Target, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { MetaFormDialog } from "@/components/metas/MetaFormDialog";
+import { SeletorPeriodo } from "@/components/metas/SeletorPeriodo";
 import {
-  GOAL_SUBTYPES, GOAL_TYPES, useDeleteSalesGoal, useSalesGoals, useSaveSalesGoal,
-  type GoalCriteria, type GoalSubtype, type GoalType, type GoalWithProgress, ASSIGN_INDIVIDUAL, ASSIGN_TEAM } from "@/hooks/useSalesGoals";
-import { useOrgMembers, useOrgMemberNames } from "@/hooks/useOrgMembers";
+  ASSIGN_INDIVIDUAL, ASSIGN_TEAM, useDeleteSalesGoal, useSalesGoals, type MetaComProgresso,
+} from "@/hooks/useSalesGoals";
+import { useOrgMemberNames, useOrgMembers } from "@/hooks/useOrgMembers";
+import { usePipelines } from "@/hooks/usePipelines";
 import { formatCurrency } from "@/lib/format";
+import {
+  TIPOS_ATIVIDADE, definicaoDaMetrica, periodoQueContem, rotuloPeriodo, type Periodo, type TipoPeriodo, type Unidade,
+} from "@/lib/metas";
 
-const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const NOW = new Date();
-const ALL_MEMBER = "__team__";
+const TODOS = "__todos__";
+const hoje = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 
-function formatValue(type: string, value: number, subtype?: string | null) {
-  if (type === "revenue") return formatCurrency(value);
-  if (type === "deal_criteria") {
-    const unit = GOAL_SUBTYPES.find((s) => s.value === subtype)?.unit;
-    if (unit === "%") return `${Math.round(value)}%`;
-    if (unit === "h") return `${value}h`;
-  }
-  return String(Math.round(value));
+function formatarValor(unidade: Unidade, valor: number): string {
+  if (unidade === "moeda") return formatCurrency(valor);
+  if (unidade === "percentual") return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+  if (unidade === "horas") return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}h`;
+  return String(Math.round(valor));
 }
 
-/** Rótulo do card para metas por critério: descreve a regra, não só o tipo. */
-function criteriaLabel(goal: GoalWithProgress): string {
-  const criteria = (goal.criteria ?? {}) as GoalCriteria;
-  switch (goal.goal_subtype) {
-    case "min_deal_value":
-      return `Deals acima de ${formatCurrency(Number(criteria.min_value ?? 0))}`;
-    case "conversion_rate":
-      return "Taxa de conversão mínima";
-    case "avg_response_time":
-      return "TMA máximo (1ª resposta)";
-    default:
-      return "Critério de deal";
-  }
-}
-
+/**
+ * Metas: cada uma com período próprio (semana, mês, trimestre, semestre, ano ou
+ * datas livres), responsável, filtros e alvo. A tela mostra as metas que têm
+ * algum dia dentro do período escolhido no topo.
+ */
 export default function SalesGoalsPage() {
-  const [month, setMonth] = useState(NOW.getMonth() + 1);
-  const [year, setYear] = useState(NOW.getFullYear());
+  const [periodo, setPeriodo] = useState<Periodo>(() => periodoQueContem("mes", hoje()));
+  const [filtroResponsavel, setFiltroResponsavel] = useState(TODOS);
+  const [formulario, setFormulario] = useState<MetaComProgresso | "nova" | null>(null);
+  const [excluindo, setExcluindo] = useState<MetaComProgresso | null>(null);
 
-  const { data: goals, isLoading, error } = useSalesGoals(month, year);
-  const { data: members } = useOrgMembers();
-  const memberNames = useOrgMemberNames();
-  const saveGoal = useSaveSalesGoal();
-  const deleteGoal = useDeleteSalesGoal();
+  const { data: metas, isLoading, error } = useSalesGoals(periodo);
+  const { data: membros } = useOrgMembers();
+  const nomes = useOrgMemberNames();
+  const { data: funis } = usePipelines();
+  const excluir = useDeleteSalesGoal();
 
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    goal_type: "revenue" as GoalType,
-    goal_subtype: "min_deal_value" as GoalSubtype,
-    min_value: "",
-    assignee: ALL_MEMBER,
-    target_value: "",
+  const visiveis = (metas ?? []).filter((m) => {
+    if (filtroResponsavel === TODOS) return true;
+    if (filtroResponsavel === ASSIGN_TEAM) return m.assign_type === ASSIGN_TEAM;
+    return m.assign_type === ASSIGN_INDIVIDUAL && m.user_id === filtroResponsavel;
   });
 
-  const years = [NOW.getFullYear() - 1, NOW.getFullYear(), NOW.getFullYear() + 1];
-
-  const create = async () => {
-    const target = Number(form.target_value);
-    if (!target || target <= 0) {
-      toast.error("Informe uma meta válida.");
-      return;
-    }
-    const isCriteria = form.goal_type === "deal_criteria";
-    if (isCriteria && form.goal_subtype === "min_deal_value" && !(Number(form.min_value) > 0)) {
-      toast.error("Informe o valor mínimo do deal para este critério.");
-      return;
-    }
+  const confirmarExclusao = async () => {
+    if (!excluindo) return;
     try {
-      await saveGoal.mutateAsync({
-        goal_type: form.goal_type,
-        goal_subtype: isCriteria ? form.goal_subtype : null,
-        criteria:
-          isCriteria && form.goal_subtype === "min_deal_value"
-            ? { min_value: Number(form.min_value) }
-            : {},
-        assign_type: form.assignee === ALL_MEMBER ? ASSIGN_TEAM : ASSIGN_INDIVIDUAL,
-        user_id: form.assignee === ALL_MEMBER ? null : form.assignee,
-        team_id: null,
-        target_value: target,
-        period_month: month,
-        period_year: year,
-      });
-      toast.success("Meta criada.");
-      setForm({ goal_type: "revenue", goal_subtype: "min_deal_value", min_value: "", assignee: ALL_MEMBER, target_value: "" });
-      setOpen(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível criar a meta.");
-    }
-  };
-
-  const remove = async (goal: GoalWithProgress) => {
-    try {
-      await deleteGoal.mutateAsync(goal.id);
+      await excluir.mutateAsync(excluindo.id);
       toast.success("Meta excluída.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível excluir.");
+      setExcluindo(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível excluir.");
     }
   };
 
@@ -124,174 +81,141 @@ export default function SalesGoalsPage() {
               Metas
             </h1>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-              <SelectTrigger className="w-28" aria-label="Mês da meta"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-              <SelectTrigger className="w-28" aria-label="Ano da meta"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Button onClick={() => setOpen(true)} className="gap-1.5">
-              <Plus className="h-4 w-4" strokeWidth={1.5} />
-              Nova meta
-            </Button>
-          </div>
+          <Button onClick={() => setFormulario("nova")} className="gap-1.5" data-testid="meta-nova">
+            <Plus className="h-4 w-4" strokeWidth={1.5} />
+            Nova meta
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <SeletorPeriodo valor={periodo} onChange={setPeriodo} tipos={["mes", "trimestre", "semestre", "ano", "personalizado"]} testIdPrefix="metas-periodo" />
+          <Select value={filtroResponsavel} onValueChange={setFiltroResponsavel}>
+            <SelectTrigger className="w-48" aria-label="Filtrar por responsável" data-testid="metas-responsavel"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todos os responsáveis</SelectItem>
+              <SelectItem value={ASSIGN_TEAM}>Só metas do time</SelectItem>
+              {(membros ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
 
         {error && <ErrorState title="Não foi possível carregar as metas" error={error} />}
 
         {isLoading ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-36 w-full" />
+            <Skeleton className="h-36 w-full" />
           </div>
-        ) : (goals ?? []).length === 0 ? (
+        ) : visiveis.length === 0 ? (
           <EmptyState
             icon={Target}
             title="Nenhuma meta neste período"
-            description="Defina metas de receita, negócios, atividades ou contatos por pessoa ou para o time."
-            action={<Button onClick={() => setOpen(true)}>Criar primeira meta</Button>}
+            description="Defina metas de receita, negócios, ticket médio, leads, atividades, taxas de conversão ou tempo de resposta, por pessoa ou para o time."
+            action={<Button onClick={() => setFormulario("nova")}>Criar meta</Button>}
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {(goals ?? []).map((goal) => {
-              const isCriteria = goal.goal_type === "deal_criteria";
-              const lowerIsBetter = isCriteria
-                && GOAL_SUBTYPES.find((s) => s.value === goal.goal_subtype)?.lowerIsBetter === true;
-              const typeLabel = isCriteria
-                ? criteriaLabel(goal)
-                : GOAL_TYPES.find((t) => t.value === goal.goal_type)?.label ?? goal.goal_type;
-              // TMA inverte a leitura: abaixo da meta é bom, acima é estouro.
-              const pct = lowerIsBetter
-                ? goal.computed_current <= goal.target_value
-                  ? 100
-                  : Math.max(0, Math.round((goal.target_value / Math.max(goal.computed_current, 0.1)) * 100))
-                : goal.target_value > 0
-                  ? Math.min(100, (goal.computed_current / goal.target_value) * 100)
-                  : 0;
-              const atingiu = lowerIsBetter ? goal.computed_current <= goal.target_value : pct >= 100;
-              const who = goal.assign_type === ASSIGN_INDIVIDUAL
-                ? (goal.user_id ? memberNames.get(goal.user_id) ?? "Usuário" : "Usuário")
-                : "Time";
-              return (
-                <div key={goal.id} className="via-card group p-4" data-testid="sales-goal-card">
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium" style={{ color: "var(--via-text-primary)" }}>{typeLabel}</p>
-                      <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>{who}</p>
-                    </div>
-                    <Button size="icon" variant="ghost" className="opacity-0 transition-opacity group-hover:opacity-100" onClick={() => remove(goal)} aria-label="Excluir meta">
-                      <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                    </Button>
-                  </div>
-                  <Progress value={pct} className="mb-2" />
-                  <div className="flex items-baseline justify-between text-sm">
-                    <span className="tabular-nums" style={{ color: "var(--via-text-primary)" }}>
-                      {lowerIsBetter ? (
-                        <>Meta: até {formatValue(goal.goal_type, goal.target_value, goal.goal_subtype)} · Atual: {formatValue(goal.goal_type, goal.computed_current, goal.goal_subtype)}</>
-                      ) : (
-                        <>{formatValue(goal.goal_type, goal.computed_current, goal.goal_subtype)} / {formatValue(goal.goal_type, goal.target_value, goal.goal_subtype)}</>
-                      )}
-                    </span>
-                    <span className="font-medium tabular-nums" style={{ color: atingiu ? "var(--via-success)" : "var(--via-text-muted)" }}>
-                      {atingiu ? "✓" : lowerIsBetter ? "⚠ acima" : `${Math.round(pct)}%`}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+            {visiveis.map((meta) => (
+              <CartaoMeta
+                key={meta.id}
+                meta={meta}
+                responsavel={meta.assign_type === ASSIGN_INDIVIDUAL ? nomes.get(meta.user_id ?? "") ?? "Usuário" : "Time inteiro"}
+                nomeDoFunil={(id) => funis?.find((f) => f.id === id)?.name}
+                onEditar={() => setFormulario(meta)}
+                onExcluir={() => setExcluindo(meta)}
+              />
+            ))}
           </div>
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova meta · {MONTHS[month - 1]}/{year}</DialogTitle>
-            <DialogDescription>
-              A meta vale para o mês selecionado acima e pode ser do time inteiro ou de uma
-              pessoa.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {/* Os Select do Radix renderizam um <button>, e <label for> não nomeia botão.
-                A associação correta é o trigger apontar para o texto do rótulo com
-                aria-labelledby — sem isso o leitor de tela anuncia só o valor atual. */}
-            <div className="space-y-2">
-              <Label id="goal-type-label">Tipo</Label>
-              <Select value={form.goal_type} onValueChange={(v) => setForm({ ...form, goal_type: v as GoalType })}>
-                <SelectTrigger aria-labelledby="goal-type-label"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {GOAL_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            {form.goal_type === "deal_criteria" && (
-              <>
-                <div className="space-y-2">
-                  <Label id="goal-subtype-label">Critério</Label>
-                  <Select value={form.goal_subtype} onValueChange={(v) => setForm({ ...form, goal_subtype: v as GoalSubtype })}>
-                    <SelectTrigger aria-labelledby="goal-subtype-label" data-testid="goal-subtype"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {GOAL_SUBTYPES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {form.goal_subtype === "min_deal_value" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="goal-min-value">Valor mínimo do deal (R$)</Label>
-                    <Input
-                      id="goal-min-value"
-                      type="number"
-                      min="0"
-                      placeholder="10000"
-                      value={form.min_value}
-                      onChange={(e) => setForm({ ...form, min_value: e.target.value })}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-            <div className="space-y-2">
-              <Label id="goal-assignee-label">Responsável</Label>
-              <Select value={form.assignee} onValueChange={(v) => setForm({ ...form, assignee: v })}>
-                <SelectTrigger aria-labelledby="goal-assignee-label"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_MEMBER}>Time inteiro</SelectItem>
-                  {(members ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="target">
-                Meta (
-                {form.goal_type === "revenue"
-                  ? "R$"
-                  : form.goal_type === "deal_criteria"
-                    ? GOAL_SUBTYPES.find((s) => s.value === form.goal_subtype)?.unit ?? "quantidade"
-                    : "quantidade"}
-                )
-              </Label>
-              <Input id="target" type="number" min="0" value={form.target_value} onChange={(e) => setForm({ ...form, target_value: e.target.value })} />
-              {form.goal_type === "deal_criteria" && form.goal_subtype === "avg_response_time" && (
-                <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-                  Tempo médio máximo de primeira resposta, em horas. Ficar abaixo é bater a meta.
-                </p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button onClick={create} disabled={saveGoal.isPending}>Criar meta</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {formulario && (
+        <MetaFormDialog
+          meta={formulario === "nova" ? null : formulario}
+          periodoInicial={periodo.tipo === "personalizado" ? periodo : periodoQueContem(periodo.tipo, periodo.inicio)}
+          onClose={() => setFormulario(null)}
+        />
+      )}
+
+      <AlertDialog open={!!excluindo} onOpenChange={(open) => !open && setExcluindo(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir a meta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A meta sai da lista. Os negócios, contatos e atividades usados no cálculo continuam como estão.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void confirmarExclusao(); }} disabled={excluir.isPending} data-testid="meta-excluir-confirmar">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
+  );
+}
+
+interface CartaoProps {
+  meta: MetaComProgresso;
+  responsavel: string;
+  nomeDoFunil: (id: string) => string | undefined;
+  onEditar: () => void;
+  onExcluir: () => void;
+}
+
+function CartaoMeta({ meta, responsavel, nomeDoFunil, onEditar, onExcluir }: CartaoProps) {
+  const definicao = definicaoDaMetrica(meta.goal_type);
+  const unidade = definicao?.unidade ?? "quantidade";
+  const titulo = meta.name?.trim() || definicao?.label || meta.goal_type;
+  const { filtros, progresso: p } = meta;
+  const periodo = rotuloPeriodo({ tipo: meta.period_kind as TipoPeriodo, inicio: meta.period_start, fim: meta.period_end });
+
+  const etiquetas = [
+    meta.name?.trim() && definicao ? definicao.label : null,
+    filtros.pipeline_id ? `Funil ${nomeDoFunil(filtros.pipeline_id) ?? "removido"}` : null,
+    filtros.origem ? `Origem ${filtros.origem}` : null,
+    filtros.valor_minimo ? `Acima de ${formatCurrency(filtros.valor_minimo)}` : null,
+    filtros.tipos_atividade?.length
+      ? TIPOS_ATIVIDADE.filter((t) => filtros.tipos_atividade!.includes(t.value)).map((t) => t.label).join(", ")
+      : null,
+  ].filter(Boolean) as string[];
+
+  return (
+    <div className="via-card space-y-3 p-4" data-testid="sales-goal-card">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 space-y-1">
+          <p className="font-medium" style={{ color: "var(--via-text-primary)" }}>{titulo}</p>
+          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>{responsavel} · {periodo}</p>
+          {etiquetas.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {etiquetas.map((e) => <Badge key={e} variant="secondary" className="font-normal">{e}</Badge>)}
+            </div>
+          )}
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onEditar} aria-label={`Editar a meta ${titulo}`} data-testid="meta-editar">
+            <Pencil className="h-4 w-4" strokeWidth={1.5} />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onExcluir} aria-label={`Excluir a meta ${titulo}`} data-testid="meta-excluir">
+            <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+          </Button>
+        </div>
+      </div>
+      <Progress value={p.percentual} />
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="tabular-nums" style={{ color: "var(--via-text-primary)" }} data-testid="meta-valores">
+          {meta.realizado === null
+            ? <>Sem dados no período · meta {formatarValor(unidade, Number(meta.target_value))}</>
+            : definicao?.menorEMelhor
+              ? <>Atual {formatarValor(unidade, meta.realizado)} · máximo {formatarValor(unidade, Number(meta.target_value))}</>
+              : <>{formatarValor(unidade, meta.realizado)} de {formatarValor(unidade, Number(meta.target_value))}</>}
+        </span>
+        <span className="font-medium tabular-nums" style={{ color: p.atingiu ? "var(--via-success)" : "var(--via-text-muted)" }}>
+          {p.semDados ? "-" : p.atingiu ? "Meta batida" : `${p.percentual}%`}
+        </span>
+      </div>
+    </div>
   );
 }

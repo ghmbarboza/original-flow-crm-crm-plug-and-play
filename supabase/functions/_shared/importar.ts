@@ -327,6 +327,7 @@ async function importarNegocio(ctx: Ctx, d: Dados): Promise<Resultado> {
   const status = texto(d.status)?.toLowerCase();
   const statusFinal = status && STATUS_NEGOCIO.has(status) ? status : /won|ganh/.test(status ?? "") ? "won" : /lost|perd/.test(status ?? "") ? "lost" : "open";
   const extras = await camposExtras(ctx, "deal", d);
+  const fechamento = data(texto(d.closed_at)) ?? data(texto(d.close_date));
   let lossReasonId: string | null = null;
   if (statusFinal === "lost" && texto(d.loss_reason)) {
     const { data: lr } = await ctx.admin.from("loss_reasons").select("id").eq("org_id", ctx.orgId).ilike("label", texto(d.loss_reason)!).limit(1).maybeSingle();
@@ -344,6 +345,9 @@ async function importarNegocio(ctx: Ctx, d: Dados): Promise<Resultado> {
     ...(dono ? { owner_id: dono } : {}),
     ...(data(texto(d.close_date)) ? { close_date: data(texto(d.close_date))!.slice(0, 10) } : {}),
     ...(lossReasonId ? { loss_reason_id: lossReasonId } : {}),
+    // Data em que foi ganho ou perdido na origem: sem ela, as metas contariam a
+    // receita histórica no dia da importação.
+    ...(statusFinal !== "open" && fechamento ? { closed_at: fechamento } : {}),
   };
 
   let existente: { id: string; custom_fields: unknown } | null = null;
