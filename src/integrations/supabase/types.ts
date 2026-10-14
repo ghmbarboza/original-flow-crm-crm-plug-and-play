@@ -2234,8 +2234,8 @@ export type Database = {
           ai_close_factors: Json | null
           ai_close_probability: number | null
           ai_close_probability_updated_at: string | null
-          closed_at: string | null
           close_date: string | null
+          closed_at: string | null
           company_id: string | null
           contact_id: string | null
           created_at: string
@@ -2259,8 +2259,8 @@ export type Database = {
           ai_close_factors?: Json | null
           ai_close_probability?: number | null
           ai_close_probability_updated_at?: string | null
-          closed_at?: string | null
           close_date?: string | null
+          closed_at?: string | null
           company_id?: string | null
           contact_id?: string | null
           created_at?: string
@@ -2284,8 +2284,8 @@ export type Database = {
           ai_close_factors?: Json | null
           ai_close_probability?: number | null
           ai_close_probability_updated_at?: string | null
-          closed_at?: string | null
           close_date?: string | null
+          closed_at?: string | null
           company_id?: string | null
           contact_id?: string | null
           created_at?: string
@@ -4565,18 +4565,18 @@ export type Database = {
           created_at: string
           criteria: Json | null
           current_value: number
+          filters: Json
           goal_subtype: string | null
           goal_type: string
           id: string
           is_demo: boolean
-          org_id: string
-          period_month: number
-          period_year: number
-          period_kind: string
-          period_start: string
-          period_end: string
-          filters: Json
           name: string | null
+          org_id: string
+          period_end: string
+          period_kind: string
+          period_month: number
+          period_start: string
+          period_year: number
           target_value: number
           team_id: string | null
           user_id: string | null
@@ -4586,18 +4586,18 @@ export type Database = {
           created_at?: string
           criteria?: Json | null
           current_value?: number
+          filters?: Json
           goal_subtype?: string | null
           goal_type?: string
           id?: string
           is_demo?: boolean
-          org_id: string
-          period_month: number
-          period_year: number
-          period_kind?: string
-          period_start?: string
-          period_end?: string
-          filters?: Json
           name?: string | null
+          org_id: string
+          period_end: string
+          period_kind?: string
+          period_month: number
+          period_start: string
+          period_year: number
           target_value?: number
           team_id?: string | null
           user_id?: string | null
@@ -4607,18 +4607,18 @@ export type Database = {
           created_at?: string
           criteria?: Json | null
           current_value?: number
+          filters?: Json
           goal_subtype?: string | null
           goal_type?: string
           id?: string
           is_demo?: boolean
-          org_id?: string
-          period_month?: number
-          period_year?: number
-          period_kind?: string
-          period_start?: string
-          period_end?: string
-          filters?: Json
           name?: string | null
+          org_id?: string
+          period_end?: string
+          period_kind?: string
+          period_month?: number
+          period_start?: string
+          period_year?: number
           target_value?: number
           team_id?: string | null
           user_id?: string | null
