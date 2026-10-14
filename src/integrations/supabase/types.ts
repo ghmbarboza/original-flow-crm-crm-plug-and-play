@@ -745,6 +745,44 @@ export type Database = {
           },
         ]
       }
+      assistente_conversas: {
+        Row: {
+          created_at: string
+          id: string
+          mensagens: Json
+          org_id: string
+          titulo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mensagens?: Json
+          org_id: string
+          titulo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mensagens?: Json
+          org_id?: string
+          titulo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistente_conversas_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assistente_uso: {
         Row: {
           janela: string

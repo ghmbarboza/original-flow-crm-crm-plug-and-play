@@ -1,5 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { abertosPorEtapa, ajudaPlataforma, rotaValida } from "./ferramentas.ts";
+import { ajudaPlataforma, rotaValida } from "./ferramentas.ts";
+import { abertosPorEtapa, acharFunil, periodoPedido } from "./gestao.ts";
 
 Deno.test("ajuda acha o guia pelo verbo conjugado (importo → importar)", () => {
   assertEquals(ajudaPlataforma({ tema: "Como importo contatos?" }).guias[0]?.guia_completo, "/help?guia=importacao");
@@ -39,4 +40,29 @@ Deno.test("tela do app: aceita rota interna, recusa outro site e rota inventada"
   assertEquals(rotaValida("//site-externo.com/roubo"), false);
   assertEquals(rotaValida("https://site-externo.com"), false);
   assertEquals(rotaValida("/faturamento"), false);
+});
+
+Deno.test("ajuda conhece as funções novas: metas, vários funis, template de 24h e chave própria de IA", () => {
+  const primeiro = (tema: string) => ajudaPlataforma({ tema }).guias[0]?.guia_completo;
+  assertEquals(primeiro("como crio uma meta de conversão por vendedor"), "/help?guia=metas");
+  assertEquals(primeiro("quero ter mais de um funil"), "/help?guia=funil");
+  assertEquals(primeiro("passou 24 horas e não consigo responder o cliente"), "/help?guia=whatsapp");
+  assertEquals(primeiro("usar minha própria chave da openai"), "/help?guia=ia-provedor");
+});
+
+Deno.test("funil pelo nome: exato, parcial, sem acento; nome inexistente vira erro com a lista", () => {
+  const funis = [{ id: "1", name: "Vendas", is_default: true }, { id: "2", name: "Pós-venda", is_default: false }];
+  assertEquals(acharFunil(funis, ""), null);
+  assertEquals((acharFunil(funis, "pos venda") as { id: string }).id, "2");
+  assertEquals((acharFunil(funis, "pós") as { id: string }).id, "2");
+  assertEquals((acharFunil(funis, "VENDAS") as { id: string }).id, "1");
+  assertEquals("erro" in (acharFunil(funis, "suporte") as object), true);
+});
+
+Deno.test("período das metas: mês atual por padrão, tipo com referência e datas livres", () => {
+  assertEquals(periodoPedido({}, "2026-10-14"), { tipo: "mes", inicio: "2026-10-01", fim: "2026-10-31" });
+  assertEquals(periodoPedido({ periodo: "trimestre", referencia: "2026-05-02" }, "2026-10-14"), { tipo: "trimestre", inicio: "2026-04-01", fim: "2026-06-30" });
+  assertEquals(periodoPedido({ de: "2026-10-06", ate: "2026-10-12" }, "2026-10-14"), { tipo: "personalizado", inicio: "2026-10-06", fim: "2026-10-12" });
+  // Datas invertidas não valem: volta ao padrão.
+  assertEquals(periodoPedido({ de: "2026-10-12", ate: "2026-10-06" }, "2026-10-14").tipo, "mes");
 });

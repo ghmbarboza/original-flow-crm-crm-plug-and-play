@@ -6,6 +6,7 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0
 import type { FerramentaIA } from "../ai.ts";
 import { GUIAS } from "../ajuda/guias.ts";
 import { PROBLEMAS } from "../ajuda/problemas.ts";
+import { automacoes, configuracaoDosFunis, empresas, equipe, metas, produtos, resumoFunil, todas } from "./gestao.ts";
 
 const LIMITE_PADRAO = 10;
 const LIMITE_MAX = 25;
@@ -34,18 +35,24 @@ export const FERRAMENTAS_ASSISTENTE: FerramentaIA[] = [
   { name: "estado_da_conta", description: "O que está configurado e funcionando na conta e o que falta: canal de atendimento, IA ligada ou desligada, base de conhecimento, funil, produtos, e-mail, calendário, voz e automações. Use para 'o que falta configurar', 'por que a IA não responde', 'está tudo certo?'.", parameters: { type: "object", properties: {} } },
   { name: "buscar_contatos", description: "Busca contatos por nome, e-mail ou telefone, com filtro de status. Use para achar alguém ou listar leads.", parameters: { type: "object", properties: { texto: prop("string", "Nome, e-mail ou telefone (opcional)"), status: prop("string", "lead, prospect, customer ou churned (opcional)"), recentes_dias: prop("number", "Só os criados nos últimos N dias (opcional)"), limite: prop("number", "Máximo de resultados, até 25") } } },
   { name: "ficha_contato", description: "Ficha completa de um contato: dados, o que a IA sabe dele, negócios, próximas reuniões, últimas atividades e ligações.", parameters: { type: "object", properties: { contato_id: prop("string", "id do contato") }, required: ["contato_id"] } },
-  { name: "buscar_negocios", description: "Lista negócios com filtros: texto no título, etapa, status, valor mínimo, parados há N dias, só os meus. Ordena por valor ou mais recentes.", parameters: { type: "object", properties: { texto: prop("string", "Parte do título (opcional)"), etapa: prop("string", "Nome da etapa (opcional)"), status: prop("string", "open, won ou lost; padrão open"), valor_minimo: prop("number", "opcional"), parados_dias: prop("number", "Sem atualização há pelo menos N dias (opcional)"), meus: prop("boolean", "Só os do usuário que pergunta"), ordenar: prop("string", "valor ou recentes"), limite: prop("number", "até 25") } } },
-  { name: "resumo_funil", description: "Resumo do funil: quantidade e valor por etapa dos negócios abertos, e ganhos/perdidos no período.", parameters: { type: "object", properties: { periodo_dias: prop("number", "Janela para ganhos e perdidos, padrão 30") } } },
+  { name: "buscar_negocios", description: "Lista negócios com filtros: texto no título, funil, etapa, status, valor mínimo, parados há N dias, só os meus. Ordena por valor ou mais recentes.", parameters: { type: "object", properties: { texto: prop("string", "Parte do título (opcional)"), funil: prop("string", "Nome do funil (opcional; sem ele busca em todos)"), etapa: prop("string", "Nome da etapa (opcional)"), status: prop("string", "open, won ou lost; padrão open"), valor_minimo: prop("number", "opcional"), parados_dias: prop("number", "Sem atualização há pelo menos N dias (opcional)"), meus: prop("boolean", "Só os do usuário que pergunta"), ordenar: prop("string", "valor ou recentes"), limite: prop("number", "até 25") } } },
+  { name: "resumo_funil", description: "Resumo de cada funil: quantidade e valor por etapa dos negócios abertos, e ganhos/perdidos (pela data do fechamento) no período.", parameters: { type: "object", properties: { funil: prop("string", "Nome do funil (opcional; sem ele traz todos)"), periodo_dias: prop("number", "Janela para ganhos e perdidos, padrão 30") } } },
+  { name: "funis_configurados", description: "Como os funis estão montados: nomes, qual é o padrão, etapas na ordem e probabilidade de cada etapa.", parameters: { type: "object", properties: {} } },
+  { name: "metas", description: "Metas do período com alvo, realizado, progresso e situação (batida, em andamento, sem dados), calculados igual à tela de Metas.", parameters: { type: "object", properties: { periodo: prop("string", "semana, mes, trimestre, semestre ou ano; padrão mes"), referencia: prop("string", "Uma data AAAA-MM-DD dentro do período; padrão hoje"), de: prop("string", "Início AAAA-MM-DD, para período livre"), ate: prop("string", "Fim AAAA-MM-DD, para período livre"), minhas: prop("boolean", "Só as metas individuais do usuário que pergunta") } } },
+  { name: "equipe", description: "Pessoas da equipe: papel (administrador ou membro), situação e carteira de negócios abertos de cada uma.", parameters: { type: "object", properties: {} } },
+  { name: "produtos", description: "Produtos e serviços cadastrados: tipo, preço, cobrança, se está ativo e estoque.", parameters: { type: "object", properties: { texto: prop("string", "Parte do nome (opcional)") } } },
+  { name: "empresas", description: "Empresas (contas) cadastradas, com segmento, porte e site.", parameters: { type: "object", properties: { texto: prop("string", "Parte do nome ou domínio (opcional)") } } },
+  { name: "automacoes", description: "O que roda sozinho: automações (gatilho, execuções, erros), sequências de e-mail, formulários de captura e campanhas recentes.", parameters: { type: "object", properties: {} } },
   { name: "tarefas", description: "Tarefas e atividades pendentes: atrasadas, de hoje ou próximas. Por padrão as do usuário.", parameters: { type: "object", properties: { situacao: prop("string", "atrasadas, hoje ou proximas"), todas: prop("boolean", "true para ver as de toda a equipe"), limite: prop("number", "até 25") } } },
   { name: "agenda", description: "Reuniões num intervalo de datas (padrão: hoje e os próximos 7 dias).", parameters: { type: "object", properties: { de: prop("string", "Data inicial AAAA-MM-DD"), ate: prop("string", "Data final AAAA-MM-DD"), limite: prop("number", "até 25") } } },
   { name: "conversas", description: "Conversas de atendimento: esperando resposta da equipe, com humano, com a IA, ou com SLA estourado.", parameters: { type: "object", properties: { situacao: prop("string", "aguardando, com_humano, com_ia ou sla_estourado"), limite: prop("number", "até 25") } } },
-  { name: "metricas", description: "Números do período: novos contatos por origem, negócios criados, ganhos e perdidos com valores, conversas, ligações e reuniões.", parameters: { type: "object", properties: { periodo_dias: prop("number", "Padrão 30") } } },
+  { name: "metricas", description: "Números do período: novos contatos por origem, negócios criados, ganhos e perdidos (pela data do fechamento) com valores, taxa de ganho, conversas, ligações e reuniões.", parameters: { type: "object", properties: { periodo_dias: prop("number", "Padrão 30") } } },
   { name: "buscar_conhecimento", description: "Busca na base de conhecimento da empresa (fatos, documentos, FAQs) para responder sobre preço, prazo, políticas e produtos.", parameters: { type: "object", properties: { consulta: prop("string", "O que buscar") }, required: ["consulta"] } },
   { name: "ajuda_plataforma", description: "Como usar a plataforma: guias passo a passo e resolução de problemas, com o caminho de cada tela.", parameters: { type: "object", properties: { tema: prop("string", "O que a pessoa quer fazer ou o problema") }, required: ["tema"] } },
 ];
 
 /** Telas que existem no app. Link fora disso é inventado e vira texto. */
-export const ROTAS_DO_APP = ["/dashboard", "/contacts", "/companies", "/deals", "/tasks", "/agenda", "/voz", "/products", "/whatsapp", "/inbox", "/reports", "/sales-goals", "/lead-scoring", "/settings", "/help", "/email-templates"];
+export const ROTAS_DO_APP = ["/dashboard", "/contacts", "/companies", "/deals", "/tasks", "/agenda", "/voz", "/products", "/whatsapp", "/inbox", "/reports", "/sales-goals", "/lead-scoring", "/settings", "/help", "/email-templates", "/f"];
 
 export function rotaValida(caminho: string): boolean {
   if (!caminho.startsWith("/") || caminho.startsWith("//")) return false;
@@ -64,9 +71,11 @@ export interface CtxAssistente {
   userId: string;
 }
 
+interface EtapaComFunil { id: string; name: string; order: number; pipeline_id: string; funil: string | null }
+
 async function etapasPorId(ctx: CtxAssistente) {
-  const { data } = await ctx.db.from("pipeline_stages").select("id, name, order").eq("org_id", ctx.orgId).order("order");
-  return new Map((data ?? []).map((e) => [e.id as string, e as { id: string; name: string; order: number }]));
+  const { data } = await ctx.db.from("pipeline_stages").select("id, name, order, pipeline_id, pipelines(name)").eq("org_id", ctx.orgId).order("order");
+  return new Map((data ?? []).map((e) => [e.id as string, { id: e.id, name: e.name, order: e.order, pipeline_id: e.pipeline_id, funil: (e.pipelines as { name?: string } | null)?.name ?? null } as EtapaComFunil]));
 }
 
 async function buscarContatos(ctx: CtxAssistente, a: Json) {
@@ -113,12 +122,18 @@ async function buscarNegocios(ctx: CtxAssistente, a: Json) {
   let q = ctx.db.from("deals").select("id, title, value, status, stage_id, owner_id, updated_at, created_at, contacts(first_name, last_name)").eq("org_id", ctx.orgId).eq("status", status).limit(limite(a.limite));
   const t = termo(a.texto);
   if (t) q = q.ilike("title", `%${t}%`);
+  let candidatas = [...etapas.values()];
+  if (a.funil) {
+    const alvo = semAcento(String(a.funil));
+    candidatas = candidatas.filter((e) => e.funil && semAcento(e.funil).includes(alvo));
+    if (!candidatas.length) return { erro: `Nenhum funil com o nome "${a.funil}". Funis: ${[...new Set([...etapas.values()].map((e) => e.funil).filter(Boolean))].join(", ")}` };
+  }
   if (a.etapa) {
     const alvo = semAcento(String(a.etapa));
-    const ids = [...etapas.values()].filter((e) => semAcento(e.name).includes(alvo)).map((e) => e.id);
-    if (!ids.length) return { erro: `Nenhuma etapa com o nome "${a.etapa}". Etapas: ${[...etapas.values()].map((e) => e.name).join(", ")}` };
-    q = q.in("stage_id", ids);
+    candidatas = candidatas.filter((e) => semAcento(e.name).includes(alvo));
+    if (!candidatas.length) return { erro: `Nenhuma etapa com o nome "${a.etapa}". Etapas: ${[...etapas.values()].map((e) => `${e.name} (${e.funil ?? "sem funil"})`).join(", ")}` };
   }
+  if (a.funil || a.etapa) q = q.in("stage_id", candidatas.map((e) => e.id));
   if (Number(a.valor_minimo) > 0) q = q.gte("value", Number(a.valor_minimo));
   if (Number(a.parados_dias) > 0) q = q.lte("updated_at", new Date(Date.now() - Number(a.parados_dias) * DIA_MS).toISOString());
   if (a.meus === true) q = q.eq("owner_id", ctx.userId);
@@ -128,42 +143,9 @@ async function buscarNegocios(ctx: CtxAssistente, a: Json) {
   return {
     total: data?.length ?? 0,
     negocios: (data ?? []).map((d) => ({
-      titulo: d.title, valor: moeda(d.value), etapa: etapas.get(d.stage_id as string)?.name ?? null, contato: nome(d.contacts as never),
+      titulo: d.title, valor: moeda(d.value), funil: etapas.get(d.stage_id as string)?.funil ?? null, etapa: etapas.get(d.stage_id as string)?.name ?? null, contato: nome(d.contacts as never),
       dias_sem_atualizar: Math.floor((Date.now() - new Date(d.updated_at as string).getTime()) / DIA_MS), link: `/deals/${d.id}`,
     })),
-  };
-}
-
-/** Todas as etapas do funil na ordem, inclusive as vazias; negócio de etapa desconhecida vai para "Sem etapa" no fim. */
-export function abertosPorEtapa(etapas: { id: string; name: string; order: number }[], abertos: { stage_id: unknown; value: unknown }[]) {
-  const linhas = [...etapas].sort((x, y) => x.order - y.order).map((e) => ({ id: e.id as string | null, etapa: e.name, quantidade: 0, valor: 0 }));
-  const semEtapa = { id: null, etapa: "Sem etapa", quantidade: 0, valor: 0 };
-  for (const d of abertos) {
-    const linha = linhas.find((l) => l.id === d.stage_id) ?? semEtapa;
-    linha.quantidade += 1;
-    linha.valor += Number(d.value ?? 0);
-  }
-  return [...linhas, ...(semEtapa.quantidade ? [semEtapa] : [])].map(({ etapa, quantidade, valor }) => ({ etapa, quantidade, valor }));
-}
-
-async function resumoFunil(ctx: CtxAssistente, a: Json) {
-  const dias = Math.min(365, Math.max(1, Number(a.periodo_dias) || 30));
-  const desde = new Date(Date.now() - dias * DIA_MS).toISOString();
-  const etapas = await etapasPorId(ctx);
-  const [abertos, fechados] = await Promise.all([
-    ctx.db.from("deals").select("stage_id, value").eq("org_id", ctx.orgId).eq("status", "open").limit(5000),
-    ctx.db.from("deals").select("status, value").eq("org_id", ctx.orgId).in("status", ["won", "lost"]).gte("updated_at", desde).limit(5000),
-  ]);
-  const porEtapa = abertosPorEtapa([...etapas.values()], abertos.data ?? []);
-  const soma = (s: string) => (fechados.data ?? []).filter((d) => d.status === s).reduce((t, d) => t + Number(d.value ?? 0), 0);
-  const conta = (s: string) => (fechados.data ?? []).filter((d) => d.status === s).length;
-  return {
-    link: "/deals",
-    total_de_etapas: etapas.size,
-    abertos_por_etapa: porEtapa.map((e) => ({ ...e, valor: moeda(e.valor) })),
-    total_aberto: moeda(porEtapa.reduce((t, e) => t + e.valor, 0)),
-    [`ganhos_${dias}_dias`]: { quantidade: conta("won"), valor: moeda(soma("won")) },
-    [`perdidos_${dias}_dias`]: { quantidade: conta("lost"), valor: moeda(soma("lost")) },
   };
 }
 
@@ -203,14 +185,17 @@ async function metricas(ctx: CtxAssistente, a: Json) {
   const dias = Math.min(365, Math.max(1, Number(a.periodo_dias) || 30));
   const desde = new Date(Date.now() - dias * DIA_MS).toISOString();
   const contar = async (tabela: string) => {
-    const { count } = await ctx.db.from(tabela).select("id", { count: "exact", head: true }).eq("org_id", ctx.orgId).gte("created_at", desde);
+    const { count, error } = await ctx.db.from(tabela).select("id", { count: "exact", head: true }).eq("org_id", ctx.orgId).gte("created_at", desde);
+    if (error) throw new Error(`${tabela}: ${error.message}`);
     return count ?? 0;
   };
-  const [contatos, negocios, conversasN, ligacoes, reunioes, fechados] = await Promise.all([
-    ctx.db.from("contacts").select("source").eq("org_id", ctx.orgId).is("merged_into_id", null).gte("created_at", desde).limit(10000),
+  const [contatosLidos, negocios, conversasN, ligacoes, reunioes, fechadosLidos] = await Promise.all([
+    todas<{ source: string | null }>((de, ate) => ctx.db.from("contacts").select("source").eq("org_id", ctx.orgId).is("merged_into_id", null).gte("created_at", desde).order("id").range(de, ate)),
     contar("deals"), contar("conversations"), contar("calls"), contar("appointments"),
-    ctx.db.from("deals").select("status, value").eq("org_id", ctx.orgId).in("status", ["won", "lost"]).gte("updated_at", desde).limit(5000),
+    todas<{ status: string; value: number | null }>((de, ate) => ctx.db.from("deals").select("status, value").eq("org_id", ctx.orgId).in("status", ["won", "lost"]).gte("closed_at", desde).order("id").range(de, ate)),
   ]);
+  const contatos = { data: contatosLidos };
+  const fechados = { data: fechadosLidos };
   const porOrigem: Record<string, number> = {};
   for (const c of contatos.data ?? []) porOrigem[c.source ?? "sem origem"] = (porOrigem[c.source ?? "sem origem"] ?? 0) + 1;
   const ganhos = (fechados.data ?? []).filter((d) => d.status === "won");
@@ -256,7 +241,7 @@ export function ajudaPlataforma(a: Json) {
 
 async function estadoDaConta(ctx: CtxAssistente) {
   const contar = async (tabela: string) => (await ctx.db.from(tabela).select("id", { count: "exact", head: true }).eq("org_id", ctx.orgId)).count ?? 0;
-  const [msg, evo, meta, zer, ia, chaves, gmail, cal, etapas, conhecimento, docs, produtos, automacoes] = await Promise.all([
+  const [msg, evo, meta, zer, ia, chaves, gmail, cal, funis, etapas, conhecimento, docs, produtosN, automacoesN] = await Promise.all([
     ctx.db.from("messaging_config").select("provider").eq("org_id", ctx.orgId).maybeSingle(),
     ctx.db.from("evolution_configs").select("status").eq("org_id", ctx.orgId),
     ctx.db.from("meta_configs").select("webhook_verified, is_active").eq("org_id", ctx.orgId),
@@ -265,7 +250,7 @@ async function estadoDaConta(ctx: CtxAssistente) {
     ctx.db.from("api_keys_registry").select("service_name, is_active").eq("org_id", ctx.orgId),
     ctx.db.from("email_connections").select("id").eq("org_id", ctx.orgId).limit(1).maybeSingle(),
     ctx.db.from("calendar_integrations").select("id").eq("user_id", ctx.userId).limit(1).maybeSingle(),
-    contar("pipeline_stages"), contar("knowledge_facts"), contar("knowledge_documents"), contar("products"), contar("automations"),
+    contar("pipelines"), contar("pipeline_stages"), contar("knowledge_facts"), contar("knowledge_documents"), contar("products"), contar("automations"),
   ]);
   const provedor = (msg.data?.provider as string | undefined) ?? null;
   const evolucoes = evo.data ?? [];
@@ -277,12 +262,13 @@ async function estadoDaConta(ctx: CtxAssistente) {
     canal_de_atendimento: { situacao: canal, provedor, link: "/settings/integrations?integration=channels" },
     ia: { ligada: ia.data?.is_active === true, horario_restrito: !!ia.data?.working_hours && Object.keys(ia.data.working_hours as object).length > 0, link: "/settings/ia" },
     base_de_conhecimento: { fatos_e_documentos: conhecimento + docs, link: "/settings/ia?aba=knowledge" },
-    funil: { etapas, link: "/settings/automations?secao=funil" },
-    produtos_servicos: { cadastrados: produtos, link: "/products" },
+    funil: { funis, etapas, link: "/settings/automations?secao=funil" },
+    ia_provedor: { chave_propria: ["openai", "anthropic", "gemini"].filter((s) => tem.has(s)), observacao: "Sem chave própria a IA da plataforma responde; com chave, ela vira reserva.", link: "/settings/integrations?integration=ia" },
+    produtos_servicos: { cadastrados: produtosN, link: "/products" },
     email: { gmail_conectado: !!gmail.data, resend_com_chave: tem.has("resend"), link: "/settings/integrations?integration=gmail" },
     calendario_do_usuario: { conectado: !!cal.data, credenciais_nylas: tem.has("nylas_client_id") && tem.has("nylas_api_key"), link: "/settings/agenda" },
     voz: { resposta_em_audio: ia.data?.voice_enabled === true, credenciais_twilio: tem.has("twilio_account_sid") && tem.has("twilio_auth_token"), chave_elevenlabs: tem.has("elevenlabs"), link: "/voz" },
-    automacoes: { criadas: automacoes, link: "/settings/automations" },
+    automacoes: { criadas: automacoesN, link: "/settings/automations" },
     painel_completo: "/help",
   };
 }
@@ -294,6 +280,12 @@ export async function executarFerramentaAssistente(ctx: CtxAssistente, nomeFerra
       : nomeFerramenta === "ficha_contato" ? await fichaContato(ctx, args)
       : nomeFerramenta === "buscar_negocios" ? await buscarNegocios(ctx, args)
       : nomeFerramenta === "resumo_funil" ? await resumoFunil(ctx, args)
+      : nomeFerramenta === "funis_configurados" ? await configuracaoDosFunis(ctx)
+      : nomeFerramenta === "metas" ? await metas(ctx, args)
+      : nomeFerramenta === "equipe" ? await equipe(ctx)
+      : nomeFerramenta === "produtos" ? await produtos(ctx, args)
+      : nomeFerramenta === "empresas" ? await empresas(ctx, args)
+      : nomeFerramenta === "automacoes" ? await automacoes(ctx)
       : nomeFerramenta === "tarefas" ? await tarefas(ctx, args)
       : nomeFerramenta === "agenda" ? await agenda(ctx, args)
       : nomeFerramenta === "conversas" ? await conversas(ctx, args)

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, TrendingUp } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,8 @@ const ALL = "__all__";
 
 export default function DealsPage() {
   const { data: todos, isLoading, error } = useDeals();
-  const { funis, funilId, padraoId, escolher } = useFunilAtivo();
+  const [params] = useSearchParams();
+  const { funis, funilId, padraoId, escolher } = useFunilAtivo(params.get("funil"));
   const { data: stages } = useStages(funilId);
   // Kanban e lista mostram um funil por vez.
   const deals = useMemo(() => negociosDoFunil(todos ?? [], funilId, padraoId), [todos, funilId, padraoId]);

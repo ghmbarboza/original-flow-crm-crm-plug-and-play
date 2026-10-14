@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrgId } from "@/hooks/useOrgId";
@@ -59,13 +59,17 @@ function lerFunilSalvo(orgId: string | null | undefined): string | null {
  * Funil aberto na tela. Fica lembrado no navegador, por organização, para a
  * pessoa voltar ao funil em que trabalha; se ele deixou de existir, cai no padrão.
  */
-export function useFunilAtivo() {
+/** `funilDaUrl` vem de /deals?funil=ID (links do assistente); a escolha na tela vale mais. */
+export function useFunilAtivo(funilDaUrl: string | null = null) {
   const orgId = useOrgId();
   const { data: funis, isLoading } = usePipelines();
   const [escolhido, setEscolhido] = useState<string | null>(null);
+  // Link novo (/deals?funil=B) é um pedido mais recente que a escolha feita antes no seletor.
+  useEffect(() => { if (funilDaUrl) setEscolhido(null); }, [funilDaUrl]);
 
   const lista = funis ?? [];
-  const funilId = funilAtivo(lista, escolhido ?? lerFunilSalvo(orgId));
+  const pedido = [escolhido, funilDaUrl, lerFunilSalvo(orgId)].find((id) => id && lista.some((f) => f.id === id)) ?? null;
+  const funilId = funilAtivo(lista, pedido);
 
   const escolher = (id: string) => {
     setEscolhido(id);
