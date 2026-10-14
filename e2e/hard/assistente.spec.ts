@@ -46,3 +46,33 @@ test("pergunta de como usar traz o caminho da tela", async () => {
   console.log(`[assistente] ${JSON.stringify(resposta).slice(0, 900)}`);
   expect(resposta).toMatch(/\/settings\/agenda|\/settings\/integrations\?integration=nylas|\/help\?guia=agenda/);
 });
+
+test("metas: responde com o link da tela de Metas e sem inventar meta", async () => {
+  test.setTimeout(120_000);
+  const r = await invocar(c, "assistente", { mensagem: "Como estão as metas deste mês?" });
+  expect(r.status, r.texto).toBe(200);
+  const resposta = String(r.json?.resposta ?? "");
+  console.log(`[assistente] ${JSON.stringify(resposta).slice(0, 900)}`);
+  expect(resposta).toContain("/sales-goals");
+});
+
+test("funis: cita as etapas reais do funil padrão", async () => {
+  test.setTimeout(120_000);
+  const funil = ok(await c.db.from("pipelines").select("id").eq("org_id", c.orgId).eq("is_default", true).single(), "funil padrão");
+  const etapas = ok(await c.db.from("pipeline_stages").select("name").eq("pipeline_id", funil.id).order("order"), "etapas");
+  const r = await invocar(c, "assistente", { mensagem: "Quais são as etapas do nosso funil, na ordem?" });
+  expect(r.status, r.texto).toBe(200);
+  const resposta = String(r.json?.resposta ?? "");
+  console.log(`[assistente] ${JSON.stringify(resposta).slice(0, 900)}`);
+  for (const e of etapas) expect(resposta).toContain(e.name);
+});
+
+test("janela de 24h: explica o template e não inventa tela", async () => {
+  test.setTimeout(120_000);
+  const r = await invocar(c, "assistente", { mensagem: "Passaram 24 horas e não consigo mais responder o cliente no WhatsApp. O que faço?" });
+  expect(r.status, r.texto).toBe(200);
+  const resposta = String(r.json?.resposta ?? "");
+  console.log(`[assistente] ${JSON.stringify(resposta).slice(0, 900)}`);
+  expect(resposta).toMatch(/template/i);
+  expect(resposta).toMatch(/Enviar template/i);
+});
