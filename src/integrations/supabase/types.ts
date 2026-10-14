@@ -5881,6 +5881,7 @@ export type Database = {
           p_motivo?: string
           p_origem?: string
           p_stage: string
+          p_trocar_funil?: boolean
         }
         Returns: boolean
       }
@@ -5930,13 +5931,16 @@ export type Database = {
         Args: { p_template: string; p_vars: Json }
         Returns: string
       }
-      set_default_pipeline: { Args: { _pipeline_id: string }; Returns: undefined }
       reorder_pipeline_stages: {
         Args: { _pipeline_id: string; _stage_ids: string[] }
         Returns: undefined
       }
       segredo_conexao_crm: { Args: { p_connection: string }; Returns: string }
       semear_biblioteca_modelos: { Args: never; Returns: number }
+      set_default_pipeline: {
+        Args: { _pipeline_id: string }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       url_do_projeto: { Args: never; Returns: string }
