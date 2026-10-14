@@ -1,7 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Award,
-  BarChart2,
   Building2,
   CalendarDays,
   CheckSquare,
@@ -75,7 +74,6 @@ export function AppSidebar() {
     {
       label: "Analytics",
       items: [
-        { title: "Relatórios", url: "/reports", icon: BarChart2 },
         { title: "Metas", url: "/sales-goals", icon: Target },
         { title: "Lead Scoring", url: "/lead-scoring", icon: Award },
       ],

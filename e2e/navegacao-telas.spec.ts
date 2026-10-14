@@ -78,8 +78,11 @@ test.describe("Configurações > Campanhas", () => {
 });
 
 test.describe("Analytics", () => {
-  test("relatórios: filtros de período e canal", async ({ page }) => {
-    await gotoPage(page, "/reports", "Relatórios");
+  test("dashboard: filtros de período e canal (Relatórios entrou aqui)", async ({ page }) => {
+    // A rota antiga continua levando ao painel.
+    await page.goto("/reports");
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await gotoPage(page, "/dashboard", "Dashboard");
     await expectNoErrorState(page);
 
     await page.getByTestId("reports-period").click();

@@ -31,7 +31,6 @@ const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const WhatsAppPage = lazy(() => import("./pages/WhatsAppPage"));
 const InboxPage = lazy(() => import("./pages/InboxPage"));
 const EmailTemplatesPage = lazy(() => import("./pages/EmailTemplatesPage"));
-const ReportsPage = lazy(() => import("./pages/ReportsPage"));
 const SalesGoalsPage = lazy(() => import("./pages/SalesGoalsPage"));
 const LeadScoringPage = lazy(() => import("./pages/LeadScoringPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
@@ -210,9 +209,9 @@ const App = () => (
             <Route path="/email-sequences" element={<Navigate to="/settings/automations?secao=cadencias" replace />} />
 
             {/* Analytics */}
-            <Route path="/reports" element={
-              <ProtectedRoute><Page name="Relatórios"><ReportsPage /></Page></ProtectedRoute>
-            } />
+            {/* 14/10/2026: Relatórios entrou no Dashboard (mesmos números em duas
+                telas). O redirect preserva links salvos da rota antiga. */}
+            <Route path="/reports" element={<Navigate to="/dashboard" replace />} />
             <Route path="/sales-goals" element={
               <ProtectedRoute><Page name="Metas"><SalesGoalsPage /></Page></ProtectedRoute>
             } />

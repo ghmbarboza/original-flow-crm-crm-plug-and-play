@@ -216,7 +216,7 @@ async function metricas(ctx: CtxAssistente, a: Json) {
   const ganhos = (fechados.data ?? []).filter((d) => d.status === "won");
   const perdidos = (fechados.data ?? []).filter((d) => d.status === "lost");
   return {
-    periodo_dias: dias, link: "/reports",
+    periodo_dias: dias, link: "/dashboard",
     novos_contatos: contatos.data?.length ?? 0, novos_contatos_por_origem: porOrigem,
     negocios_criados: negocios, ganhos: { quantidade: ganhos.length, valor: moeda(ganhos.reduce((t, d) => t + Number(d.value ?? 0), 0)) },
     perdidos: { quantidade: perdidos.length, valor: moeda(perdidos.reduce((t, d) => t + Number(d.value ?? 0), 0)) },

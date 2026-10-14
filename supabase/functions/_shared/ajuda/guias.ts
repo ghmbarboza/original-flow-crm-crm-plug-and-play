@@ -353,16 +353,15 @@ export const GUIAS: Guia[] = [
   {
     id: "relatorios",
     capitulo: "Análise",
-    titulo: "Dashboard, relatórios, metas e lead scoring",
+    titulo: "Dashboard, metas e lead scoring",
     resumo: "Negócios por etapa, conversão por canal, leads por origem, IA x humano, SLA e NPS.",
     paraQue: "Saber o que está funcionando e onde agir.",
     passos: [
-      { texto: "O Dashboard mostra o dia: atendimento e negócios por etapa.", link: { to: "/dashboard", rotulo: "Dashboard" } },
-      { texto: "Relatórios detalham por período e canal.", link: { to: "/reports", rotulo: "Relatórios" } },
+      { texto: "O Dashboard reúne tudo: negócios por etapa, atendimento, leads, conversão por canal, NPS e SLA, com filtro de período, responsável e canal e exportação em CSV e PDF.", link: { to: "/dashboard", rotulo: "Dashboard" } },
       { texto: "Metas acompanham o resultado individual e do time.", link: { to: "/sales-goals", rotulo: "Metas" } },
       { texto: "Lead Scoring pontua os contatos por comportamento, e a IA soma pontos quando qualifica.", link: { to: "/lead-scoring", rotulo: "Lead Scoring" } },
     ],
-    onde: { to: "/reports", rotulo: "Abrir Relatórios" },
+    onde: { to: "/dashboard", rotulo: "Abrir Dashboard" },
     palavras: "relatório métrica kpi conversão meta score pontuação nps sla",
   },
 
