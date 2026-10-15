@@ -79,7 +79,8 @@ test("demonstração: popula e limpa os dados", async ({ page }) => {
   // Parte de um estado conhecido: se já houver dados de demo, limpa antes.
   // O botão de popular fica desabilitado enquanto existirem dados, então é ele
   // que sinaliza quando a limpeza terminou.
-  if (await page.getByTestId("demo-clear").isEnabled()) {
+  const tinhaDemo = await page.getByTestId("demo-clear").isEnabled();
+  if (tinhaDemo) {
     await page.getByTestId("demo-clear").click();
     await page.getByTestId("demo-clear-confirm").click();
     await expect(page.getByTestId("demo-seed")).toBeEnabled({ timeout: 60_000 });
@@ -100,4 +101,11 @@ test("demonstração: popula e limpa os dados", async ({ page }) => {
   await page.getByTestId("demo-clear").click();
   await page.getByTestId("demo-clear-confirm").click();
   await expect(page.getByTestId("demo-seed")).toBeEnabled({ timeout: 60_000 });
+
+  // A org tinha demonstração ativa: popula de novo para não apagar o que a
+  // pessoa estava usando (ela limpa quando quiser, pelo botão).
+  if (tinhaDemo) {
+    await page.getByTestId("demo-seed").click();
+    await expect(page.getByTestId("demo-clear")).toBeEnabled({ timeout: 60_000 });
+  }
 });
