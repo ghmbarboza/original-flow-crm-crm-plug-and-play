@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ErrorState } from "@/components/ErrorState";
 import { useAuth } from "@/hooks/useAuth";
@@ -174,7 +174,10 @@ function ReuniaoDialog({ aberto, editando, aoFechar }: { aberto: boolean; editan
   return (
     <Dialog open={aberto} onOpenChange={(v) => { if (!v) aoFechar(); }}>
       <DialogContent data-testid="agenda-dialog">
-        <DialogHeader><DialogTitle>{editando ? "Remarcar reunião" : "Nova reunião"}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{editando ? "Remarcar reunião" : "Nova reunião"}</DialogTitle>
+          <DialogDescription>{editando ? "Escolha o novo dia e horário." : "Defina título, início, duração e contato."}</DialogDescription>
+        </DialogHeader>
         <div className="grid gap-3">
           <div className="space-y-1">
             <Label htmlFor="ag-titulo">Título</Label>

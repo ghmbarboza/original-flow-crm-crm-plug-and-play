@@ -218,7 +218,8 @@
   --success:                154 67% 29%;
   --success-foreground:     0 0% 100%;
   --warning:                43 96% 56%;
-  --warning-foreground:     0 0% 100%;
+  /* Texto navy sobre o amarelo: branco dava 1,7:1 e reprovava no axe no selo "Pendente". */
+  --warning-foreground:     213 96% 9%;
   --border:                 0 0% 82%;
   --input:                  0 0% 82%;
   /* --ring = --via-navy (#0A1F3B) — mesmo navy do --primary */

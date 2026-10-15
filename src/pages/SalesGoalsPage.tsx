@@ -203,7 +203,7 @@ function CartaoMeta({ meta, responsavel, nomeDoFunil, onEditar, onExcluir }: Car
           </Button>
         </div>
       </div>
-      <Progress value={p.percentual} />
+      <Progress value={p.percentual} aria-label={`Progresso da meta ${titulo}`} />
       <div className="flex items-baseline justify-between text-sm">
         <span className="tabular-nums" style={{ color: "var(--via-text-primary)" }} data-testid="meta-valores">
           {meta.realizado === null

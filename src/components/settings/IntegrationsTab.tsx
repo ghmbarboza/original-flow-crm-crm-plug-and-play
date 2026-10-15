@@ -121,7 +121,9 @@ export default function IntegrationsTab() {
   return (
     // Duas colunas em telas largas: em lista única a página ficava longa demais
     // (pedido de 24/09/2026). Cada card abre e fecha sozinho dentro da coluna.
-    <div className="grid items-start gap-3 lg:grid-cols-2">
+    // grid-cols-1 (minmax(0,1fr)) no celular: sem ele a coluna cresce até o
+    // texto truncado dos cards e a página rola de lado.
+    <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
       <div className="flex justify-end lg:col-span-2">
         <NewApiKeyButton />
       </div>
