@@ -17,6 +17,7 @@ export const API_SCOPES: { value: string; label: string }[] = [
   { value: "pipelines:read", label: "Ler funis e etapas" },
   { value: "activities:write", label: "Criar atividades" },
   { value: "products:read", label: "Ler produtos" },
+  { value: "products:write", label: "Criar e atualizar produtos" },
   { value: "knowledge:read", label: "Ler base de conhecimento da IA" },
 ];
 

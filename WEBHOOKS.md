@@ -197,6 +197,7 @@ Para uma solução operar o CRM (SDR de IA externo, TypeFlow, n8n, Make, sistema
 | `POST /conversations/:id/handoff`, `/pause-ai`, `/resume-ai` | conversations:write | transfere para humano, pausa ou reativa a IA interna |
 | `POST /activities` | activities:write | tarefa, ligação, reunião, nota ou e-mail |
 | `GET /products?q=` | products:read | catálogo ativo |
+| `POST /products` | products:write | cria ou atualiza (acha pelo `external_id` em custom_fields e, sem ele, pelo nome); aceita `{ products: [...] }` com até 100 por chamada. Usado para espelhar catálogos externos, como a HeroSpark |
 | `GET /knowledge` | knowledge:read | perfil do agente, FAQs e objeções |
 
 Documentação legível por máquina em `GET /api/openapi.json` (sem chave). Eventos de saída novos para quem assina webhooks: `message.sent`, `conversation.started`, `conversation.handoff`, `deal.assigned`.

@@ -44,7 +44,10 @@ export function openapi(baseUrl: string) {
       "/conversations/{id}/pause-ai": { post: { summary: "Pausar a IA interna nesta conversa", security: seguranca, parameters: [param("id", "id da conversa", "path")], responses: resp("status da conversa") } },
       "/conversations/{id}/resume-ai": { post: { summary: "Reativar a IA interna nesta conversa", security: seguranca, parameters: [param("id", "id da conversa", "path")], responses: resp("status da conversa") } },
       "/activities": { post: { summary: "Criar atividade (task, call, meeting, note, email)", security: seguranca, requestBody: corpo(obj({ type: str(), title: str(), body: str(), due_date: str("ISO 8601"), contact_id: str(), deal_id: str(), owner_email: str() }, ["title"])), responses: { "201": { description: "activity_id" }, ...resp("") } } },
-      "/products": { get: { summary: "Produtos ativos", security: seguranca, parameters: [param("q", "nome ou descrição contém"), param("limit", "máximo 100")], responses: resp("Lista de produtos") } },
+      "/products": {
+        get: { summary: "Produtos ativos", security: seguranca, parameters: [param("q", "nome ou descrição contém"), param("limit", "máximo 100")], responses: resp("Lista de produtos") },
+        post: { summary: "Criar ou atualizar produto (um ou vários): acha pelo external_id e, sem ele, pelo nome", security: seguranca, requestBody: corpo(obj({ name: str(), description: str(), price: num("em reais; aceita 129,90"), currency: str("padrão BRL"), is_active: { type: "boolean" }, external_id: str("id do produto no sistema de origem, ex.: HeroSpark"), custom_fields: { type: "object" }, products: { type: "array", description: "lote de até 100 produtos com os mesmos campos", items: obj({ name: str(), description: str(), price: num(), external_id: str() }) } })), responses: { "201": { description: "product_id e created (no lote: products, created, updated)" }, "422": { description: "name ausente ou preço inválido" }, ...resp("Produto atualizado") } },
+      },
       "/knowledge": { get: { summary: "Base de conhecimento da IA (FAQs, objeções, perfil do agente)", security: seguranca, responses: resp("Conhecimento") } },
     },
   };

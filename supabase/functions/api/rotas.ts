@@ -454,6 +454,126 @@ async function listarProdutos(admin: SupabaseClient, chave: Chave, params: URLSe
   return { status: 200, body: { products: data ?? [] } };
 }
 
+const LIMITE_LOTE_PRODUTOS = 100;
+
+function booleano(v: unknown, padrao: boolean): boolean {
+  if (v === undefined || v === null || v === "") return padrao;
+  if (typeof v === "boolean") return v;
+  return ["1", "true", "sim", "ativo", "yes", "y", "s"].includes(String(v).trim().toLowerCase());
+}
+
+/** Escapa % e _ para usar um texto literal em ilike. */
+function literalIlike(t: string): string {
+  return t.replace(/[%_\\]/g, (c) => `\\${c}`);
+}
+
+const PRECO_MAXIMO = 1_000_000_000;
+const ERRO_UNIQUE = "23505";
+
+type ProdutoAchado = { id: string; custom_fields: Dados | null };
+
+async function produtoPorExternalId(admin: SupabaseClient, orgId: string, externalId: string): Promise<ProdutoAchado | null> {
+  const { data, error } = await admin.from("products").select("id, custom_fields").eq("org_id", orgId)
+    .contains("custom_fields", { external_id: externalId }).order("created_at").limit(1).maybeSingle();
+  if (error) throw new ErroApi(500, error.message);
+  return data;
+}
+
+/**
+ * Acha o produto a atualizar: pelo external_id e, sem ele, pelo nome (sem diferenciar caixa).
+ * Com external_id informado, o nome só serve para adotar um produto cadastrado à mão (sem
+ * external_id); um produto com outro external_id nunca é sobrescrito.
+ */
+async function produtoExistente(admin: SupabaseClient, orgId: string, externalId: string | null, nome: string): Promise<ProdutoAchado | null> {
+  if (externalId) {
+    const porId = await produtoPorExternalId(admin, orgId, externalId);
+    if (porId) return porId;
+  }
+  const { data, error } = await admin.from("products").select("id, custom_fields").eq("org_id", orgId)
+    .ilike("name", literalIlike(nome)).order("created_at").limit(1).maybeSingle();
+  if (error) throw new ErroApi(500, error.message);
+  if (!data) return null;
+  const idDoAchado = texto((data.custom_fields as Dados | null)?.external_id);
+  if (externalId && idDoAchado && idDoAchado !== externalId) return null;
+  return data;
+}
+
+function validarPreco(valor: unknown, nome: string): number | null {
+  if (valor === undefined) return null;
+  const n = numero(valor);
+  if (n === null || n < 0 || n > PRECO_MAXIMO) throw new ErroApi(422, `Preço inválido para ${nome}: use um número de 0 a ${PRECO_MAXIMO}, com vírgula ou ponto nos centavos.`);
+  return n;
+}
+
+/** Cria ou atualiza um produto. Preço zero é aceito (produto gratuito). */
+async function criarOuAtualizarProduto(admin: SupabaseClient, chave: Chave, d: Dados): Promise<{ product_id: string; created: boolean }> {
+  const nome = texto(d.name ?? d.nome);
+  if (!nome) throw new ErroApi(422, "Informe name.");
+  const precoNumero = validarPreco(d.price ?? d.preco, nome);
+  const extras = d.custom_fields && typeof d.custom_fields === "object" && !Array.isArray(d.custom_fields) ? (d.custom_fields as Dados) : {};
+  const externalId = texto(d.external_id ?? extras.external_id);
+
+  const campos: Dados = {
+    name: nome,
+    ...(d.description !== undefined || d.descricao !== undefined ? { description: texto(d.description ?? d.descricao) } : {}),
+    ...(precoNumero !== null ? { price: precoNumero } : {}),
+    ...(texto(d.currency) ? { currency: texto(d.currency) } : {}),
+    ...(d.is_active !== undefined || d.ativo !== undefined ? { is_active: booleano(d.is_active ?? d.ativo, true) } : {}),
+  };
+
+  const atualizar = async (existente: ProdutoAchado) => {
+    const customFields = { ...(existente.custom_fields ?? {}), ...extras, ...(externalId ? { external_id: externalId } : {}) };
+    const { error } = await admin.from("products").update({ ...campos, custom_fields: customFields, updated_at: new Date().toISOString() })
+      .eq("org_id", chave.orgId).eq("id", existente.id);
+    if (error) throw new ErroApi(500, error.message);
+    return { product_id: existente.id, created: false };
+  };
+
+  const existente = await produtoExistente(admin, chave.orgId, externalId, nome);
+  if (existente) return atualizar(existente);
+
+  const customFields = { ...extras, ...(externalId ? { external_id: externalId } : {}) };
+  const { data, error } = await admin.from("products").insert({ org_id: chave.orgId, price: 0, ...campos, custom_fields: customFields }).select("id").single();
+  if (error?.code === ERRO_UNIQUE && externalId) {
+    // Outra chamada inseriu o mesmo external_id entre a busca e o insert: atualiza o que ganhou.
+    const vencedor = await produtoPorExternalId(admin, chave.orgId, externalId);
+    if (vencedor) return atualizar(vencedor);
+  }
+  if (error) throw new ErroApi(500, error.message);
+  return { product_id: data.id, created: true };
+}
+
+function itemDoLote(item: unknown, posicao: number): Dados {
+  if (!item || typeof item !== "object" || Array.isArray(item)) throw new ErroApi(422, `Item ${posicao + 1}: precisa ser um objeto com name.`);
+  return item as Dados;
+}
+
+/**
+ * POST /products aceita um produto ou { products: [...] } (até 100 por chamada).
+ * O lote não é atômico: cada item é gravado na ordem e o primeiro erro interrompe,
+ * informando a posição; os anteriores ficam gravados (reenviar o lote é seguro, ele atualiza).
+ */
+async function criarOuAtualizarProdutos(admin: SupabaseClient, chave: Chave, d: Dados): Promise<Resposta> {
+  if (Array.isArray(d.products)) {
+    const lote = d.products as unknown[];
+    if (lote.length === 0) throw new ErroApi(422, "products está vazio.");
+    if (lote.length > LIMITE_LOTE_PRODUTOS) throw new ErroApi(422, `Envie no máximo ${LIMITE_LOTE_PRODUTOS} produtos por chamada.`);
+    const resultados = [];
+    for (const [i, item] of lote.entries()) {
+      try {
+        resultados.push(await criarOuAtualizarProduto(admin, chave, itemDoLote(item, i)));
+      } catch (e) {
+        if (e instanceof ErroApi) throw new ErroApi(e.status, `Item ${i + 1}: ${e.message} (${resultados.length} anteriores gravados)`);
+        throw e;
+      }
+    }
+    const criados = resultados.filter((r) => r.created).length;
+    return { status: criados > 0 ? 201 : 200, body: { products: resultados, created: criados, updated: resultados.length - criados } };
+  }
+  const resultado = await criarOuAtualizarProduto(admin, chave, d);
+  return { status: resultado.created ? 201 : 200, body: resultado };
+}
+
 async function conhecimento(admin: SupabaseClient, chave: Chave): Promise<Resposta> {
   const [{ data: faqs }, { data: objections }, { data: config }, { data: facts }, { data: documents }] = await Promise.all([
     admin.from("ai_knowledge_faqs").select("question, answer").eq("org_id", chave.orgId).order("order"),
@@ -501,6 +621,7 @@ export async function executarRota(
 
   if (recurso === "activities" && metodo === "POST") { exigirEscopo(chave, "activities:write"); return criarAtividade(admin, chave, corpo); }
   if (recurso === "products" && metodo === "GET") { exigirEscopo(chave, "products:read"); return listarProdutos(admin, chave, params); }
+  if (recurso === "products" && metodo === "POST" && !id) { exigirEscopo(chave, "products:write"); return criarOuAtualizarProdutos(admin, chave, corpo); }
   if (recurso === "knowledge" && metodo === "GET") { exigirEscopo(chave, "knowledge:read"); return conhecimento(admin, chave); }
 
   throw new ErroApi(404, `Rota desconhecida: ${metodo} ${caminho}. Veja /api/openapi.json.`);

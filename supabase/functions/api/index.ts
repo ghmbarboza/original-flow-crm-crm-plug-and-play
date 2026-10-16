@@ -9,7 +9,7 @@
 //   GET  /api/conversations?phone=|contact_id=   GET /api/conversations/:id/messages
 //   POST /api/conversations/:id/messages  (registra)   POST /api/conversations/:id/send (envia pelo canal)
 //   POST /api/conversations/:id/handoff   POST /api/conversations/:id/pause-ai   POST /api/conversations/:id/resume-ai
-//   POST /api/activities   GET /api/products?q=   GET /api/knowledge
+//   POST /api/activities   GET /api/products?q=   POST /api/products   GET /api/knowledge
 //
 // Cada chamada: valida a chave (hash SHA-256), confere o escopo, consome a cota
 // por minuto e grava em api_request_logs. Contrato completo em WEBHOOKS.md.

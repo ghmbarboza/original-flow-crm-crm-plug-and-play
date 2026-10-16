@@ -31,7 +31,7 @@ async function api(metodo: string, caminho: string, corpo?: object, token = chav
 
 test.beforeAll(async () => {
   c = await ctx();
-  const todos = ["contacts:read", "contacts:write", "deals:read", "deals:write", "conversations:read", "conversations:write", "pipelines:read", "activities:write", "products:read", "knowledge:read"];
+  const todos = ["contacts:read", "contacts:write", "deals:read", "deals:write", "conversations:read", "conversations:write", "pipelines:read", "activities:write", "products:read", "products:write", "knowledge:read"];
   const k1 = ok(await c.db.rpc("criar_chave_api", { p_name: `${MARCADOR} api ${uid().slice(0, 6)}`, p_scopes: todos, p_rate_limit: 120 }), "chave") as { id: string; key: string };
   const k2 = ok(await c.db.rpc("criar_chave_api", { p_name: `${MARCADOR} leitura ${uid().slice(0, 6)}`, p_scopes: ["contacts:read"], p_rate_limit: 120 }), "chave leitura") as { id: string; key: string };
   const k3 = ok(await c.db.rpc("criar_chave_api", { p_name: `${MARCADOR} limitada ${uid().slice(0, 6)}`, p_scopes: ["pipelines:read"], p_rate_limit: 10 }), "chave limitada") as { id: string; key: string };
@@ -128,6 +128,58 @@ test("mensagem registrada pela API aparece na conversa; handoff pausa a IA", asy
   expect(estado.status).toBe("human_takeover");
   const retomada = await api("POST", `/conversations/${conv.id}/resume-ai`, {});
   expect(retomada.json!.status).toBe("ai_active");
+});
+
+test("produtos em lote pela API: cria, atualiza pelo external_id sem duplicar e aparece na listagem", async () => {
+  const marca = uid().slice(0, 8);
+  const nomeA = `${MARCADOR} curso ${marca}`;
+  const nomeB = `${MARCADOR} combo ${marca}`;
+  limpeza.add(`produtos ${marca}`, async () => {
+    ok(await c.db.from("products").delete().eq("org_id", c.orgId).ilike("name", `${MARCADOR} %${marca}%`), "apagar produtos");
+  });
+
+  const criado = await api("POST", "/products", {
+    products: [
+      { name: nomeA, price: "129,90", description: "Curso de teste", external_id: `hs-${marca}-a`, custom_fields: { checkout_url: "https://pay.exemplo/x" } },
+      { name: nomeB, price: 897, external_id: `hs-${marca}-b`, is_active: "sim" },
+    ],
+  });
+  expect(criado.status, criado.texto).toBe(201);
+  expect(criado.json!.created).toBe(2);
+
+  // Mesmo external_id com nome e preço novos: atualiza, não cria outro.
+  const atualizado = await api("POST", "/products", { name: `${nomeA} v2`, price: 99.9, external_id: `hs-${marca}-a` });
+  expect(atualizado.status, atualizado.texto).toBe(200);
+  expect(atualizado.json!.created).toBe(false);
+
+  // Sem external_id, acha pelo nome (sem diferenciar caixa).
+  const porNome = await api("POST", "/products", { name: nomeB.toUpperCase(), price: 797 });
+  expect(porNome.status, porNome.texto).toBe(200);
+  expect(porNome.json!.created).toBe(false);
+
+  // Mesmo nome com OUTRO external_id é outro produto: não sobrescreve o existente.
+  const homonimo = await api("POST", "/products", { name: nomeB.toUpperCase(), price: 1, external_id: `hs-${marca}-c` });
+  expect(homonimo.status, homonimo.texto).toBe(201);
+
+  const lista = await api("GET", `/products?q=${encodeURIComponent(marca)}`);
+  expect(lista.status).toBe(200);
+  const produtos = lista.json!.products as { name: string; price: number; custom_fields: { external_id?: string; checkout_url?: string } }[];
+  expect(produtos).toHaveLength(3);
+  const a = produtos.find((p) => p.custom_fields.external_id === `hs-${marca}-a`)!;
+  expect(a.name).toBe(`${nomeA} v2`);
+  expect(Number(a.price)).toBe(99.9);
+  expect(a.custom_fields.checkout_url).toBe("https://pay.exemplo/x");
+  expect(Number(produtos.find((p) => p.custom_fields.external_id === `hs-${marca}-b`)!.price)).toBe(797);
+
+  const semNome = await api("POST", "/products", { price: 10 });
+  expect(semNome.status).toBe(422);
+  const negativo = await api("POST", "/products", { products: [{ name: nomeA, price: 1 }, { name: nomeA, price: -5 }] });
+  expect(negativo.status).toBe(422);
+  expect(negativo.texto).toContain("Item 2");
+  const loteGrande = await api("POST", "/products", { products: Array.from({ length: 101 }, () => ({ name: "x" })) });
+  expect(loteGrande.status).toBe(422);
+  const semEscopo = await api("POST", "/products", { name: "x" }, chaveSoLeitura);
+  expect(semEscopo.status).toBe(403);
 });
 
 test("escopo insuficiente dá 403 e o limite por minuto dá 429", async () => {
