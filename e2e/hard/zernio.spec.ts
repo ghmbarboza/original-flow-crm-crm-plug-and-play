@@ -34,6 +34,10 @@ test.beforeAll(async () => {
     org_id: c.orgId, api_key: "zk_falsa_e2e", profile_id: profileId, webhook_secret: secret, status: "active",
   }).select("id").single(), "criar Zernio");
   limpeza.add("config Zernio", async () => ok(await c.db.from("zernio_configs").delete().eq("id", row.id), "apagar Zernio"));
+  // A primeira mensagem do webhook cria a conta de canal da plataforma
+  // (channel_accounts), que não cai em cascata com zernio_configs.
+  limpeza.add("conta de canal Zernio", async () =>
+    ok(await c.db.from("channel_accounts").delete().eq("org_id", c.orgId).eq("zernio_account_id", "acc_e2e"), "apagar conta Zernio"));
   limpeza.add("conversas Zernio", async () => {
     const convs = ok(await c.db.from("conversations").select("id, contact_id").eq("phone_number", remetente), "ler") ?? [];
     for (const conv of convs) {
