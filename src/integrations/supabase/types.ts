@@ -1422,6 +1422,85 @@ export type Database = {
           },
         ]
       }
+      channel_accounts: {
+        Row: {
+          ai_enabled: boolean
+          ai_funnel_mode: string
+          ai_instruction: string
+          channel: string
+          created_at: string
+          evolution_config_id: string | null
+          id: string
+          is_active: boolean
+          label: string
+          meta_config_id: string | null
+          notifications_default: boolean
+          org_id: string
+          provider: Database["public"]["Enums"]["messaging_provider"]
+          role: string
+          updated_at: string
+          zernio_account_id: string | null
+        }
+        Insert: {
+          ai_enabled?: boolean
+          ai_funnel_mode?: string
+          ai_instruction?: string
+          channel?: string
+          created_at?: string
+          evolution_config_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          meta_config_id?: string | null
+          notifications_default?: boolean
+          org_id: string
+          provider: Database["public"]["Enums"]["messaging_provider"]
+          role?: string
+          updated_at?: string
+          zernio_account_id?: string | null
+        }
+        Update: {
+          ai_enabled?: boolean
+          ai_funnel_mode?: string
+          ai_instruction?: string
+          channel?: string
+          created_at?: string
+          evolution_config_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          meta_config_id?: string | null
+          notifications_default?: boolean
+          org_id?: string
+          provider?: Database["public"]["Enums"]["messaging_provider"]
+          role?: string
+          updated_at?: string
+          zernio_account_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_accounts_evolution_config_id_fkey"
+            columns: ["evolution_config_id"]
+            isOneToOne: true
+            referencedRelation: "evolution_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_accounts_meta_config_id_fkey"
+            columns: ["meta_config_id"]
+            isOneToOne: true
+            referencedRelation: "meta_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_accounts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_distribution_configs: {
         Row: {
           channel: string
@@ -1916,6 +1995,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           channel: string
+          channel_account_id: string | null
           channel_contact_id: string | null
           channel_contact_name: string | null
           contact_id: string | null
@@ -1944,6 +2024,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           channel?: string
+          channel_account_id?: string | null
           channel_contact_id?: string | null
           channel_contact_name?: string | null
           contact_id?: string | null
@@ -1972,6 +2053,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           channel?: string
+          channel_account_id?: string | null
           channel_contact_id?: string | null
           channel_contact_name?: string | null
           contact_id?: string | null
@@ -1998,6 +2080,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_channel_account_id_fkey"
+            columns: ["channel_account_id"]
+            isOneToOne: false
+            referencedRelation: "channel_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversations_import_id_fkey"
             columns: ["import_id"]
