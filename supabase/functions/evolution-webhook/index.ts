@@ -361,7 +361,7 @@ Deno.serve(async (req) => {
   }
 
   // Conversa: uma por telefone em cada número da empresa (conta de canal).
-  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: phone, channel: "whatsapp", channel_account_id: contaId }, async () => {
+  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: phone, channel: "whatsapp", channel_account_id: contaId, provider: "evolution" }, async () => {
     // Distribuição por canal: pré-atribui um agente elegível (round-robin) ou null.
     const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", {
       p_org: orgId,

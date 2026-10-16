@@ -199,7 +199,7 @@ async function ingestInbound(
 
   // Conversa: única por (org, canal, identificador, conta), à prova de rajada
   // (ver _shared/conversa.ts). O contato só é resolvido quando a conversa é nova.
-  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel, channel_account_id: contaId }, async () => {
+  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel, channel_account_id: contaId, provider: "zernio" }, async () => {
     const contatoCriado = await resolveContact(
       admin, orgId, channel, identifier,
       sender.id ?? identifier,
@@ -446,7 +446,7 @@ Deno.serve(async (req) => {
 
     // Chega junto com o message.received da mesma conversa: usa o mesmo helper à
     // prova de corrida em vez de SELECT-e-INSERT.
-    await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel, channel_account_id: contaId }, async () => {
+    await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel, channel_account_id: contaId, provider: "zernio" }, async () => {
       const contactId = (await resolveContact(
         admin, orgId, channel, identifier, identifier, conv.participantName ?? null,
       ))?.id ?? null;

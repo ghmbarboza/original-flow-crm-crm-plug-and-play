@@ -81,8 +81,22 @@ interface LinhaConta {
 
 /** Credenciais do Zernio são por org (um profile), não por conta: uma leitura por chamada. */
 async function zernioDaOrg(admin: SupabaseClient, orgId: string): Promise<{ api_key: string; profile_id: string } | null> {
-  const { data } = await admin.from("zernio_configs").select("api_key, profile_id").eq("org_id", orgId).maybeSingle();
+  const { data, error } = await admin.from("zernio_configs").select("api_key, profile_id").eq("org_id", orgId).maybeSingle();
+  if (error) console.error(`[canal] falha ao ler zernio_configs da org ${orgId}: ${error.message}`);
   return (data as { api_key: string; profile_id: string } | null) ?? null;
+}
+
+/**
+ * Conversa do Zernio anterior às contas de canal (sem channel_account_id e sem
+ * conta criada ainda): responde com as credenciais do profile da org, como o
+ * CRM fazia antes. A conta de verdade nasce na próxima mensagem recebida.
+ */
+function contaZernioHerdada(orgId: string, canal: string, zernio: { api_key: string; profile_id: string }): ContaCanal {
+  return {
+    id: "", org_id: orgId, provider: "zernio", channel: canal, label: `${canal} (Zernio)`, role: "ambos",
+    ai_enabled: true, ai_instruction: "", ai_funnel_mode: "inherit", notifications_default: false, is_active: true,
+    evolution: null, meta: null, zernio: { ...zernio, account_id: null },
+  };
 }
 
 async function montar(admin: SupabaseClient, linhas: LinhaConta[]): Promise<ContaCanal[]> {
@@ -112,9 +126,16 @@ async function montar(admin: SupabaseClient, linhas: LinhaConta[]): Promise<Cont
   return contas;
 }
 
-/** Uma conta pelo id, com as credenciais do provedor. null se não existir ou o provedor estiver desligado. */
-export async function carregarConta(admin: SupabaseClient, id: string): Promise<ContaCanal | null> {
-  const { data } = await admin.from("channel_accounts").select(COLUNAS).eq("id", id).maybeSingle();
+/**
+ * Uma conta pelo id, com as credenciais do provedor. null se não existir ou o
+ * provedor estiver desligado. Com `orgId`, a conta precisa ser dessa org: uma
+ * conversa que aponte para conta de outra empresa nunca usa as credenciais dela.
+ */
+export async function carregarConta(admin: SupabaseClient, id: string, orgId?: string): Promise<ContaCanal | null> {
+  let q = admin.from("channel_accounts").select(COLUNAS).eq("id", id);
+  if (orgId) q = q.eq("org_id", orgId);
+  const { data, error } = await q.maybeSingle();
+  if (error) console.error(`[canal] falha ao ler a conta ${id}: ${error.message}`);
   if (!data) return null;
   const [conta] = await montar(admin, [data as unknown as LinhaConta]);
   return conta ?? null;
@@ -127,13 +148,18 @@ export interface FiltroContas {
   papel?: "ativo";
 }
 
-/** Contas ativas da org, na ordem em que foram conectadas. */
+/**
+ * Contas ativas da org, da mais recente para a mais antiga (a ordem que o CRM
+ * usava para escolher "a instância ativa mais recente", preservada para quem
+ * ainda não tem conta na conversa).
+ */
 export async function contasDaOrg(admin: SupabaseClient, orgId: string, filtro: FiltroContas = {}): Promise<ContaCanal[]> {
-  let q = admin.from("channel_accounts").select(COLUNAS).eq("org_id", orgId).eq("is_active", true).order("created_at", { ascending: true });
+  let q = admin.from("channel_accounts").select(COLUNAS).eq("org_id", orgId).eq("is_active", true).order("created_at", { ascending: false });
   if (filtro.provider) q = q.eq("provider", filtro.provider);
   if (filtro.channel) q = q.eq("channel", filtro.channel);
   if (filtro.papel === "ativo") q = q.in("role", ["ativo", "ambos"]);
-  const { data } = await q;
+  const { data, error } = await q;
+  if (error) console.error(`[canal] falha ao listar contas da org ${orgId}: ${error.message}`);
   return montar(admin, ((data ?? []) as unknown) as LinhaConta[]);
 }
 
@@ -145,19 +171,38 @@ export interface ConversaComConta {
 }
 
 /**
- * Conta pela qual a conversa entrou. Sem conta gravada (conversa anterior a
- * esta versão), usa a primeira conta ativa do mesmo provedor e canal, que é o
- * comportamento antigo.
+ * Conta pela qual a conversa entrou.
+ *
+ * Com conta gravada, é ela ou nada: se a conta sumiu, foi desligada ou é de
+ * outro provedor, a conversa NÃO sai por outro número (era justamente o defeito
+ * que as contas vieram eliminar); quem chama registra a falha com o motivo.
+ * Sem conta gravada (conversa anterior a esta versão), usa a conta ativa mais
+ * recente do mesmo provedor e canal, que é o comportamento antigo.
  */
 export async function contaDaConversa(admin: SupabaseClient, conversa: ConversaComConta): Promise<ContaCanal | null> {
-  if (conversa.channel_account_id) {
-    const conta = await carregarConta(admin, conversa.channel_account_id);
-    if (conta) return conta;
-  }
   const provider = conversa.provider as Provedor;
   const canal = conversa.channel ?? "whatsapp";
+
+  if (conversa.channel_account_id) {
+    const conta = await carregarConta(admin, conversa.channel_account_id, conversa.org_id);
+    if (!conta) {
+      console.error(`[canal] conversa com conta ${conversa.channel_account_id} que não existe, está desligada ou é de outra org (org ${conversa.org_id}).`);
+      return null;
+    }
+    if (conta.provider !== provider) {
+      console.error(`[canal] conversa do provedor ${provider} aponta para conta ${conta.id} do provedor ${conta.provider}.`);
+      return null;
+    }
+    return conta;
+  }
+
   const contas = await contasDaOrg(admin, conversa.org_id, { provider, channel: provider === "zernio" ? canal : undefined });
-  return contas[0] ?? null;
+  if (contas[0]) return contas[0];
+  if (provider === "zernio") {
+    const zernio = await zernioDaOrg(admin, conversa.org_id);
+    if (zernio) return contaZernioHerdada(conversa.org_id, canal, zernio);
+  }
+  return null;
 }
 
 const ORDEM_PARA_ABORDAR: Provedor[] = ["evolution", "meta_official", "zernio"];
@@ -178,7 +223,8 @@ export async function contaParaAbordagem(admin: SupabaseClient, orgId: string, c
 /**
  * Conta dos avisos de WhatsApp para a equipe e dos lembretes ao contato: a
  * marcada como padrão de notificações; sem marcação, a primeira que pode
- * iniciar conversa; por fim, qualquer conta ativa de WhatsApp.
+ * iniciar conversa. Conta passiva só sai daqui se o admin a marcar como
+ * padrão: lembrete ao contato é uma mensagem que a empresa inicia.
  */
 export async function contaDeNotificacoes(admin: SupabaseClient, orgId: string): Promise<ContaCanal | null> {
   const contas = await contasDaOrg(admin, orgId, { channel: "whatsapp" });
@@ -188,7 +234,7 @@ export async function contaDeNotificacoes(admin: SupabaseClient, orgId: string):
     const conta = contas.find((c) => c.provider === provider && (c.role === "ativo" || c.role === "ambos"));
     if (conta) return conta;
   }
-  return contas[0] ?? null;
+  return null;
 }
 
 /** Bloco do prompt com as regras próprias deste número, ou vazio. */
@@ -287,8 +333,12 @@ export async function garantirContaZernio(
   canal: string,
   label: string | null,
 ): Promise<string | null> {
-  const { data: existente } = await admin
+  const { data: existente, error: erroLeitura } = await admin
     .from("channel_accounts").select("id").eq("org_id", orgId).eq("zernio_account_id", accountId).maybeSingle();
+  if (erroLeitura) {
+    console.error(`[canal] falha ao procurar a conta Zernio ${accountId}: ${erroLeitura.message}`);
+    return null;
+  }
   if (existente?.id) return existente.id as string;
   const { data: criada, error } = await admin
     .from("channel_accounts")

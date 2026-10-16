@@ -116,15 +116,17 @@ Deno.serve(async (req) => {
     //    abordagem agendada (fora do horário) também conta: duas automações
     //    mirando o mesmo lead não podem gerar duas aberturas.
     const jaAbordado = async (): Promise<string | null> => {
-      const { data: existente } = await admin
+      // O telefone pode ter uma conversa em cada número da empresa: basta uma
+      // com mensagens para o lead já ter falado com a gente.
+      const { data: existentes } = await admin
         .from("conversations").select("id, status")
-        .eq("org_id", orgId).eq("phone_number", telefone).limit(1).maybeSingle();
-      if (existente) {
+        .eq("org_id", orgId).eq("phone_number", telefone);
+      if (existentes && existentes.length > 0) {
         const { count } = await admin
           .from("conversation_messages").select("id", { count: "exact", head: true })
-          .eq("conversation_id", existente.id).eq("is_internal_note", false);
+          .in("conversation_id", existentes.map((c) => c.id)).eq("is_internal_note", false);
         if ((count ?? 0) > 0) return "contato já tem conversa com mensagens";
-        if (existente.status === "closed") return "conversa encerrada";
+        if (existentes.every((c) => c.status === "closed")) return "conversa encerrada";
       }
       const { count: agendadas } = await admin
         .from("scheduled_messages").select("id", { count: "exact", head: true })
@@ -193,7 +195,7 @@ Deno.serve(async (req) => {
     }
     const conversa = await obterOuCriarConversa(
       admin,
-      { org_id: orgId, phone_number: telefone, channel: "whatsapp", channel_account_id: canal.id },
+      { org_id: orgId, phone_number: telefone, channel: "whatsapp", channel_account_id: canal.id, provider: canal.provider },
       async () => {
         const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", { p_org: orgId, p_channel: "whatsapp" });
         return {

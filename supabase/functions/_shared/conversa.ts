@@ -27,12 +27,14 @@ export interface ConversaResolvida {
  * null só em erro real, já logado.
  *
  * Com `channel_account_id`, a conversa é da CONTA (um número = uma conversa com
- * o lead). Conversa antiga do mesmo telefone sem conta é adotada por esta: o
- * histórico anterior a 16/10/2026 não se divide em duas conversas.
+ * o lead). Conversa antiga do mesmo telefone sem conta, e do mesmo provedor, é
+ * adotada por esta: o histórico anterior a 16/10/2026 não se divide em duas
+ * conversas, e uma conversa do Zernio nunca vira conversa de uma instância
+ * Evolution.
  */
 export async function obterOuCriarConversa(
   admin: SupabaseClient,
-  filtro: { org_id: string; phone_number: string; channel?: string; channel_account_id?: string | null },
+  filtro: { org_id: string; phone_number: string; channel?: string; channel_account_id?: string | null; provider?: string },
   novaConversa: () => Promise<Record<string, unknown>>,
 ): Promise<ConversaResolvida | null> {
   const buscar = async (conta: string | null | "qualquer") => {
@@ -44,8 +46,11 @@ export async function obterOuCriarConversa(
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(1);
     if (filtro.channel) q = q.eq("channel", filtro.channel);
-    if (conta === null) q = q.is("channel_account_id", null);
-    else if (conta !== "qualquer") q = q.eq("channel_account_id", conta);
+    // Órfã só é adotada se for do mesmo provedor da conta que a reclama.
+    if (conta === null) {
+      q = q.is("channel_account_id", null);
+      if (filtro.provider) q = q.eq("provider", filtro.provider);
+    } else if (conta !== "qualquer") q = q.eq("channel_account_id", conta);
     const { data } = await q.maybeSingle();
     return data;
   };
