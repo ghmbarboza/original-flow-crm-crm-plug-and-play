@@ -14,6 +14,7 @@ import {
 } from "../_shared/audio.ts";
 import { obterOuCriarContatoCanal, obterOuCriarContatoWhatsapp, obterOuCriarConversa } from "../_shared/conversa.ts";
 import { garantirNegocioAberto } from "../_shared/negocio.ts";
+import { garantirContaZernio } from "../_shared/canal.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -185,6 +186,7 @@ async function ingestInbound(
   providerMessageId: string | null,
   anexo: AnexoRecebido | null = null,
   apiKey: string | null = null,
+  contaId: string | null = null,
 ): Promise<{ conversationId: string; status: string; transcricao: string | null } | null> {
   // Identificador do remetente no canal. WhatsApp = telefone; demais = id da plataforma.
   const identifier = (sender.phoneNumber ?? sender.id ?? "").replace(/^\+/, "");
@@ -195,9 +197,9 @@ async function ingestInbound(
     : !anexo || anexo.tipo === "audio" ? "🎤 Áudio" : MIDIA[anexo.tipo].rotulo;
   const now = new Date().toISOString();
 
-  // Conversa: única por (org, canal, identificador), à prova de rajada
+  // Conversa: única por (org, canal, identificador, conta), à prova de rajada
   // (ver _shared/conversa.ts). O contato só é resolvido quando a conversa é nova.
-  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel }, async () => {
+  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel, channel_account_id: contaId }, async () => {
     const contatoCriado = await resolveContact(
       admin, orgId, channel, identifier,
       sender.id ?? identifier,
@@ -406,10 +408,17 @@ Deno.serve(async (req) => {
     const anexo = extrairAnexoZernio(message as Record<string, unknown>);
     if (!text && !anexo) return ok({ ignored: "mensagem sem texto nem mídia" });
 
+    // Conta de canal da plataforma pela qual a mensagem entrou (Instagram,
+    // WhatsApp...): criada aqui na primeira mensagem, se a listagem ainda não criou.
+    const contaId = account.accountId
+      ? await garantirContaZernio(admin, orgId, account.accountId, channel, null)
+      : null;
+
     const result = await ingestInbound(
       admin, orgId, channel, message.sender ?? {}, text,
       conversation.id ?? message.conversationId ?? null, message.id ?? null, anexo,
       (config.api_key as string | null) ?? null,
+      contaId,
     );
     if (!result) return ok();
 
@@ -431,10 +440,13 @@ Deno.serve(async (req) => {
     const channel = conv.platform ?? account.platform ?? "whatsapp";
     const identifier = conv.participantId ?? "";
     if (!identifier) return ok();
+    const contaId = account.accountId
+      ? await garantirContaZernio(admin, orgId, account.accountId, channel, null)
+      : null;
 
     // Chega junto com o message.received da mesma conversa: usa o mesmo helper à
     // prova de corrida em vez de SELECT-e-INSERT.
-    await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel }, async () => {
+    await obterOuCriarConversa(admin, { org_id: orgId, phone_number: identifier, channel, channel_account_id: contaId }, async () => {
       const contactId = (await resolveContact(
         admin, orgId, channel, identifier, identifier, conv.participantName ?? null,
       ))?.id ?? null;

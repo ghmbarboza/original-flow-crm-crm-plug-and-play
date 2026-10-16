@@ -335,6 +335,12 @@ Deno.serve(async (req) => {
 
   const orgId = instance.org_id;
 
+  // Conta de canal desta instância: a conversa nasce ligada a ela e tudo que
+  // sair da conversa volta por este número (ver _shared/canal.ts).
+  const { data: contaRow } = await admin
+    .from("channel_accounts").select("id").eq("evolution_config_id", instance.id).maybeSingle();
+  const contaId = (contaRow?.id as string | undefined) ?? null;
+
   // Contato: casa pelo whatsapp_phone; cria um lead se não existir. À prova de
   // rajada: ver _shared/conversa.ts.
   const contato = await obterOuCriarContatoWhatsapp(admin, orgId, phone, {
@@ -354,8 +360,8 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Conversa: uma por telefone dentro da org.
-  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: phone }, async () => {
+  // Conversa: uma por telefone em cada número da empresa (conta de canal).
+  const conversa = await obterOuCriarConversa(admin, { org_id: orgId, phone_number: phone, channel: "whatsapp", channel_account_id: contaId }, async () => {
     // Distribuição por canal: pré-atribui um agente elegível (round-robin) ou null.
     const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", {
       p_org: orgId,

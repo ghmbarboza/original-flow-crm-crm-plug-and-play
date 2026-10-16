@@ -355,7 +355,7 @@ async function listarConversas(admin: SupabaseClient, chave: Chave, params: URLS
 
 async function conversaDaOrg(admin: SupabaseClient, chave: Chave, id: string) {
   const { data } = await admin.from("conversations")
-    .select("id, org_id, contact_id, deal_id, phone_number, channel, provider, provider_conversation_id, status, is_demo")
+    .select("id, org_id, contact_id, deal_id, phone_number, channel, provider, provider_conversation_id, channel_account_id, status, is_demo")
     .eq("org_id", chave.orgId).eq("id", id).maybeSingle();
   if (!data) throw new ErroApi(404, "Conversa não encontrada.");
   return data;

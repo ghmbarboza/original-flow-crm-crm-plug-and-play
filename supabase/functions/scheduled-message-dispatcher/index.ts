@@ -9,10 +9,10 @@
 // Segurança: só o cron chama, com o segredo interno (ver _shared/seguranca.ts).
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
+import { contaDaConversa, enviarTextoPelaConta } from "../_shared/canal.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ZERNIO_API = "https://zernio.com/api/v1";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -33,73 +33,25 @@ interface Conversa {
   channel: string;
   phone_number: string;
   provider_conversation_id: string | null;
+  channel_account_id: string | null;
 }
 
-/** Envia texto pelo provedor da conversa. Devolve null com o motivo em caso de falha. */
+const COLUNAS_CONVERSA = "id, provider, channel, phone_number, provider_conversation_id, channel_account_id";
+
+/**
+ * Envia texto pela conta (número) em que a conversa entrou (ver _shared/canal.ts).
+ * Devolve o motivo em caso de falha.
+ */
 async function enviar(
   admin: Admin,
   orgId: string,
   conv: Conversa,
   text: string,
 ): Promise<{ ok: boolean; motivo?: string }> {
-  if (conv.provider === "evolution") {
-    const { data: instance } = await admin
-      .from("evolution_configs")
-      .select("server_url, api_key, instance_name")
-      .eq("org_id", orgId).eq("is_active", true)
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (!instance) return { ok: false, motivo: "Evolution não configurada" };
-    const resp = await fetch(`${instance.server_url}/message/sendText/${instance.instance_name}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: instance.api_key as string },
-      body: JSON.stringify({ number: conv.phone_number, text }),
-    });
-    return resp.ok ? { ok: true } : { ok: false, motivo: `Evolution respondeu ${resp.status}` };
-  }
-
-  if (conv.provider === "zernio") {
-    if (!conv.provider_conversation_id) {
-      return { ok: false, motivo: "Conversa sem id do Zernio (nenhuma mensagem recebida ainda)" };
-    }
-    const { data: config } = await admin
-      .from("zernio_configs")
-      .select("api_key, profile_id")
-      .eq("org_id", orgId).maybeSingle();
-    if (!config) return { ok: false, motivo: "Zernio não configurado" };
-
-    const accountsUrl = new URL(`${ZERNIO_API}/accounts`);
-    accountsUrl.searchParams.set("profileId", config.profile_id as string);
-    accountsUrl.searchParams.set("platform", conv.channel);
-    accountsUrl.searchParams.set("status", "connected");
-    const accResp = await fetch(accountsUrl.toString(), {
-      headers: { Authorization: `Bearer ${config.api_key}` },
-    });
-    if (!accResp.ok) return { ok: false, motivo: `Zernio recusou a listagem de contas (${accResp.status})` };
-    const accData = await accResp.json().catch(() => ({}));
-    const account = (accData.accounts ?? []).find((a: { isActive?: boolean }) => a.isActive) ?? (accData.accounts ?? [])[0];
-    if (!account?._id) return { ok: false, motivo: `Nenhuma conta Zernio conectada no canal ${conv.channel}` };
-
-    const resp = await fetch(`${ZERNIO_API}/inbox/conversations/${conv.provider_conversation_id}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.api_key}` },
-      body: JSON.stringify({ accountId: account._id, message: text }),
-    });
-    return resp.ok ? { ok: true } : { ok: false, motivo: `Zernio respondeu ${resp.status}` };
-  }
-
-  // Meta (API oficial) é o caminho restante.
-  const { data: instance } = await admin
-    .from("meta_configs")
-    .select("phone_number_id, access_token")
-    .eq("org_id", orgId).eq("is_active", true)
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (!instance) return { ok: false, motivo: "Meta não configurada" };
-  const resp = await fetch(`https://graph.facebook.com/v21.0/${instance.phone_number_id}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${instance.access_token}` },
-    body: JSON.stringify({ messaging_product: "whatsapp", to: conv.phone_number, type: "text", text: { body: text } }),
-  });
-  return resp.ok ? { ok: true } : { ok: false, motivo: `Meta respondeu ${resp.status}` };
+  const conta = await contaDaConversa(admin, { org_id: orgId, ...conv });
+  if (!conta) return { ok: false, motivo: `Nenhuma conta ativa do provedor ${conv.provider}` };
+  const envio = await enviarTextoPelaConta(conta, conv, text);
+  return envio.ok ? { ok: true } : { ok: false, motivo: envio.motivo };
 }
 
 Deno.serve(async (req) => {
@@ -132,7 +84,7 @@ Deno.serve(async (req) => {
     if (msg.conversation_id) {
       const { data } = await admin
         .from("conversations")
-        .select("id, provider, channel, phone_number, provider_conversation_id, status, is_demo")
+        .select(`${COLUNAS_CONVERSA}, status, is_demo`)
         .eq("id", msg.conversation_id).maybeSingle();
       // Trava da demo: conversa semeada nunca recebe envio agendado real.
       if (data && data.status !== "closed" && data.is_demo !== true) conv = data as unknown as Conversa;
@@ -140,7 +92,7 @@ Deno.serve(async (req) => {
     if (!conv) {
       const { data } = await admin
         .from("conversations")
-        .select("id, provider, channel, phone_number, provider_conversation_id")
+        .select(COLUNAS_CONVERSA)
         .eq("contact_id", msg.contact_id)
         .neq("status", "closed")
         .eq("is_demo", false)

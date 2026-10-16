@@ -10,6 +10,7 @@ import { registrarEnvioSimulado } from "../_shared/demo.ts";
 import {
   acessoAosTemplates, enviarTemplate, listarTemplates, renderTemplate, validarParametros,
 } from "../_shared/templateWhatsapp.ts";
+import { contaDaConversa } from "../_shared/canal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
 
     const { data: conversation } = await admin
       .from("conversations")
-      .select("id, org_id, phone_number, channel, provider, provider_conversation_id, is_demo")
+      .select("id, org_id, phone_number, channel, provider, provider_conversation_id, channel_account_id, is_demo")
       .eq("id", conversationId)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversa não encontrada" }, 404);
@@ -95,7 +96,9 @@ Deno.serve(async (req) => {
       return json({ error: "Muitos envios seguidos nesta conversa. Aguarde um minuto e tente de novo." }, 429);
     }
 
-    const acesso = await acessoAosTemplates(admin, orgId, provider);
+    // O template sai pelo número em que a conversa entrou.
+    const conta = await contaDaConversa(admin, conversation);
+    const acesso = await acessoAosTemplates(admin, orgId, provider, conta);
     if ("erro" in acesso) return json({ error: acesso.erro }, 400);
     const lista = await listarTemplates(acesso);
     if ("erro" in lista) return json({ error: lista.erro }, 400);

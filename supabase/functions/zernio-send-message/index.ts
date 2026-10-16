@@ -5,8 +5,7 @@
 // do canal (accountId), entrega ao Zernio e grava a mensagem outbound.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { registrarEnvioSimulado } from "../_shared/demo.ts";
-
-const ZERNIO_API = "https://zernio.com/api/v1";
+import { ZERNIO_API, contaDaConversa, zernioAccountIdDaConta } from "../_shared/canal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: conversation } = await admin
       .from("conversations")
-      .select("id, org_id, channel, provider, provider_conversation_id, is_demo")
+      .select("id, org_id, channel, provider, provider_conversation_id, channel_account_id, is_demo")
       .eq("id", conversation_id)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversa não encontrada" }, 404);
@@ -85,28 +84,14 @@ Deno.serve(async (req) => {
       return json({ error: erro }, 400);
     };
 
-    const { data: config } = await admin
-      .from("zernio_configs")
-      .select("api_key, profile_id")
-      .eq("org_id", conversation.org_id)
-      .maybeSingle();
-    if (!config) return falhar("Zernio não configurado para esta organização.");
+    // A resposta sai pela conta (plataforma) em que a conversa entrou.
+    const conta = await contaDaConversa(admin, conversation);
+    const config = conta?.zernio;
+    if (!conta || !config) return falhar("Zernio não configurado para esta organização.");
 
-    // Resolve a conta conectada do canal da conversa (accountId é obrigatório no envio).
-    const accountsUrl = new URL(`${ZERNIO_API}/accounts`);
-    accountsUrl.searchParams.set("profileId", config.profile_id as string);
-    accountsUrl.searchParams.set("platform", conversation.channel as string);
-    accountsUrl.searchParams.set("status", "connected");
-    const accResp = await fetch(accountsUrl.toString(), {
-      headers: { Authorization: `Bearer ${config.api_key}` },
-    });
-    if (!accResp.ok) {
-      const text = await accResp.text();
-      return falhar(`Zernio recusou a listagem de contas: ${text.slice(0, 160)}`);
-    }
-    const accData = await accResp.json().catch(() => ({}));
-    const account = (accData.accounts ?? []).find((a: { isActive?: boolean }) => a.isActive) ?? (accData.accounts ?? [])[0];
-    const accountId = account?._id as string | undefined;
+    // accountId é obrigatório no envio: o da conta ou, para conversa herdada, o
+    // da plataforma conectada no profile.
+    const accountId = await zernioAccountIdDaConta(conta, conversation.channel as string);
     if (!accountId) {
       return falhar(`Nenhuma conta conectada no Zernio para o canal ${conversation.channel}.`);
     }

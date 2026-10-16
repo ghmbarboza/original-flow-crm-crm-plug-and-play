@@ -9,6 +9,7 @@
 // Usa a service role para ler/escrever entre orgs.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
+import { GRAPH_VERSION, contaDaConversa, type ConversaComConta } from "../_shared/canal.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -49,20 +50,19 @@ interface StepMedia {
   filename: string | null;
 }
 
+/** O follow-up sai pela conta (número) em que a conversa entrou (ver _shared/canal.ts). */
 async function sendText(
   admin: SupabaseClient,
-  provider: string,
-  orgId: string,
-  phone: string,
+  conv: ConversaComConta & { phone_number: string },
   text: string,
   media?: StepMedia | null,
 ): Promise<string | null> {
-  if (provider === "evolution") {
-    const { data: instance } = await admin
-      .from("evolution_configs")
-      .select("server_url, api_key, instance_name")
-      .eq("org_id", orgId).eq("is_active", true)
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const phone = conv.phone_number;
+  const conta = await contaDaConversa(admin, conv);
+  if (!conta) return null;
+
+  if (conta.provider === "evolution") {
+    const instance = conta.evolution;
     if (!instance) return null;
 
     // Com mídia, o endpoint muda: sendMedia leva a URL + caption num só envio.
@@ -85,11 +85,8 @@ async function sendText(
     });
     return resp.ok ? "sent" : null;
   }
-  const { data: instance } = await admin
-    .from("meta_configs")
-    .select("phone_number_id, access_token")
-    .eq("org_id", orgId).eq("is_active", true)
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // Zernio não tem follow-up de texto fora da conversa dele; Meta é o caminho restante.
+  const instance = conta.meta;
   if (!instance) return null;
 
   // Meta Cloud API: o tipo da mensagem é o tipo da mídia, com o texto de caption.
@@ -105,7 +102,7 @@ async function sendText(
         },
       }
     : { messaging_product: "whatsapp", to: phone, type: "text", text: { body: text } };
-  const resp = await fetch(`https://graph.facebook.com/v21.0/${instance.phone_number_id}/messages`, {
+  const resp = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${instance.phone_number_id}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${instance.access_token}` },
     body: JSON.stringify(payload),
@@ -159,7 +156,7 @@ Deno.serve(async (req) => {
     // Conversas candidatas: abertas, com a última mensagem enviada por nós.
     const { data: conversations } = await admin
       .from("conversations")
-      .select("id, org_id, provider, phone_number, contact_id, assigned_to, last_message_at, status, company:companies(name), contact:contacts(first_name, last_name)")
+      .select("id, org_id, provider, channel, channel_account_id, phone_number, contact_id, assigned_to, last_message_at, status, company:companies(name), contact:contacts(first_name, last_name)")
       .eq("org_id", orgId)
       .neq("status", "closed")
       // Trava da demo: conversas semeadas têm números fictícios em formato
@@ -235,7 +232,7 @@ Deno.serve(async (req) => {
       // Anexo da etapa (Parte 10): resolvido na hora do envio, com dados frescos.
       const media = await resolveStepMedia(admin, step);
 
-      const status = await sendText(admin, conv.provider, orgId, conv.phone_number, text, media);
+      const status = await sendText(admin, conv, text, media);
       if (status) {
         await admin.from("conversation_messages").insert({
           conversation_id: conv.id, org_id: orgId, direction: "outbound",

@@ -3,8 +3,7 @@
 // O cliente (app autenticado) não manda nada além do JWT. A função resolve a
 // zernio_config da org, chama a API do Zernio e devolve as contas conectadas.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const ZERNIO_API = "https://zernio.com/api/v1";
+import { ZERNIO_API, garantirContaZernio } from "../_shared/canal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,6 +68,14 @@ Deno.serve(async (req) => {
       isActive: a.isActive,
       needsReconnection: a.needsReconnection,
     }));
+
+    // Cada conta conectada no Zernio é uma conta de canal do CRM (papel e perfil
+    // de IA próprios). Criada aqui para aparecer em Configurações antes da
+    // primeira mensagem chegar.
+    for (const a of accounts as { id?: string; platform?: string; displayName?: string; username?: string }[]) {
+      if (!a.id || !a.platform) continue;
+      await garantirContaZernio(admin, orgId, a.id, a.platform, a.displayName || a.username || null);
+    }
 
     return json({ ok: true, accounts });
   } catch (err) {

@@ -20,7 +20,8 @@ import { dentroDoHorario, proximaAbertura } from "../_shared/horario.ts";
 import { obterOuCriarConversa } from "../_shared/conversa.ts";
 import { garantirNegocioAberto, registrarNotaIA } from "../_shared/negocio.ts";
 import { perfilDaOrigem } from "../_shared/perfilOrigem.ts";
-import { enviarTemplate, type EnvioDeTemplate } from "../_shared/templateWhatsapp.ts";
+import { canalOficialDaConta, enviarTemplate, type EnvioDeTemplate } from "../_shared/templateWhatsapp.ts";
+import { contaParaAbordagem, type ContaCanal } from "../_shared/canal.ts";
 
 const MAX_TOKENS_ABERTURA = 400;
 const PREVIEW_MAX = 120;
@@ -48,39 +49,9 @@ interface OutreachConfig {
   template_params?: string[];
 }
 
-type Provedor = "evolution" | "meta_official" | "zernio";
-
-interface Canal {
-  provider: Provedor;
-  evolution?: { server_url: string; api_key: string; instance_name: string };
-  meta?: { phone_number_id: string; access_token: string };
-  zernio?: { api_key: string; profile_id: string };
-}
-
-/** Primeiro canal de WhatsApp conectado, na ordem em que o CRM os prefere. */
-async function resolverCanal(admin: SupabaseClient, orgId: string): Promise<Canal | null> {
-  const { data: evo } = await admin
-    .from("evolution_configs").select("server_url, api_key, instance_name")
-    .eq("org_id", orgId).eq("is_active", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (evo) return { provider: "evolution", evolution: evo as Canal["evolution"] };
-
-  const { data: meta } = await admin
-    .from("meta_configs").select("phone_number_id, access_token")
-    .eq("org_id", orgId).eq("is_active", true).order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (meta) return { provider: "meta_official", meta: meta as Canal["meta"] };
-
-  const { data: zernio } = await admin
-    .from("zernio_configs").select("api_key, profile_id, active_channels, status")
-    .eq("org_id", orgId).maybeSingle();
-  if (zernio && zernio.status === "active" && (zernio.active_channels as string[] | null ?? []).includes("whatsapp")) {
-    return { provider: "zernio", zernio: zernio as Canal["zernio"] };
-  }
-  return null;
-}
-
 type Envio = EnvioDeTemplate;
 
-async function enviarTexto(canal: Canal, telefone: string, texto: string): Promise<Envio> {
+async function enviarTexto(canal: ContaCanal, telefone: string, texto: string): Promise<Envio> {
   if (canal.provider !== "evolution" || !canal.evolution) {
     return { ok: false, providerMessageId: null, providerConversationId: null, motivo: "texto livre só no Evolution" };
   }
@@ -136,8 +107,10 @@ Deno.serve(async (req) => {
       template_name: perfilOrigem?.outreach_template_name?.trim() || outreachBase.template_name,
     };
 
-    const canal = await resolverCanal(admin, orgId);
-    if (!canal) return json({ error: "Nenhum canal de WhatsApp conectado" }, 422);
+    // Só uma conta de papel "ativo" (ou "ambos") inicia conversa: o número
+    // define a abordagem, e um número passivo nunca prospecta (ver _shared/canal.ts).
+    const canal = await contaParaAbordagem(admin, orgId);
+    if (!canal) return json({ error: "Nenhum número de WhatsApp com papel ativo para abordar leads" }, 422);
 
     // 2. Quem já conversou não é abordado: a IA responde, não interrompe. Uma
     //    abordagem agendada (fora do horário) também conta: duas automações
@@ -220,7 +193,7 @@ Deno.serve(async (req) => {
     }
     const conversa = await obterOuCriarConversa(
       admin,
-      { org_id: orgId, phone_number: telefone, ...(canal.provider === "zernio" ? { channel: "whatsapp" } : {}) },
+      { org_id: orgId, phone_number: telefone, channel: "whatsapp", channel_account_id: canal.id },
       async () => {
         const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", { p_org: orgId, p_channel: "whatsapp" });
         return {
@@ -260,7 +233,7 @@ Deno.serve(async (req) => {
 
     // 6. Envio e registro.
     const envio = viaTemplate
-      ? await enviarTemplate(canal, telefone, { nome: outreach.template_name!, idioma: outreach.template_language || "pt_BR" }, params)
+      ? await enviarTemplate(canalOficialDaConta(canal), telefone, { nome: outreach.template_name!, idioma: outreach.template_language || "pt_BR" }, params)
       : await enviarTexto(canal, telefone, texto);
 
     const agora = new Date().toISOString();

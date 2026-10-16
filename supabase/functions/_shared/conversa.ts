@@ -20,36 +20,68 @@ export interface ConversaResolvida {
 }
 
 /**
- * Busca a conversa por org + telefone (+ canal, quando informado) e cria com o
- * resultado de `novaConversa` se não existir. A fábrica só roda quando vai criar:
- * ela costuma sortear o atendente (pick_agent_for_channel), e sortear para uma
- * conversa que já existe avançaria o rodízio à toa. Devolve null só em erro
- * real, já logado.
+ * Busca a conversa por org + telefone (+ canal e conta, quando informados) e
+ * cria com o resultado de `novaConversa` se não existir. A fábrica só roda
+ * quando vai criar: ela costuma sortear o atendente (pick_agent_for_channel), e
+ * sortear para uma conversa que já existe avançaria o rodízio à toa. Devolve
+ * null só em erro real, já logado.
+ *
+ * Com `channel_account_id`, a conversa é da CONTA (um número = uma conversa com
+ * o lead). Conversa antiga do mesmo telefone sem conta é adotada por esta: o
+ * histórico anterior a 16/10/2026 não se divide em duas conversas.
  */
 export async function obterOuCriarConversa(
   admin: SupabaseClient,
-  filtro: { org_id: string; phone_number: string; channel?: string },
+  filtro: { org_id: string; phone_number: string; channel?: string; channel_account_id?: string | null },
   novaConversa: () => Promise<Record<string, unknown>>,
 ): Promise<ConversaResolvida | null> {
-  const buscar = async () => {
+  const buscar = async (conta: string | null | "qualquer") => {
     let q = admin
       .from("conversations")
       .select("id, status, unread_count")
       .eq("org_id", filtro.org_id)
-      .eq("phone_number", filtro.phone_number);
+      .eq("phone_number", filtro.phone_number)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(1);
     if (filtro.channel) q = q.eq("channel", filtro.channel);
+    if (conta === null) q = q.is("channel_account_id", null);
+    else if (conta !== "qualquer") q = q.eq("channel_account_id", conta);
     const { data } = await q.maybeSingle();
     return data;
   };
 
-  const existente = await buscar();
+  const conta = filtro.channel_account_id ?? null;
+  // Sem conta informada (quem chama ainda não sabe por onde a conversa entrou),
+  // qualquer conversa do telefone serve, como antes.
+  const existente = await buscar(conta ?? "qualquer");
   if (existente) {
     return { id: existente.id, status: existente.status, unread_count: existente.unread_count ?? 0, criada: false };
   }
 
+  if (conta) {
+    const orfa = await buscar(null);
+    if (orfa) {
+      const { data: adotada } = await admin
+        .from("conversations")
+        .update({ channel_account_id: conta })
+        .eq("id", orfa.id)
+        .is("channel_account_id", null)
+        .select("id")
+        .maybeSingle();
+      // Outra invocação pode ter adotado a mesma conversa para OUTRA conta no
+      // meio do caminho; nesse caso ela já não é órfã e seguimos para criar.
+      if (adotada) return { id: orfa.id, status: orfa.status, unread_count: orfa.unread_count ?? 0, criada: false };
+    }
+  }
+
   const { data: criada, error } = await admin
     .from("conversations")
-    .insert({ ...(await novaConversa()), org_id: filtro.org_id, phone_number: filtro.phone_number })
+    .insert({
+      ...(await novaConversa()),
+      org_id: filtro.org_id,
+      phone_number: filtro.phone_number,
+      ...(conta ? { channel_account_id: conta } : {}),
+    })
     .select("id, status, unread_count")
     .single();
   if (criada) {
@@ -57,7 +89,7 @@ export async function obterOuCriarConversa(
   }
 
   if (error?.code === VIOLACAO_UNICA) {
-    const vencedora = await buscar();
+    const vencedora = await buscar(conta ?? "qualquer");
     if (vencedora) {
       return { id: vencedora.id, status: vencedora.status, unread_count: vencedora.unread_count ?? 0, criada: false };
     }

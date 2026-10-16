@@ -24,6 +24,7 @@ import { PREFIXO_SIMULADO } from "../_shared/demo.ts";
 import { chamadaInterna, naoAutorizado } from "../_shared/seguranca.ts";
 import { dentroDoHorario } from "../_shared/horario.ts";
 import { instrucaoDaOrigem, perfilDaOrigem } from "../_shared/perfilOrigem.ts";
+import { contaDaConversa, instrucaoDaConta, zernioAccountIdDaConta } from "../_shared/canal.ts";
 import { FERRAMENTAS_CONHECIMENTO, blocoDeVerdade, buscarConhecimento, carregarFatosCanonicos, registrarDuvida } from "../_shared/conhecimento.ts";
 import { FERRAMENTAS_AGENDA, carregarPolitica, executarFerramentaAgenda, fusoDaOrg, instrucaoAgenda } from "../_shared/agenda.ts";
 import { blocoDoLead, lerMemoria } from "../_shared/leadState.ts";
@@ -107,6 +108,8 @@ interface ConversaEntrega {
   phone_number: string;
   channel?: string | null;
   provider_conversation_id?: string | null;
+  /** Conta de canal pela qual a conversa entrou; a resposta sai pela mesma. */
+  channel_account_id?: string | null;
   /** Conversa de demonstração: nada é entregue a provedor nenhum. */
   is_demo?: boolean | null;
 }
@@ -144,15 +147,15 @@ async function deliver(
     return { providerMessageId: `${PREFIXO_SIMULADO}-${crypto.randomUUID()}`, comoAudio: false };
   }
 
+  // A resposta sai pela conta (número) em que a conversa entrou.
+  const conta = await contaDaConversa(admin, conversation);
+  if (!conta) {
+    console.error(`[ai-reply] nenhuma conta ativa do provedor ${provider} na org ${orgId}.`);
+    return { providerMessageId: null, comoAudio: false };
+  }
+
   if (provider === "evolution") {
-    const { data: instance } = await admin
-      .from("evolution_configs")
-      .select("server_url, api_key, instance_name")
-      .eq("org_id", orgId)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const instance = conta.evolution;
     if (!instance) return { providerMessageId: null, comoAudio: false };
 
     if (audio) {
@@ -192,28 +195,12 @@ async function deliver(
       return { providerMessageId: null, comoAudio: false };
     }
 
-    const { data: config } = await admin
-      .from("zernio_configs")
-      .select("api_key, profile_id")
-      .eq("org_id", orgId)
-      .maybeSingle();
+    const config = conta.zernio;
     if (!config) return { providerMessageId: null, comoAudio: false };
 
-    // accountId é obrigatório no envio: resolve a conta conectada do canal.
-    const accountsUrl = new URL(`${ZERNIO_API}/accounts`);
-    accountsUrl.searchParams.set("profileId", config.profile_id as string);
-    accountsUrl.searchParams.set("platform", (conversation.channel as string) ?? "whatsapp");
-    accountsUrl.searchParams.set("status", "connected");
-    const accResp = await fetch(accountsUrl.toString(), {
-      headers: { Authorization: `Bearer ${config.api_key}` },
-    });
-    if (!accResp.ok) {
-      console.error(`[ai-reply] Zernio recusou a listagem de contas [${accResp.status}]: ${(await accResp.text()).slice(0, 200)}`);
-      return { providerMessageId: null, comoAudio: false };
-    }
-    const accData = await accResp.json().catch(() => ({}));
-    const account = (accData.accounts ?? []).find((a: { isActive?: boolean }) => a.isActive) ?? (accData.accounts ?? [])[0];
-    const accountId = account?._id as string | undefined;
+    // accountId é obrigatório no envio: o da conta de canal ou, para conversa
+    // herdada sem conta, a conta conectada da plataforma.
+    const accountId = await zernioAccountIdDaConta(conta, (conversation.channel as string) ?? "whatsapp");
     if (!accountId) {
       console.error(`[ai-reply] nenhuma conta conectada no Zernio para o canal ${conversation.channel}.`);
       return { providerMessageId: null, comoAudio: false };
@@ -236,14 +223,7 @@ async function deliver(
   }
 
   // Meta
-  const { data: instance } = await admin
-    .from("meta_configs")
-    .select("phone_number_id, access_token")
-    .eq("org_id", orgId)
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const instance = conta.meta;
   if (!instance) return { providerMessageId: null, comoAudio: false };
 
   if (audio) {
@@ -324,7 +304,7 @@ Deno.serve(async (req) => {
 
     const { data: conversation } = await admin
       .from("conversations")
-      .select("id, org_id, phone_number, provider, status, assigned_to, contact_id, deal_id, channel_contact_name, channel, provider_conversation_id, is_demo")
+      .select("id, org_id, phone_number, provider, status, assigned_to, contact_id, deal_id, channel_contact_name, channel, provider_conversation_id, channel_account_id, is_demo")
       .eq("id", conversation_id)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversa não encontrada" }, 404);
@@ -338,6 +318,13 @@ Deno.serve(async (req) => {
       .eq("org_id", conversation.org_id)
       .maybeSingle();
     if (!config || !config.is_active) return json({ skipped: "IA desativada para a organização" });
+
+    // O número define a abordagem: cada conta de canal pode desligar a IA e
+    // ter regras e modo de funil próprios (ver _shared/canal.ts).
+    const contaDoCanal = conversation.is_demo ? null : await contaDaConversa(admin, conversation);
+    if (contaDoCanal && !contaDoCanal.ai_enabled) {
+      return json({ skipped: `IA desligada no canal "${contaDoCanal.label}"` });
+    }
 
     // Horário de atendimento: fora dele a IA fica em silêncio, em qualquer canal.
     // A conversa segue aberta — quem responde é a equipe no próximo expediente.
@@ -612,6 +599,8 @@ Deno.serve(async (req) => {
     // configuração diz se pode, para onde e se move ou só sugere.
     const funnelActions = { ...((config.funnel_actions ?? {}) as FunnelActions) };
     if (perfilOrigem && perfilOrigem.funnel_mode !== "inherit") funnelActions.mode = perfilOrigem.funnel_mode;
+    // A conta (número) vence a origem: é ela que define a abordagem.
+    if (contaDoCanal && contaDoCanal.ai_funnel_mode !== "inherit") funnelActions.mode = contaDoCanal.ai_funnel_mode;
     const funilLigado = funnelActions.enabled !== false;
     let negocioDaConversa: { id: string; stage_id: string | null } | null = null;
     let etapasDoFunil: EtapaDoFunil[] = [];
@@ -659,6 +648,7 @@ Deno.serve(async (req) => {
       agendaLigada ? instrucaoAgenda(politicaAgenda, fusoOrg) : schedulingLink ? `\nPara agendar uma reunião, envie este link ao cliente: ${schedulingLink}` : "",
       instrucaoFunil,
       instrucaoDaOrigem(perfilOrigem),
+      instrucaoDaConta(contaDoCanal),
       memoriaDoLead,
       "",
       "Responda apenas com a mensagem final ao cliente, sem raciocínio nem meta-comentário.",

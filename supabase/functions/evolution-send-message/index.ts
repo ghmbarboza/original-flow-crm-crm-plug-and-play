@@ -5,6 +5,7 @@
 // tem seu preview/última mensagem atualizados.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { registrarEnvioSimulado } from "../_shared/demo.ts";
+import { contaDaConversa } from "../_shared/canal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: conversation } = await admin
       .from("conversations")
-      .select("id, org_id, phone_number, is_demo")
+      .select("id, org_id, phone_number, provider, channel, channel_account_id, is_demo")
       .eq("id", conversation_id)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversa não encontrada" }, 404);
@@ -67,14 +68,9 @@ Deno.serve(async (req) => {
       return json({ ok: true, simulated: true, provider_message_id: id });
     }
 
-    const { data: instance } = await admin
-      .from("evolution_configs")
-      .select("server_url, api_key, instance_name")
-      .eq("org_id", conversation.org_id)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // A resposta sai pela instância (número) em que a conversa entrou.
+    const conta = await contaDaConversa(admin, { ...conversation, provider: "evolution" });
+    const instance = conta?.evolution;
     if (!instance) return json({ error: "Nenhuma instância Evolution ativa" }, 400);
 
     // Entrega ao servidor Evolution.

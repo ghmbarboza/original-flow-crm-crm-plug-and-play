@@ -11,6 +11,7 @@
 // Segurança: só o cron chama, com o segredo interno (ver _shared/seguranca.ts).
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
+import { contaDaConversa, enviarTextoPelaConta } from "../_shared/canal.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -19,39 +20,23 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-async function sendText(
-  admin: SupabaseClient,
-  provider: string,
-  orgId: string,
-  phone: string,
-  text: string,
-): Promise<boolean> {
-  if (provider === "evolution") {
-    const { data: instance } = await admin
-      .from("evolution_configs")
-      .select("server_url, api_key, instance_name")
-      .eq("org_id", orgId).eq("is_active", true)
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (!instance) return false;
-    const resp = await fetch(`${instance.server_url}/message/sendText/${instance.instance_name}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: instance.api_key as string },
-      body: JSON.stringify({ number: phone, text }),
-    });
-    return resp.ok;
-  }
-  const { data: instance } = await admin
-    .from("meta_configs")
-    .select("phone_number_id, access_token")
-    .eq("org_id", orgId).eq("is_active", true)
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (!instance) return false;
-  const resp = await fetch(`https://graph.facebook.com/v21.0/${instance.phone_number_id}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${instance.access_token}` },
-    body: JSON.stringify({ messaging_product: "whatsapp", to: phone, type: "text", text: { body: text } }),
-  });
-  return resp.ok;
+/** Conversa com o que o envio precisa: a pesquisa sai pelo número em que ela entrou. */
+interface ConversaNps {
+  org_id: string;
+  provider: string;
+  phone_number: string;
+  channel: string | null;
+  provider_conversation_id: string | null;
+  channel_account_id: string | null;
+}
+
+const COLUNAS_CONVERSA = "org_id, provider, phone_number, channel, provider_conversation_id, channel_account_id";
+
+async function sendText(admin: SupabaseClient, conv: ConversaNps, text: string): Promise<boolean> {
+  const conta = await contaDaConversa(admin, conv);
+  if (!conta) return false;
+  const envio = await enviarTextoPelaConta(conta, conv, text);
+  return envio.ok;
 }
 
 /** Registra a mensagem enviada no histórico da conversa, sem reabri-la. */
@@ -97,7 +82,7 @@ Deno.serve(async (req) => {
     // NPS hoje não dispara para quem encerrou semana passada.
     const { data: encerradas } = await admin
       .from("conversations")
-      .select("id, org_id, provider, phone_number, channel, assigned_to, contact_id, resolved_at")
+      .select(`id, ${COLUNAS_CONVERSA}, assigned_to, contact_id, resolved_at`)
       .eq("org_id", orgId)
       .eq("status", "closed")
       // Trava da demo: nunca disparar NPS real para conversa semeada.
@@ -119,7 +104,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (existente) continue;
 
-      const ok = await sendText(admin, conv.provider, orgId, conv.phone_number, pergunta);
+      const ok = await sendText(admin, conv as unknown as ConversaNps, pergunta);
       if (!ok) continue;
 
       await admin.from("nps_responses").insert({
@@ -136,7 +121,7 @@ Deno.serve(async (req) => {
     // --- 2. Agradecimento ----------------------------------------------
     const { data: respondidas } = await admin
       .from("nps_responses")
-      .select("id, conversation_id, conversation:conversations(provider, phone_number)")
+      .select(`id, conversation_id, conversation:conversations(${COLUNAS_CONVERSA})`)
       .eq("org_id", orgId)
       .not("score", "is", null)
       .is("thanked_at", null)
@@ -145,9 +130,9 @@ Deno.serve(async (req) => {
     for (const resp of respondidas ?? []) {
       // O PostgREST embute a relação como objeto, mas os tipos do supabase-js
       // inferem array; converter via `unknown` alinha tipo e realidade.
-      const conv = resp.conversation as unknown as { provider: string; phone_number: string } | null;
+      const conv = resp.conversation as unknown as ConversaNps | null;
       if (!conv) continue;
-      const ok = await sendText(admin, conv.provider, orgId, conv.phone_number, config.thank_you_message);
+      const ok = await sendText(admin, conv, config.thank_you_message);
       // Marca mesmo se o envio falhar? Não: tenta de novo na próxima passada.
       if (!ok) continue;
       await admin.from("nps_responses").update({ thanked_at: new Date().toISOString() }).eq("id", resp.id);

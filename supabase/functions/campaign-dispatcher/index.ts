@@ -13,6 +13,7 @@
 // Em ambos, os valores das variáveis saem dos placeholders {{...}} de
 // message_template, na ordem em que aparecem, renderizados por contato.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { contasDaOrg, zernioAccountIdDaConta } from "../_shared/canal.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,22 +39,6 @@ function render(template: string, vars: Record<string, string>): string {
 /** Valores das variáveis na ordem em que os placeholders aparecem no template. */
 function orderedParams(template: string, vars: Record<string, string>): string[] {
   return [...template.matchAll(/\{\{(\w+)\}\}/g)].map((m) => vars[m[1]] ?? "");
-}
-
-/** Resolve a conta conectada do canal no Zernio (accountId é obrigatório no envio). */
-async function zernioAccountId(
-  apiKey: string, profileId: string, channel: string,
-): Promise<string | null> {
-  const url = new URL(`${ZERNIO_API}/accounts`);
-  url.searchParams.set("profileId", profileId);
-  url.searchParams.set("platform", channel);
-  url.searchParams.set("status", "connected");
-  const resp = await fetch(url.toString(), { headers: { Authorization: `Bearer ${apiKey}` } });
-  if (!resp.ok) return null;
-  const data = await resp.json().catch(() => ({}));
-  const accounts = (data.accounts ?? []) as { _id?: string; isActive?: boolean }[];
-  const account = accounts.find((a) => a.isActive) ?? accounts[0];
-  return account?._id ?? null;
 }
 
 Deno.serve(async (req) => {
@@ -109,25 +94,28 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    // ---- Credenciais do provedor, antes de marcar a campanha como "sending" ----
+    // ---- Conta que envia, antes de marcar a campanha como "sending" ----
+    // Campanha inicia conversa: só uma conta de papel "ativo" (ou "ambos") pode
+    // disparar. Conta passiva nunca prospecta (ver _shared/canal.ts).
     let metaConfig: { phone_number_id: string; access_token: string } | null = null;
     let zernio: { apiKey: string; accountId: string } | null = null;
 
+    const [conta] = await contasDaOrg(admin, campaign.org_id as string, {
+      provider, channel: provider === "zernio" ? channel : "whatsapp", papel: "ativo",
+    });
+    if (!conta) {
+      return json({
+        error: provider === "meta_official"
+          ? "Nenhum número da API Oficial (Meta) com papel ativo para disparar campanhas."
+          : `Nenhuma conta de ${channel} no Zernio com papel ativo para disparar campanhas.`,
+      }, 400);
+    }
+
     if (provider === "meta_official") {
-      const { data } = await admin
-        .from("meta_configs")
-        .select("phone_number_id, access_token")
-        .eq("org_id", campaign.org_id)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!data) return json({ error: "Nenhuma instância Meta ativa" }, 400);
-      metaConfig = data as { phone_number_id: string; access_token: string };
+      if (!conta.meta) return json({ error: "Nenhuma instância Meta ativa" }, 400);
+      metaConfig = conta.meta;
     } else {
-      const { data: config } = await admin
-        .from("zernio_configs").select("api_key, profile_id").eq("org_id", campaign.org_id).maybeSingle();
-      if (!config) return json({ error: "Zernio não configurado para esta organização." }, 400);
+      if (!conta.zernio) return json({ error: "Zernio não configurado para esta organização." }, 400);
 
       // Só o WhatsApp exige template: nos demais canais o Zernio abre a conversa
       // com texto livre.
@@ -138,15 +126,11 @@ Deno.serve(async (req) => {
         }, 400);
       }
 
-      const accountId = await zernioAccountId(
-        config.api_key as string,
-        config.profile_id as string,
-        channel,
-      );
+      const accountId = await zernioAccountIdDaConta(conta, channel);
       if (!accountId) {
         return json({ error: `Nenhuma conta de ${channel} conectada no Zernio.` }, 400);
       }
-      zernio = { apiKey: config.api_key as string, accountId };
+      zernio = { apiKey: conta.zernio.api_key, accountId };
     }
 
     await admin

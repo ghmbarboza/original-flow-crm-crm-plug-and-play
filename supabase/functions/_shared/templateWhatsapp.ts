@@ -6,6 +6,7 @@
 // PADRAO_VARIAVEL e renderTemplate existem também em src/lib/templateWhatsapp.ts
 // (a tela monta a prévia). O teste do front compara os dois padrões.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { contasDaOrg, type ContaCanal } from "./canal.ts";
 
 const PADRAO_VARIAVEL = /\{\{\s*(\d+)\s*\}\}/g;
 
@@ -89,7 +90,17 @@ export async function zernioWhatsAppAccountId(apiKey: string, profileId: string)
 export interface CanalOficial {
   provider: string;
   meta?: { phone_number_id: string; access_token: string };
-  zernio?: { api_key: string; profile_id: string };
+  /** account_id preenchido = conta de canal conhecida; sem ele, resolve pela plataforma. */
+  zernio?: { api_key: string; profile_id: string; account_id?: string | null };
+}
+
+/** Credenciais oficiais de uma conta de canal, no formato que o envio de template usa. */
+export function canalOficialDaConta(conta: ContaCanal): CanalOficial {
+  return {
+    provider: conta.provider,
+    meta: conta.meta ?? undefined,
+    zernio: conta.zernio ?? undefined,
+  };
 }
 
 export interface AcessoAosTemplates {
@@ -102,26 +113,27 @@ export interface AcessoAosTemplates {
   componentCase: "upper" | "lower";
 }
 
-/** Credenciais e endereços de template do provedor oficial da organização. */
+/**
+ * Credenciais e endereços de template do provedor oficial. Com `conta` (a conta
+ * de canal da conversa), usa as credenciais dela; sem conta, a primeira conta
+ * ativa do provedor na organização.
+ */
 export async function acessoAosTemplates(
-  admin: SupabaseClient, orgId: string, provider: ProvedorOficial,
+  admin: SupabaseClient, orgId: string, provider: ProvedorOficial, conta: ContaCanal | null = null,
 ): Promise<AcessoAosTemplates | { erro: string }> {
+  const escolhida = conta && conta.provider === provider
+    ? conta
+    : (await contasDaOrg(admin, orgId, { provider, channel: "whatsapp" }))[0] ?? null;
+
   if (provider === "meta_official") {
-    const { data: meta } = await admin
-      .from("meta_configs")
-      .select("business_account_id, access_token, phone_number_id")
-      .eq("org_id", orgId)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const meta = escolhida?.meta;
     if (!meta) return { erro: "Nenhuma instância Meta ativa." };
 
     const base = `https://graph.facebook.com/${GRAPH_VERSION}/${meta.business_account_id}/message_templates`;
     return {
       canal: {
         provider,
-        meta: { phone_number_id: meta.phone_number_id as string, access_token: meta.access_token as string },
+        meta: { phone_number_id: meta.phone_number_id, access_token: meta.access_token },
       },
       listUrl: `${base}?limit=100`,
       createUrl: base,
@@ -131,17 +143,16 @@ export async function acessoAosTemplates(
     };
   }
 
-  const { data: zernio } = await admin
-    .from("zernio_configs").select("api_key, profile_id").eq("org_id", orgId).maybeSingle();
+  const zernio = escolhida?.zernio;
   if (!zernio) return { erro: "Zernio não configurado para esta organização." };
 
-  const accountId = await zernioWhatsAppAccountId(zernio.api_key as string, zernio.profile_id as string);
+  const accountId = zernio.account_id ?? await zernioWhatsAppAccountId(zernio.api_key, zernio.profile_id);
   if (!accountId) return { erro: "Nenhuma conta de WhatsApp conectada no Zernio." };
 
   return {
     canal: {
       provider,
-      zernio: { api_key: zernio.api_key as string, profile_id: zernio.profile_id as string },
+      zernio: { api_key: zernio.api_key, profile_id: zernio.profile_id, account_id: accountId },
     },
     listUrl: `${ZERNIO_API}/whatsapp/templates?accountId=${encodeURIComponent(accountId)}`,
     createUrl: `${ZERNIO_API}/whatsapp/templates`,
@@ -226,7 +237,7 @@ export async function enviarTemplate(
   }
 
   if (canal.provider === "zernio" && canal.zernio) {
-    const accountId = await zernioWhatsAppAccountId(canal.zernio.api_key, canal.zernio.profile_id);
+    const accountId = canal.zernio.account_id ?? await zernioWhatsAppAccountId(canal.zernio.api_key, canal.zernio.profile_id);
     if (!accountId) return falha("nenhuma conta de WhatsApp conectada no Zernio");
     const resp = await fetch(`${ZERNIO_API}/inbox/conversations`, {
       method: "POST",
