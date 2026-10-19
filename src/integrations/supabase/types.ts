@@ -5902,6 +5902,27 @@ export type Database = {
         Args: { p_limite?: number }
         Returns: boolean
       }
+      contas_de_canal: {
+        Args: never
+        Returns: {
+          ai_enabled: boolean
+          ai_funnel_mode: string
+          ai_instruction: string
+          channel: string
+          created_at: string
+          detalhe: string
+          estado: string
+          evolution_config_id: string
+          id: string
+          is_active: boolean
+          label: string
+          meta_config_id: string
+          notifications_default: boolean
+          provider: Database["public"]["Enums"]["messaging_provider"]
+          role: string
+          zernio_account_id: string
+        }[]
+      }
       create_notification: {
         Args: {
           p_body: string
@@ -5924,6 +5945,10 @@ export type Database = {
       }
       criar_chave_webhook: { Args: { p_name: string }; Returns: Json }
       current_org_id: { Args: never; Returns: string }
+      definir_conta_de_notificacoes: {
+        Args: { p_conta: string }
+        Returns: undefined
+      }
       desfazer_importacao: { Args: { p_import: string }; Returns: Json }
       enqueue_automations: {
         Args: { p_org: string; p_trigger_data: Json; p_trigger_type: string }
@@ -6005,28 +6030,6 @@ export type Database = {
         Args: { p_campaign: string; p_campo: string; p_quanto?: number }
         Returns: undefined
       }
-      contas_de_canal: {
-        Args: never
-        Returns: {
-          ai_enabled: boolean
-          ai_funnel_mode: string
-          ai_instruction: string
-          channel: string
-          created_at: string
-          detalhe: string | null
-          estado: string
-          evolution_config_id: string | null
-          id: string
-          is_active: boolean
-          label: string
-          meta_config_id: string | null
-          notifications_default: boolean
-          provider: Database["public"]["Enums"]["messaging_provider"]
-          role: string
-          zernio_account_id: string | null
-        }[]
-      }
-      definir_conta_de_notificacoes: { Args: { p_conta: string | null }; Returns: undefined }
       instancia_sem_usuarios: { Args: never; Returns: boolean }
       internal_cron_secret: { Args: never; Returns: string }
       listar_modelos_notificacao: {
