@@ -6,11 +6,14 @@ import { WhatsAppStatusBadge } from "@/components/whatsapp/WhatsAppStatusBadge";
 import { ChannelBadge, channelMeta } from "@/components/whatsapp/ChannelBadge";
 import { SlaBadge } from "@/components/whatsapp/SlaBadge";
 import { conversationName, type Conversation } from "@/hooks/useConversations";
+import { rotuloDaConta, type ContaDeCanal } from "@/hooks/useChannelAccounts";
 import { useSlaConfig } from "@/hooks/useSla";
 import { formatDateTime } from "@/lib/format";
 import { avatarAindaValido } from "@/lib/avatar";
 
-const ALL_CHANNELS = "__all__";
+const TODOS = "__all__";
+/** Conversas anteriores às contas de canal (sem número gravado). */
+const SEM_NUMERO = "__none__";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -20,8 +23,16 @@ function initials(name: string) {
   return (first + last).toUpperCase();
 }
 
+interface Chip {
+  valor: string;
+  label: string;
+  icone?: string;
+}
+
 interface Props {
   conversations: Conversation[];
+  /** Contas de canal da org: com mais de uma, os chips filtram por número. */
+  contas?: ContaDeCanal[];
   isLoading: boolean;
   selectedId: string | null;
   onSelect: (conversation: Conversation) => void;
@@ -29,22 +40,42 @@ interface Props {
   emptyHint?: string;
 }
 
-export function ConversationList({ conversations, isLoading, selectedId, onSelect, emptyHint }: Props) {
+export function ConversationList({ conversations, contas = [], isLoading, selectedId, onSelect, emptyHint }: Props) {
   const [search, setSearch] = useState("");
-  const [channel, setChannel] = useState<string>(ALL_CHANNELS);
+  const [filtro, setFiltro] = useState<string>(TODOS);
   const { data: slaConfig } = useSlaConfig();
 
-  // Canais presentes na lista (para montar os chips de filtro só quando fazem sentido).
-  const channels = useMemo(() => {
-    const set = new Set<string>();
-    conversations.forEach((c) => set.add(c.channel ?? "whatsapp"));
-    return [...set];
-  }, [conversations]);
+  /**
+   * Chips de filtro. Com mais de uma conta, filtram por NÚMERO (é o que separa
+   * "comercial" de "suporte" quando os dois são WhatsApp); senão, por canal,
+   * como antes. Só aparecem quando há mais de uma opção.
+   */
+  const porConta = contas.length > 1;
+  const chips = useMemo<Chip[]>(() => {
+    if (porConta) {
+      const usadas = new Set(conversations.map((c) => c.channel_account_id));
+      const lista: Chip[] = contas
+        .filter((conta) => usadas.has(conta.id))
+        .map((conta) => ({ valor: conta.id, label: rotuloDaConta(conta), icone: conta.channel }));
+      if (usadas.has(null)) lista.push({ valor: SEM_NUMERO, label: "Sem número" });
+      return lista;
+    }
+    const canais = new Set<string>();
+    conversations.forEach((c) => canais.add(c.channel ?? "whatsapp"));
+    return [...canais].map((ch) => ({ valor: ch, label: channelMeta(ch).label, icone: ch }));
+  }, [conversations, contas, porConta]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return conversations.filter((c) => {
-      if (channel !== ALL_CHANNELS && (c.channel ?? "whatsapp") !== channel) return false;
+      if (filtro !== TODOS) {
+        if (porConta) {
+          const alvo = filtro === SEM_NUMERO ? null : filtro;
+          if (c.channel_account_id !== alvo) return false;
+        } else if ((c.channel ?? "whatsapp") !== filtro) {
+          return false;
+        }
+      }
       if (!term) return true;
       const haystack = [conversationName(c), c.phone_number, c.last_message_preview]
         .filter(Boolean)
@@ -52,7 +83,7 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
         .toLowerCase();
       return haystack.includes(term);
     });
-  }, [conversations, search, channel]);
+  }, [conversations, search, filtro, porConta]);
 
   return (
     <div className="flex h-full flex-col">
@@ -73,16 +104,19 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
 
         {/* Chips rolam na horizontal em vez de quebrar linha: com muitos canais
             a quebra empurrava a lista de conversas para baixo. */}
-        {channels.length > 1 && (
-          <div className="via-scroll-x flex flex-nowrap gap-1.5 pb-1" data-testid="channel-chips">
-            {[ALL_CHANNELS, ...channels].map((ch) => {
-              const activeChip = channel === ch;
-              const label = ch === ALL_CHANNELS ? "Todos" : channelMeta(ch).label;
+        {chips.length > 1 && (
+          <div
+            className="via-scroll-x flex flex-nowrap gap-1.5 pb-1"
+            data-testid={porConta ? "account-chips" : "channel-chips"}
+          >
+            {[{ valor: TODOS, label: "Todos" } as Chip, ...chips].map((chip) => {
+              const activeChip = filtro === chip.valor;
+              const Icon = chip.icone ? channelMeta(chip.icone).Icon : null;
               return (
                 <button
-                  key={ch}
+                  key={chip.valor}
                   type="button"
-                  onClick={() => setChannel(ch)}
+                  onClick={() => setFiltro(chip.valor)}
                   className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs transition-colors"
                   style={
                     activeChip
@@ -90,11 +124,8 @@ export function ConversationList({ conversations, isLoading, selectedId, onSelec
                       : { background: "var(--via-surface)", color: "var(--via-text-body)" }
                   }
                 >
-                  {ch !== ALL_CHANNELS && (() => {
-                    const { Icon } = channelMeta(ch);
-                    return <Icon className="h-3 w-3" strokeWidth={1.5} />;
-                  })()}
-                  {label}
+                  {Icon && <Icon className="h-3 w-3" strokeWidth={1.5} />}
+                  {chip.label}
                 </button>
               );
             })}

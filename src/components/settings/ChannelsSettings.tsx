@@ -1,34 +1,21 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  CheckCircle2, ExternalLink, Loader2, RefreshCw, RotateCw,
-} from "lucide-react";
+import { CheckCircle2, ExternalLink, Info, Loader2, RefreshCw, RotateCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Info } from "lucide-react";
-import { ProviderWizard } from "@/components/whatsapp/ProviderWizard";
+import { ChannelAccountsPanel } from "@/components/settings/ChannelAccountsPanel";
 import { channelMeta } from "@/components/whatsapp/ChannelBadge";
-import { statusDoCanal } from "@/lib/channelStatus";
-import {
-  useSetDistribution, useWhatsAppSetup, type DistributionMode, type WhatsAppProvider,
-} from "@/hooks/useWhatsAppConfig";
+import { useSetDistribution, useWhatsAppSetup, type DistributionMode } from "@/hooks/useWhatsAppConfig";
 import { useConnectZernioChannel, useZernioAccounts } from "@/hooks/useZernioConfig";
 import {
   useChannelDistribution, useDeleteChannelDistribution, useSaveChannelDistribution,
 } from "@/hooks/useAgentLoad";
-
-const PROVIDER_LABEL: Record<WhatsAppProvider, string> = {
-  evolution: "Evolution API",
-  meta_official: "API Oficial (Meta)",
-  zernio: "Zernio (multicanal)",
-};
 
 // Canais que o Zernio pode conectar (ordem de exibição).
 const ZERNIO_CHANNELS = [
@@ -41,84 +28,23 @@ const DISTRIBUTION: { value: DistributionMode; label: string; hint: string }[] =
   { value: "ai_directed", label: "IA direciona", hint: "A IA escolhe o melhor agente para cada conversa." },
 ];
 
-/** Sub-aba: provedor ativo + troca de provedor. */
-function ProviderTab() {
-  const { data: setup, isLoading, refetch } = useWhatsAppSetup();
-  const [changing, setChanging] = useState(false);
-
-  if (isLoading) return <Skeleton className="h-40 w-full" />;
-
-  if (!setup?.configured || changing) {
-    return (
-      <div className="space-y-4">
-        {changing && (
-          <Button variant="ghost" size="sm" onClick={() => setChanging(false)}>← Cancelar troca</Button>
-        )}
-        <ProviderWizard onDone={() => { setChanging(false); refetch(); }} />
-      </div>
-    );
-  }
-
-  const provider = setup.provider!;
-  const detail =
-    provider === "evolution" ? setup.evolution?.phone_number ?? setup.evolution?.instance_name
-    : provider === "meta_official" ? setup.meta?.phone_number
-    : setup.zernio?.profile_id ? `Profile ${setup.zernio.profile_id}` : null;
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-1">
-            <CardTitle className="text-base font-semibold">Provedor ativo</CardTitle>
-            <CardDescription className="text-sm">
-              Provedor de mensagens que atende esta organização.
-            </CardDescription>
-          </div>
-          {(() => {
-            // Mesmo helper do card e do checklist: nunca dizer "Conectado" com
-            // Evolution em connecting (QR não pareado) ou Meta não verificada.
-            const st = statusDoCanal(setup);
-            return st.estado === "conectado" ? (
-              <Badge className="gap-1 bg-success text-success-foreground">
-                <CheckCircle2 className="h-3 w-3" strokeWidth={2} /> Conectado
-              </Badge>
-            ) : (
-              <Badge variant="secondary">{st.label}</Badge>
-            );
-          })()}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div>
-          <p className="text-lg font-medium" style={{ color: "var(--via-text-primary)" }}>
-            {PROVIDER_LABEL[provider]}
-          </p>
-          {detail && <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>{detail}</p>}
-        </div>
-        <Button variant="outline" className="gap-1.5" onClick={() => setChanging(true)}>
-          <RotateCw className="h-4 w-4" strokeWidth={1.5} />
-          Trocar provedor
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-/** Sub-aba: canais conectados no Zernio (adicionar/status). */
+/**
+ * Sub-aba: plataformas do Zernio (Instagram, Telegram…). Cada plataforma
+ * conectada vira uma conta de canal na aba "Contas conectadas".
+ */
 function ChannelsTab() {
   const { data: setup } = useWhatsAppSetup();
-  const isZernio = setup?.provider === "zernio";
-  const { data: accounts, isFetching, refetch } = useZernioAccounts(!!isZernio);
+  const temZernio = !!setup?.zernio || (setup?.contas ?? []).some((c) => c.provider === "zernio");
+  const { data: accounts, isFetching, refetch } = useZernioAccounts(temZernio);
   const connectChannel = useConnectZernioChannel();
 
-  if (!isZernio) {
+  if (!temZernio) {
     return (
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription className="text-sm">
-          A gestão de múltiplos canais está disponível apenas com o provedor <strong>Zernio</strong>.
-          Troque o provedor na aba “Provedor ativo” para conectar Instagram, Telegram e outros.
+          Instagram, Telegram, Facebook e os demais canais entram pelo <strong>Zernio</strong>.
+          Em “Contas conectadas”, clique em Adicionar canal e escolha o Zernio.
         </AlertDescription>
       </Alert>
     );
@@ -140,7 +66,7 @@ function ChannelsTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
-          Conecte canais adicionais por OAuth. Cada canal aparece no mesmo inbox.
+          Conecte canais adicionais por OAuth. Cada canal aparece no mesmo inbox e vira uma conta própria.
         </p>
         <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} strokeWidth={1.5} />
@@ -457,28 +383,30 @@ function PerChannelDistribution() {
 /**
  * Configuração de canais — mora dentro do card "Canais de atendimento" de
  * Configurações > Integrações (Integrações é o lugar único para ver e mexer no
- * que está integrado). A sub-aba "Comportamento" foi removida: era placeholder,
- * e a personalidade da IA sempre morou em Configurações > IA — agora isso é dito
- * em uma linha, sem ocupar uma aba.
+ * que está integrado).
+ *
+ * Até 16/10/2026 a primeira aba era "Provedor ativo", com UM provedor por
+ * empresa e um botão "Trocar provedor". Agora é a lista de contas: vários
+ * números e vários provedores ao mesmo tempo, cada um com papel e IA próprios.
  */
 export default function ChannelsSettings() {
-  const [tab, setTab] = useState("provider");
+  const [tab, setTab] = useState("accounts");
   return (
     <Tabs value={tab} onValueChange={setTab} className="space-y-4">
       <TabsList>
-        <TabsTrigger value="provider">Provedor ativo</TabsTrigger>
-        <TabsTrigger value="channels">Canais ativos</TabsTrigger>
+        <TabsTrigger value="accounts">Contas conectadas</TabsTrigger>
+        <TabsTrigger value="channels">Canais do Zernio</TabsTrigger>
         <TabsTrigger value="distribution">Distribuição</TabsTrigger>
       </TabsList>
-      <TabsContent value="provider"><ProviderTab /></TabsContent>
+      <TabsContent value="accounts"><ChannelAccountsPanel /></TabsContent>
       <TabsContent value="channels"><ChannelsTab /></TabsContent>
       <TabsContent value="distribution"><DistributionTab /></TabsContent>
       <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-        Personalidade e regras da IA valem para todos os canais e ficam em{" "}
+        Personalidade e regras gerais da IA valem para todos os números e ficam em{" "}
         <Link to="/settings/ia" className="text-primary hover:underline">
           Configurações &gt; IA
         </Link>
-        .
+        . Regras de um número específico ficam no botão Editar da conta.
       </p>
     </Tabs>
   );

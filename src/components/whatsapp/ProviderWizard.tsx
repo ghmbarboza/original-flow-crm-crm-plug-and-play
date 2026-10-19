@@ -66,9 +66,12 @@ const OPTIONS: ProviderOption[] = [
 export function ProviderWizard({
   onDone,
   onStepChange,
+  doneLabel = "Abrir inbox",
 }: {
   onDone: () => void;
   onStepChange?: (step: ProviderWizardStep) => void;
+  /** Texto do botão final: em Integrações volta para a lista de contas, não para a Inbox. */
+  doneLabel?: string;
 }) {
   const setProvider = useSetProvider();
   const [step, setStep] = useState<Step>("choose");
@@ -196,10 +199,11 @@ export function ProviderWizard({
             </p>
             <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
               Provedor: {provider ? PROVIDER_LABEL[provider] : "—"}. As conversas recebidas passam a
-              aparecer no inbox. Configure a personalidade da IA em Configurações › IA.
+              aparecer no inbox. Papel e regras deste número ficam em Integrações › Canais; a
+              personalidade geral da IA, em Configurações › IA.
             </p>
           </div>
-          <Button onClick={onDone}>Abrir inbox</Button>
+          <Button onClick={onDone}>{doneLabel}</Button>
         </div>
       )}
     </div>

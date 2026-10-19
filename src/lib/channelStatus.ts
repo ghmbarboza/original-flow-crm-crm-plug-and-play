@@ -1,12 +1,14 @@
-import type { WhatsAppSetup } from "@/hooks/useWhatsAppConfig";
+import type { ContaDeCanal } from "@/hooks/useChannelAccounts";
 
 /**
  * Fonte ÚNICA de verdade do status de conexão de canal.
  *
  * Existia lógica duplicada (card de Integrações, checklist do onboarding) e as
  * duas mentiam: uma instância Evolution em "connecting" (QR nunca pareado)
- * aparecia como "Conectado". Aqui só é conectado quem realmente conversa:
- * Evolution pareada, Meta com webhook verificado e ativa, ou Zernio conectada.
+ * aparecia como "Conectado". Desde 19/10/2026 a entrada é a lista de contas de
+ * canal (RPC contas_de_canal), que já traz o estado real de cada número:
+ * Evolution pareada, Meta com webhook verificado, Zernio conectado. Só é
+ * "conectado" quem realmente conversa; conta desligada não conta.
  */
 export type EstadoDoCanal = "conectado" | "aguardando_pareamento" | "nao_conectado";
 
@@ -21,77 +23,35 @@ export interface StatusDoCanal {
 const AGUARDANDO =
   "Canal configurado, aguardando pareamento — finalize em Configurações > Integrações > Canais";
 
-type EntradaDeCanal =
-  | Partial<Pick<WhatsAppSetup, "evolution" | "meta" | "zernio" | "provider">>
-  | null
-  | undefined;
+/** Só o que o helper lê: a tela e os testes não precisam da conta inteira. */
+export type ContaParaStatus = Pick<ContaDeCanal, "estado" | "is_active" | "channel">;
 
-/**
- * Só o provedor ATIVO conta. Uma linha antiga de Evolution "connected" não pode
- * dizer "Conectado" quando a org migrou para Meta e ainda não verificou o
- * webhook — configs de provedores abandonados ficam no banco e mentiriam aqui.
- */
-function conexoesDoProvedorAtivo(setup: EntradaDeCanal) {
-  const provider = setup?.provider ?? null;
-  const evolutionConectada =
-    (!provider || provider === "evolution") && setup?.evolution?.status === "connected";
-  const metaVerificada =
-    (!provider || provider === "meta_official") &&
-    !!setup?.meta?.webhook_verified &&
-    setup?.meta?.is_active !== false;
-  const zernioConectado =
-    (!provider || provider === "zernio") &&
-    !!setup?.zernio &&
-    ["connected", "active"].includes(setup.zernio.status ?? "");
-  const iniciado =
-    (!provider && (!!setup?.evolution || !!setup?.meta || !!setup?.zernio)) ||
-    (provider === "evolution" && !!setup?.evolution) ||
-    (provider === "meta_official" && !!setup?.meta) ||
-    (provider === "zernio" && !!setup?.zernio);
-  return { evolutionConectada, metaVerificada, zernioConectado, iniciado };
+type EntradaDeContas = ContaParaStatus[] | null | undefined;
+
+function ativas(contas: EntradaDeContas): ContaParaStatus[] {
+  return (contas ?? []).filter((c) => c.is_active);
 }
 
-export function statusDoCanal(setup: EntradaDeCanal): StatusDoCanal {
-  const { evolutionConectada, metaVerificada, zernioConectado, iniciado } =
-    conexoesDoProvedorAtivo(setup);
-
-  if (evolutionConectada || metaVerificada || zernioConectado) {
+export function statusDoCanal(contas: EntradaDeContas): StatusDoCanal {
+  const lista = ativas(contas);
+  if (lista.some((c) => c.estado === "conectada")) {
     return { estado: "conectado", label: "Conectado" };
   }
-
-  if (iniciado) {
+  if (lista.length > 0) {
     return { estado: "aguardando_pareamento", label: "Aguardando pareamento", detalhe: AGUARDANDO };
   }
-
   return { estado: "nao_conectado", label: "Não conectado" };
 }
 
-/** Conta Zernio como a listagem de canais ativos a enxerga. */
-export interface ContaDeCanal {
-  platform: string;
-  isActive: boolean;
-}
-
 /**
- * Canais que a organização realmente atende hoje.
- *
- * Evolution/Meta só falam WhatsApp. Zernio fala o que estiver conectado nas
- * contas OAuth (a mesma fonte da seção "Canais ativos").
+ * Canais que a organização realmente atende hoje: o canal de cada conta ativa
+ * e conectada (Evolution e Meta só falam WhatsApp; cada plataforma do Zernio é
+ * uma conta própria).
  */
-export function canaisAtivos(
-  setup: EntradaDeCanal,
-  contasZernio?: ContaDeCanal[] | null,
-): string[] {
+export function canaisAtivos(contas: EntradaDeContas): string[] {
   const canais = new Set<string>();
-  const { evolutionConectada, metaVerificada, zernioConectado } = conexoesDoProvedorAtivo(setup);
-
-  if (evolutionConectada || metaVerificada) canais.add("whatsapp");
-
-  if (zernioConectado) {
-    for (const conta of contasZernio ?? []) {
-      if (conta.isActive) canais.add(conta.platform);
-    }
+  for (const conta of ativas(contas)) {
+    if (conta.estado === "conectada") canais.add(conta.channel);
   }
-
   return [...canais];
 }

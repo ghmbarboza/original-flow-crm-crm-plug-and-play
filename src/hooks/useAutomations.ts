@@ -26,6 +26,7 @@ export const ACTIONS = [
   { value: "notify_agent", label: "Notificar agente", param: "message", paramLabel: "Mensagem" },
   { value: "start_sequence", label: "Iniciar sequência de email", param: "sequence_id", paramLabel: "Sequência" },
   { value: "ai_outreach", label: "Abordar pelo WhatsApp com a IA", param: "instruction", paramLabel: "Instrução de abertura (opcional)" },
+  { value: "send_whatsapp", label: "Enviar mensagem pelo WhatsApp", param: "message", paramLabel: "Mensagem" },
 ] as const;
 
 export type TriggerType = (typeof TRIGGERS)[number]["value"];

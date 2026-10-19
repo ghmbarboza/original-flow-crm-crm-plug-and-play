@@ -32,8 +32,10 @@ export default function WhatsAppPage() {
     );
   }
 
-  // Sem provedor configurado → wizard. Configurado → inbox.
-  if (!setup?.configured || !setup.provider) {
+  // Sem nenhuma conta de canal ativa → assistente. Com conta → inbox. Cada
+  // conversa sabe por qual número e provedor entrou, então a Inbox não precisa
+  // de um provedor "da org".
+  if (!setup?.configured) {
     return (
       <AppShell>
         <div className="py-6">
@@ -58,7 +60,7 @@ export default function WhatsAppPage() {
           </div>
           <ModoFocoToggle ativo={modoFoco} onChange={setModoFoco} />
         </div>
-        <Inbox provider={setup.provider} modoFoco={modoFoco} />
+        <Inbox contas={setup.contas} modoFoco={modoFoco} />
       </div>
     </AppShell>
   );

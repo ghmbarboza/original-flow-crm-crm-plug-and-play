@@ -18,7 +18,6 @@ import { NewApiKeyButton } from "@/components/settings/NewApiKeyButton";
 import ChannelsSettings from "@/components/settings/ChannelsSettings";
 import { ApiKeyTutorialDialog } from "@/components/settings/ApiKeyTutorialDialog";
 import { DesconectarIntegracao } from "@/components/settings/DesconectarIntegracao";
-import { useDisconnectChannel } from "@/hooks/useWhatsAppConfig";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { erroDeFunction } from "@/integrations/supabase/functionError";
@@ -73,17 +72,7 @@ export default function IntegrationsTab() {
 
   const totalImportacoes = (importacoes ?? []).filter((i) => i.status === "completed").length;
 
-  const desconectar = useDisconnectChannel();
   const queryClient = useQueryClient();
-
-  const desconectarCanal = async () => {
-    try {
-      await desconectar.mutateAsync();
-      toast.success("Canal desconectado. Nenhuma mensagem entra ou sai até reconectar.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível desconectar.");
-    }
-  };
 
   /** Mesma remoção da lista de chaves — a do Vault, por organização. */
   const removerChaveVoz = async () => {
@@ -144,17 +133,8 @@ export default function IntegrationsTab() {
               {canal.detalhe}
             </p>
           )}
+          {/* Desligar é por número, no cartão de cada conta (ChannelAccountsPanel). */}
           <ChannelsSettings />
-
-          {canal.estado !== "nao_conectado" && (
-            <DesconectarIntegracao
-              titulo="Desconectar o canal de atendimento?"
-              consequencia="O CRM para de receber e de responder mensagens neste canal — a IA fica muda e nada entra no inbox. A configuração e o histórico ficam salvos, e a instância continua pareada no seu servidor: para voltar, basta escolher o provedor de novo."
-              onConfirmar={desconectarCanal}
-              disabled={desconectar.isPending}
-              testId="desconectar-canal"
-            />
-          )}
         </div>
       </IntegrationCard>
 

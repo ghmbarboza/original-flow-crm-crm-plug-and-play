@@ -6,10 +6,17 @@ import { MessagePanel } from "@/components/whatsapp/MessagePanel";
 import { useConversations, type Conversation } from "@/hooks/useConversations";
 import { filtrarModoFoco } from "@/hooks/useModoFoco";
 import { useAuth } from "@/hooks/useAuth";
-import type { WhatsAppProvider } from "@/hooks/useWhatsAppConfig";
+import type { ContaDeCanal } from "@/hooks/useChannelAccounts";
 
-/** Inbox unificado: lista à esquerda, painel de mensagens à direita. */
-export function Inbox({ provider, modoFoco = false }: { provider: WhatsAppProvider; modoFoco?: boolean }) {
+/**
+ * Inbox unificado: lista à esquerda, painel de mensagens à direita.
+ *
+ * `contas` alimenta o filtro por número da lista. O provedor de cada conversa
+ * vem dela mesma (`conversation.provider`): com vários provedores ao mesmo
+ * tempo, a resposta da equipe sai pela function do provedor em que a conversa
+ * entrou, nunca por um provedor "da org".
+ */
+export function Inbox({ contas = [], modoFoco = false }: { contas?: ContaDeCanal[]; modoFoco?: boolean }) {
   const { data: conversations, isLoading, error } = useConversations();
   const { user } = useAuth();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -52,6 +59,7 @@ export function Inbox({ provider, modoFoco = false }: { provider: WhatsAppProvid
       <div className="min-h-0 overflow-hidden border-r" style={{ borderColor: "var(--via-border)" }}>
         <ConversationList
           conversations={visiveis}
+          contas={contas}
           isLoading={isLoading}
           selectedId={selectedId}
           onSelect={handleSelect}
@@ -61,7 +69,7 @@ export function Inbox({ provider, modoFoco = false }: { provider: WhatsAppProvid
 
       <div className="hidden min-h-0 overflow-hidden md:block">
         {selected ? (
-          <MessagePanel conversation={selected} provider={provider} />
+          <MessagePanel conversation={selected} provider={selected.provider} />
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-center" data-testid="inbox-empty">
             <MessageCircle className="mb-3 h-8 w-8" strokeWidth={1.5} style={{ color: "var(--via-text-muted)" }} />
@@ -78,7 +86,7 @@ export function Inbox({ provider, modoFoco = false }: { provider: WhatsAppProvid
       {/* Mobile: quando há seleção, o painel ocupa a tela toda. */}
       {selected && (
         <div className="min-h-0 overflow-hidden md:hidden">
-          <MessagePanel conversation={selected} provider={provider} />
+          <MessagePanel conversation={selected} provider={selected.provider} />
         </div>
       )}
     </div>

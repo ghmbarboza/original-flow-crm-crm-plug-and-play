@@ -40,7 +40,7 @@ export function useMessageTemplates(enabled = true) {
   // responde 400 por design, então nem chamamos (evitava 400 recorrente em
   // telas que listam templates sem olhar o canal, como Configurações > Agenda).
   const { data: canal } = useWhatsAppSetup();
-  const provedorComTemplate = canal?.provider === "meta_official" || canal?.provider === "zernio";
+  const provedorComTemplate = !!canal?.temProvedorOficial;
   return useQuery({
     queryKey: ["message-templates", orgId],
     enabled: !!orgId && enabled && provedorComTemplate,

@@ -4,7 +4,7 @@ import { useOrgId } from "@/hooks/useOrgId";
 import { useAIConfig } from "@/hooks/useAIConfig";
 import { useOrgApiKey } from "@/hooks/useOrgApiKey";
 import { statusDoCanal } from "@/lib/channelStatus";
-import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
+import { useChannelAccounts } from "@/hooks/useChannelAccounts";
 import { useSetupProgress } from "@/hooks/useSetup";
 
 /**
@@ -39,14 +39,14 @@ function usePipelineStageCount() {
 }
 
 export function useSetupChecklist() {
-  const { data: whatsapp } = useWhatsAppSetup();
+  const { data: contas } = useChannelAccounts();
   const { data: aiConfig } = useAIConfig();
   const { data: temChaveVoz } = useOrgApiKey("elevenlabs");
   const { data: totalEtapas } = usePipelineStageCount();
   const { data: progresso } = useSetupProgress();
 
   // Canal: mesma regra usada no card de Integrações (helper único).
-  const canalStatus = statusDoCanal(whatsapp);
+  const canalStatus = statusDoCanal(contas);
   const canal: ItemChecklist = {
     ok: canalStatus.estado === "conectado",
     detalhe: canalStatus.detalhe,

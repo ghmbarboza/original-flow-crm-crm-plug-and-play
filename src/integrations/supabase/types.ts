@@ -6005,6 +6005,28 @@ export type Database = {
         Args: { p_campaign: string; p_campo: string; p_quanto?: number }
         Returns: undefined
       }
+      contas_de_canal: {
+        Args: never
+        Returns: {
+          ai_enabled: boolean
+          ai_funnel_mode: string
+          ai_instruction: string
+          channel: string
+          created_at: string
+          detalhe: string | null
+          estado: string
+          evolution_config_id: string | null
+          id: string
+          is_active: boolean
+          label: string
+          meta_config_id: string | null
+          notifications_default: boolean
+          provider: Database["public"]["Enums"]["messaging_provider"]
+          role: string
+          zernio_account_id: string | null
+        }[]
+      }
+      definir_conta_de_notificacoes: { Args: { p_conta: string | null }; Returns: undefined }
       instancia_sem_usuarios: { Args: never; Returns: boolean }
       internal_cron_secret: { Args: never; Returns: string }
       listar_modelos_notificacao: {

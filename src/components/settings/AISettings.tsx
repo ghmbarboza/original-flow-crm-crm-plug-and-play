@@ -140,7 +140,7 @@ export default function AISettings() {
   // (Evolution, com risco de bloqueio) ou template aprovado (Meta e Zernio).
   const { data: canalSetup } = useWhatsAppSetup();
   const canal = { provider: canalSetup?.configured ? canalSetup.provider : null };
-  const templateProvider = canal.provider === "meta_official" || canal.provider === "zernio";
+  const templateProvider = !!canalSetup?.temProvedorOficial;
   const { data: templatesData, isLoading: carregandoTemplates } = useMessageTemplates(templateProvider);
   const templatesAprovados = (templatesData?.templates ?? []).filter((t) => t.status === "APPROVED");
   const templateEscolhido = templatesAprovados.find((t) => t.name === outreach.template_name) ?? null;

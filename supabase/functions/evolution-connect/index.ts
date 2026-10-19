@@ -11,6 +11,7 @@
 //
 // A api_key da Evolution fica só no banco (protegido por RLS) — nunca volta ao cliente.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { falhaDeAlcance, mensagemServidorInalcancavel } from "../_shared/evolutionAlcance.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -141,6 +142,8 @@ async function buscarQrCode(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Guardado fora do try para a mensagem de servidor fora do ar dizer qual.
+  let servidorAlvo = "";
   try {
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -164,6 +167,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const server_url: string = (body.server_url ?? "").replace(/\/$/, "");
+    servidorAlvo = server_url;
     const api_key: string = body.api_key ?? "";
     const instance_name: string = body.instance_name ?? "";
     const display_name: string = body.display_name ?? instance_name;
@@ -277,6 +281,9 @@ Deno.serve(async (req) => {
       warning: semQr ? AVISO_SEM_QR : null,
     });
   } catch (err) {
+    if (servidorAlvo && falhaDeAlcance(err)) {
+      return json({ error: mensagemServidorInalcancavel(servidorAlvo, err) }, 502);
+    }
     return json({ error: err instanceof Error ? err.message : "Erro inesperado" }, 500);
   }
 });

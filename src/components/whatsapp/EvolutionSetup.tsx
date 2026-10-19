@@ -52,6 +52,9 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
   const [instanceId, setInstanceId] = useState<string | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // Falha ao criar/conectar (servidor fora do ar, webhook recusado) fica na
+  // tela: toast some em segundos e o usuário ficava olhando um formulário mudo.
+  const [erroConexao, setErroConexao] = useState<string | null>(null);
 
   const { data: status } = useEvolutionStatus(instanceId, !!instanceId);
   const connected = status?.status === "connected";
@@ -154,6 +157,7 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
 
   const conectar = async (nome: string, modoEnvio: Modo) => {
     setAviso(null);
+    setErroConexao(null);
     try {
       const result = await connect.mutateAsync({
         server_url: normalizarServerUrl(form.server_url),
@@ -173,9 +177,9 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
         toast.success("Instância pronta. Escaneie o QR Code no WhatsApp.");
       }
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Não foi possível conectar à Evolution.",
-      );
+      const msg = error instanceof Error ? error.message : "Não foi possível conectar à Evolution.";
+      setErroConexao(msg);
+      toast.error(msg);
     }
   };
 
@@ -391,6 +395,18 @@ export function EvolutionSetup({ onConnected, onBack }: Props) {
                 </button>
               );
             })}
+        </div>
+      )}
+
+      {erroConexao && !instanceId && (
+        <div className="via-card flex items-start gap-3 p-4" data-testid="evolution-erro-conexao">
+          <AlertTriangle className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: "var(--via-warning, #b45309)" }} />
+          <div className="space-y-1">
+            <p className="text-sm font-medium" style={{ color: "var(--via-text-primary)" }}>
+              Não foi possível conectar
+            </p>
+            <p className="text-sm" style={{ color: "var(--via-text-body)" }}>{erroConexao}</p>
+          </div>
         </div>
       )}
 

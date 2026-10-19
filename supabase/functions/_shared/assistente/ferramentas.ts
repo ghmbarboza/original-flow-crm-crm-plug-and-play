@@ -241,8 +241,8 @@ export function ajudaPlataforma(a: Json) {
 
 async function estadoDaConta(ctx: CtxAssistente) {
   const contar = async (tabela: string) => (await ctx.db.from(tabela).select("id", { count: "exact", head: true }).eq("org_id", ctx.orgId)).count ?? 0;
-  const [msg, evo, meta, zer, ia, chaves, gmail, cal, funis, etapas, conhecimento, docs, produtosN, automacoesN] = await Promise.all([
-    ctx.db.from("messaging_config").select("provider").eq("org_id", ctx.orgId).maybeSingle(),
+  const [contas, evo, meta, zer, ia, chaves, gmail, cal, funis, etapas, conhecimento, docs, produtosN, automacoesN] = await Promise.all([
+    ctx.db.from("channel_accounts").select("provider, label, role, ai_enabled").eq("org_id", ctx.orgId).eq("is_active", true),
     ctx.db.from("evolution_configs").select("status").eq("org_id", ctx.orgId),
     ctx.db.from("meta_configs").select("webhook_verified, is_active").eq("org_id", ctx.orgId),
     ctx.db.from("zernio_configs").select("status").eq("org_id", ctx.orgId).maybeSingle(),
@@ -252,14 +252,18 @@ async function estadoDaConta(ctx: CtxAssistente) {
     ctx.db.from("calendar_integrations").select("id").eq("user_id", ctx.userId).limit(1).maybeSingle(),
     contar("pipelines"), contar("pipeline_stages"), contar("knowledge_facts"), contar("knowledge_documents"), contar("products"), contar("automations"),
   ]);
-  const provedor = (msg.data?.provider as string | undefined) ?? null;
+  const numeros = ((contas.data ?? []) as { provider: string; label: string; role: string; ai_enabled: boolean }[])
+    .map((c) => `${c.label} (${c.provider}, papel ${c.role}${c.ai_enabled ? "" : ", IA desligada"})`);
+  const provedor = numeros.length
+    ? [...new Set(((contas.data ?? []) as { provider: string }[]).map((c) => c.provider))].join(", ")
+    : null;
   const evolucoes = evo.data ?? [];
   const metas = meta.data ?? [];
   const conectado = evolucoes.some((e) => e.status === "connected") || metas.some((m) => m.webhook_verified && m.is_active !== false) || ["connected", "active"].includes(String(zer.data?.status ?? ""));
   const canal = conectado ? "conectado" : (evolucoes.length || metas.length || zer.data) ? "configurado, aguardando pareamento" : "não conectado (ou sem permissão para ver)";
   const tem = new Set((chaves.data ?? []).filter((k) => k.is_active !== false).map((k) => k.service_name as string));
   return {
-    canal_de_atendimento: { situacao: canal, provedor, link: "/settings/integrations?integration=channels" },
+    canal_de_atendimento: { situacao: canal, provedor, numeros, link: "/settings/integrations?integration=channels" },
     ia: { ligada: ia.data?.is_active === true, horario_restrito: !!ia.data?.working_hours && Object.keys(ia.data.working_hours as object).length > 0, link: "/settings/ia" },
     base_de_conhecimento: { fatos_e_documentos: conhecimento + docs, link: "/settings/ia?aba=knowledge" },
     funil: { funis, etapas, link: "/settings/automations?secao=funil" },

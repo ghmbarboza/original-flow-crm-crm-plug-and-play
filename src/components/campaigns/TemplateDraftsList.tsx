@@ -15,7 +15,7 @@ export function TemplateDraftsList() {
   const enviar = useSubmitTemplateDraft();
   const apagar = useDeleteTemplateDraft();
   const { data: canal } = useWhatsAppSetup();
-  const oficial = !!canal?.configured && (canal.provider === "meta_official" || canal.provider === "zernio");
+  const oficial = !!canal?.temProvedorOficial;
 
   if (!drafts || drafts.length === 0) return null;
 

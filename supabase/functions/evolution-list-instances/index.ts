@@ -4,6 +4,7 @@
 // consulta `GET /instance/fetchInstances` e devolve uma lista enxuta com nome e
 // estado de conexão. Nada é persistido aqui — a escolha da instância é que grava.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { falhaDeAlcance, mensagemServidorInalcancavel } from "../_shared/evolutionAlcance.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,9 +78,13 @@ Deno.serve(async (req) => {
     const api_key: string = body.api_key ?? "";
     if (!server_url || !api_key) return json({ error: "Informe server_url e api_key." }, 400);
 
-    const resp = await fetch(`${server_url}/instance/fetchInstances`, {
-      headers: { apikey: api_key },
-    });
+    let resp: Response;
+    try {
+      resp = await fetch(`${server_url}/instance/fetchInstances`, { headers: { apikey: api_key } });
+    } catch (err) {
+      if (falhaDeAlcance(err)) return json({ error: mensagemServidorInalcancavel(server_url, err) }, 502);
+      throw err;
+    }
     if (!resp.ok) {
       const text = await resp.text();
       // 401 aqui é sempre a mesma história e tem uma única correção: a Evolution

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { erroDeFunction } from "@/integrations/supabase/functionError";
 import { useOrgId } from "@/hooks/useOrgId";
+import { podeIniciarConversa, type ContaDeCanal } from "@/hooks/useChannelAccounts";
 import type { Database } from "@/integrations/supabase/types";
 
 export type WhatsAppProvider = Database["public"]["Enums"]["messaging_provider"];
@@ -10,18 +11,33 @@ export type WhatsAppConfig = Database["public"]["Tables"]["messaging_config"]["R
 export type EvolutionInstance = Database["public"]["Tables"]["evolution_configs"]["Row"];
 export type MetaInstance = Database["public"]["Tables"]["meta_configs"]["Row"];
 
+/** Mesma ordem do backend (contaParaAbordagem): texto livre antes de template. */
+const ORDEM_DOS_PROVEDORES: WhatsAppProvider[] = ["evolution", "meta_official", "zernio"];
+
 /**
- * Estado consolidado do provedor de WhatsApp da organização.
+ * Estado consolidado dos canais da organização.
  *
- * `configured` é verdadeiro só quando há config E uma instância do provedor
- * escolhido. É o que /whatsapp usa para decidir entre o wizard e o inbox.
+ * Desde 19/10/2026 a empresa tem VÁRIAS contas ao mesmo tempo (Evolution +
+ * Meta + Zernio, vários números). `configured` é verdadeiro quando existe ao
+ * menos uma conta ativa: é o que /whatsapp usa para decidir entre o assistente
+ * e a Inbox. `provider` continua existindo para quem precisa de UM provedor de
+ * referência (abordagem ativa, textos de ajuda): é o da primeira conta que
+ * pode iniciar conversa, na ordem Evolution > Meta > Zernio.
+ *
+ * As linhas dos provedores (evolution/meta/zernio) só vêm para admins, porque
+ * guardam credenciais; membro comum recebe null nelas e decide tudo pelas contas.
  */
 export interface WhatsAppSetup {
   config: WhatsAppConfig | null;
   evolution: EvolutionInstance | null;
   meta: MetaInstance | null;
   zernio: Database["public"]["Tables"]["zernio_configs"]["Row"] | null;
+  contas: ContaDeCanal[];
+  contasAtivas: ContaDeCanal[];
+  provedores: WhatsAppProvider[];
   provider: WhatsAppProvider | null;
+  /** Alguma conta ativa de Meta ou Zernio: templates e campanhas oficiais. */
+  temProvedorOficial: boolean;
   configured: boolean;
 }
 
@@ -31,7 +47,7 @@ export function useWhatsAppSetup() {
     queryKey: ["whatsapp-setup", orgId],
     enabled: !!orgId,
     queryFn: async (): Promise<WhatsAppSetup> => {
-      const [config, evolution, meta, zernio] = await Promise.all([
+      const [config, evolution, meta, zernio, contas] = await Promise.all([
         supabase.from("messaging_config").select("*").eq("org_id", orgId!).maybeSingle(),
         supabase
           .from("evolution_configs")
@@ -48,75 +64,59 @@ export function useWhatsAppSetup() {
           .limit(1)
           .maybeSingle(),
         supabase.from("zernio_configs").select("*").eq("org_id", orgId!).maybeSingle(),
+        supabase.rpc("contas_de_canal"),
       ]);
 
       if (config.error) throw config.error;
       if (evolution.error) throw evolution.error;
       if (meta.error) throw meta.error;
       if (zernio.error) throw zernio.error;
+      if (contas.error) throw contas.error;
 
-      const provider = config.data?.provider ?? null;
-      const configured =
-        (provider === "evolution" && !!evolution.data) ||
-        (provider === "meta_official" && !!meta.data) ||
-        (provider === "zernio" && !!zernio.data);
+      let todas = contas.data ?? [];
+      // Zernio configurado antes das contas de canal (16/10/2026) e sem nenhuma
+      // conta ainda: a listagem de contas do Zernio é quem as cria (uma por
+      // plataforma). Sem isso a Inbox sumiria para quem só usa Zernio. A linha de
+      // zernio_configs só vem para admin, que é quem abre a tela e cura o resto.
+      if (zernio.data && !todas.some((c) => c.provider === "zernio")) {
+        const { error: erroZernio } = await supabase.functions.invoke("zernio-list-accounts", { body: {} });
+        if (!erroZernio) {
+          const relido = await supabase.rpc("contas_de_canal");
+          if (relido.error) throw relido.error;
+          todas = relido.data ?? [];
+        }
+      }
+      const contasAtivas = todas.filter((c) => c.is_active);
+      const provedores = [...new Set(contasAtivas.map((c) => c.provider))];
+      const queIniciam = contasAtivas.filter(podeIniciarConversa);
+      const principal =
+        ORDEM_DOS_PROVEDORES.find((p) => queIniciam.some((c) => c.provider === p)) ??
+        ORDEM_DOS_PROVEDORES.find((p) => provedores.includes(p)) ??
+        null;
 
       return {
         config: config.data ?? null,
         evolution: evolution.data ?? null,
         meta: meta.data ?? null,
         zernio: zernio.data ?? null,
-        provider,
-        configured,
+        contas: todas,
+        contasAtivas,
+        provedores,
+        provider: principal,
+        temProvedorOficial: provedores.includes("meta_official") || provedores.includes("zernio"),
+        configured: contasAtivas.length > 0,
       };
     },
   });
 }
 
 /**
- * Desconecta o canal de atendimento da organização.
+ * Grava o último provedor conectado em messaging_config.
  *
- * Desativa a configuração do provedor e limpa o provedor ativo, mas NÃO apaga a
- * linha: `evolution_configs` guarda a instância, o servidor e o histórico de
- * conexão, e a conversa antiga continua apontando para ela. Apagar deixaria o
- * histórico órfão para economizar uma linha.
- *
- * Do lado do WhatsApp nada é desfeito: a instância segue pareada no servidor
- * Evolution. O que muda é que o CRM para de receber e responder — que é o que
- * "desconectar" significa aqui, e por isso a tela avisa antes.
+ * Com contas de canal, o provedor "da org" deixou de decidir qualquer coisa no
+ * app; a coluna segue preenchida porque remixes antigos (functions anteriores
+ * a 16/10/2026) ainda a leem, e porque é a linha onde mora a distribuição.
  */
-export function useDisconnectChannel() {
-  const orgId = useOrgId();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async () => {
-      if (!orgId) throw new Error("Organização não carregada. Recarregue a página.");
-
-      await Promise.all([
-        supabase.from("evolution_configs")
-          .update({ is_active: false, status: "disconnected", updated_at: new Date().toISOString() })
-          .eq("org_id", orgId),
-        supabase.from("meta_configs")
-          .update({ is_active: false, updated_at: new Date().toISOString() })
-          .eq("org_id", orgId),
-      ]);
-      // zernio_configs não tem is_active: para ele, desconectar é deixar de ser
-      // o provedor ativo (abaixo). A configuração continua salva para reconectar.
-
-      const { error } = await supabase
-        .from("messaging_config")
-        .upsert({ org_id: orgId, provider: null, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] });
-      queryClient.invalidateQueries({ queryKey: ["evolution-status"] });
-    },
-  });
-}
-
-/** Grava (ou atualiza) o provedor escolhido em messaging_config. */
 export function useSetProvider() {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
@@ -157,6 +157,12 @@ export function useSetDistribution() {
   });
 }
 
+/** Depois de conectar ou verificar um número, a lista de contas e o setup mudam juntos. */
+function invalidarCanal(queryClient: ReturnType<typeof useQueryClient>, orgId: string | null | undefined) {
+  queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] });
+  queryClient.invalidateQueries({ queryKey: ["channel-accounts", orgId] });
+}
+
 /**
  * Cria/conecta uma instância Evolution.
  *
@@ -186,7 +192,7 @@ export function useConnectEvolution() {
         warning: string | null;
       };
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] }),
+    onSuccess: () => invalidarCanal(queryClient, orgId),
   });
 }
 
@@ -244,7 +250,7 @@ export function useVerifyMeta() {
         webhook_verified: boolean;
       };
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["whatsapp-setup", orgId] }),
+    onSuccess: () => invalidarCanal(queryClient, orgId),
   });
 }
 

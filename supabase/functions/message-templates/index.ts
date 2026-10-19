@@ -52,9 +52,17 @@ Deno.serve(async (req) => {
     const payload = await req.json().catch(() => ({}));
     const action = String(payload.action ?? "list");
 
-    const { data: messaging } = await admin
-      .from("messaging_config").select("provider").eq("org_id", orgId).maybeSingle();
-    const provider = messaging?.provider as string | undefined;
+    // Com vários números, o provedor oficial é o de uma conta ativa (Meta antes
+    // do Zernio). messaging_config.provider só vale para quem ainda não tem conta.
+    const [{ data: contas }, { data: messaging }] = await Promise.all([
+      admin.from("channel_accounts").select("provider").eq("org_id", orgId).eq("is_active", true)
+        .in("provider", ["meta_official", "zernio"]),
+      admin.from("messaging_config").select("provider").eq("org_id", orgId).maybeSingle(),
+    ]);
+    const oficiais = new Set(((contas ?? []) as { provider: string }[]).map((c) => c.provider));
+    const provider = oficiais.has("meta_official") ? "meta_official"
+      : oficiais.has("zernio") ? "zernio"
+      : (messaging?.provider as string | undefined);
 
     if (provider === "evolution") {
       return json({

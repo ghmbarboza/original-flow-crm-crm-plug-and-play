@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import NotificationPreferences from "@/components/settings/NotificationPreferences";
 import NotificationTemplatesSettings from "@/components/settings/NotificationTemplatesSettings";
+import { NotificationsAccountSelect } from "@/components/settings/NotificationsAccountSelect";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -50,6 +51,7 @@ export default function NotificationsTab() {
           )}{" "}
           Avisos por e-mail saem pelo provedor configurado em <Link to="/settings/email" className="underline">E-mail</Link>.
         </p>
+        {isAdmin && <NotificationsAccountSelect />}
         <NotificationPreferences />
       </TabsContent>
 

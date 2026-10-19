@@ -7,8 +7,9 @@ import { uniqueName } from "./helpers";
  * lugar ao envio de template, com o nome da pessoa já preenchido.
  *
  * A org de teste usa Evolution, então o provedor oficial é simulado na borda:
- * a leitura de `messaging_config`/`meta_configs` e as duas functions são
- * interceptadas. Conversa, contato e mensagens são reais (e apagados no fim).
+ * a leitura de `messaging_config`/`meta_configs`, a RPC das contas de canal
+ * (desde 19/10/2026 é ela que diz se há provedor oficial) e as duas functions
+ * são interceptadas. Conversa, contato e mensagens são reais (e apagados no fim).
  */
 
 const DOIS_DIAS_MS = 48 * 60 * 60 * 1000;
@@ -54,6 +55,17 @@ async function simularProvedorOficial(page: Page, ctx: SupabaseCtx) {
       json: { id: "00000000-0000-0000-0000-0000000000e2", org_id: ctx.orgId, is_active: true, phone_number_id: "e2e", business_account_id: "e2e" },
     });
   });
+  // Conta de canal da Meta: é por ela que a tela sabe que há provedor oficial.
+  await page.route("**/rest/v1/rpc/contas_de_canal*", (route) =>
+    route.fulfill({
+      status: 200,
+      json: [{
+        id: "00000000-0000-0000-0000-0000000000e3", provider: "meta_official", channel: "whatsapp", label: "Meta e2e",
+        role: "ambos", ai_enabled: true, ai_instruction: "", ai_funnel_mode: "inherit", notifications_default: false,
+        is_active: true, created_at: new Date().toISOString(), evolution_config_id: null,
+        meta_config_id: "00000000-0000-0000-0000-0000000000e2", zernio_account_id: null, estado: "conectada", detalhe: "e2e",
+      }],
+    }));
   await page.route("**/functions/v1/message-templates", (route) =>
     route.fulfill({ status: 200, json: { provider: "meta_official", templates: TEMPLATES } }));
 }

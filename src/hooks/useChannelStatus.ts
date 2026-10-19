@@ -1,8 +1,8 @@
 import { statusDoCanal, type StatusDoCanal } from "@/lib/channelStatus";
-import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
+import { useChannelAccounts } from "@/hooks/useChannelAccounts";
 
-/** Status real do canal de atendimento, compartilhado por Integrações e onboarding. */
+/** Status consolidado do canal de atendimento (card de Integrações, checklist). */
 export function useChannelStatus(): StatusDoCanal {
-  const { data } = useWhatsAppSetup();
+  const { data } = useChannelAccounts();
   return statusDoCanal(data);
 }

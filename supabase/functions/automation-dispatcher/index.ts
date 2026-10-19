@@ -12,6 +12,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { enviarEmail } from "../_shared/email.ts";
 import { cronAutorizado, naoAutorizado } from "../_shared/seguranca.ts";
 import { moverNegocio } from "../_shared/negocio.ts";
+import { carregarConta, contaParaAbordagem, type ContaCanal } from "../_shared/canal.ts";
+import { obterOuCriarConversa } from "../_shared/conversa.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -265,6 +267,7 @@ async function actAiOutreach(
       contact_id: ctx.contactId,
       deal_id: ctx.dealId,
       instruction: params.instruction ?? "",
+      channel_account_id: params.channel_account_id || undefined,
       origem: `Automação "${ctx.automationName}"`,
     }),
   });
@@ -272,6 +275,112 @@ async function actAiOutreach(
   if (!resp.ok) return { type: "ai_outreach", ok: false, msg: corpo?.error ?? `ai-outreach respondeu ${resp.status}` };
   if (corpo?.skipped) return { type: "ai_outreach", ok: true, msg: String(corpo.skipped) };
   return { type: "ai_outreach", ok: true, msg: corpo?.scheduled_at ? `agendada para ${corpo.scheduled_at}` : undefined };
+}
+
+/** Só dígitos, com DDI 55 quando o número veio sem código do país (mesma regra do ai-outreach). */
+function normalizarTelefone(bruto: string | null | undefined): string | null {
+  const digitos = (bruto ?? "").replace(/\D/g, "");
+  if (digitos.length < 10) return null;
+  if (digitos.length <= 11) return `55${digitos}`;
+  return digitos;
+}
+
+/**
+ * Número pelo qual a ação envia: o escolhido na tela ("Pelo número") ou, sem
+ * escolha, a regra geral (papel ativo, Evolution > Meta > Zernio). Um número
+ * passivo nunca inicia conversa, nem quando apontado à mão.
+ */
+async function contaDeEnvio(
+  admin: Admin,
+  orgId: string,
+  params: Record<string, string>,
+): Promise<{ conta: ContaCanal } | { erro: string }> {
+  const pedido = (params.channel_account_id ?? "").trim();
+  if (pedido) {
+    const conta = await carregarConta(admin, pedido, orgId);
+    if (!conta) return { erro: "o número escolhido na automação não existe mais ou está desligado" };
+    if (conta.channel !== "whatsapp") return { erro: `a conta "${conta.label}" não é de WhatsApp` };
+    if (conta.role === "passivo") return { erro: `o número "${conta.label}" tem papel passivo e não inicia conversa` };
+    return { conta };
+  }
+  const conta = await contaParaAbordagem(admin, orgId);
+  if (!conta) return { erro: "nenhum número de WhatsApp com papel ativo para enviar" };
+  return { conta };
+}
+
+/**
+ * Mensagem de WhatsApp escrita na automação, pelo número escolhido. É assim que
+ * um fluxo "aborda por um número e continua por outro": cada ação aponta o seu.
+ *
+ * O texto entra na fila de envio agendado com data = agora e sai no próximo
+ * ciclo do scheduled-message-dispatcher, pela conta da conversa: registro na
+ * linha do tempo e falha de provedor seguem o caminho que já existe. A conversa
+ * fica ai_active: quando o contato responder, a IA continua dali.
+ */
+async function actSendWhatsapp(
+  admin: Admin,
+  orgId: string,
+  params: Record<string, string>,
+  ctx: { contactId: string | null; dealId: string | null },
+): Promise<ActionResult> {
+  const tipo = "send_whatsapp";
+  if (!ctx.contactId) return { type: tipo, ok: false, msg: "evento sem contato para enviar" };
+  const modelo = (params.message ?? "").trim();
+  if (!modelo) return { type: tipo, ok: false, msg: "mensagem vazia" };
+
+  const { data: contact } = await admin
+    .from("contacts")
+    .select("id, first_name, last_name, phone, whatsapp_phone, is_demo, merged_into_id, company:companies(name)")
+    .eq("id", ctx.contactId).eq("org_id", orgId).maybeSingle();
+  if (!contact) return { type: tipo, ok: false, msg: "contato não encontrado" };
+  if (contact.is_demo || contact.merged_into_id) return { type: tipo, ok: true, msg: "contato de demonstração ou mesclado: nada enviado" };
+  const telefone = normalizarTelefone(contact.whatsapp_phone) ?? normalizarTelefone(contact.phone);
+  if (!telefone) return { type: tipo, ok: false, msg: "contato sem telefone de WhatsApp" };
+
+  const escolha = await contaDeEnvio(admin, orgId, params);
+  if ("erro" in escolha) return { type: tipo, ok: false, msg: escolha.erro };
+  const conta = escolha.conta;
+
+  const nome = [contact.first_name, contact.last_name].filter(Boolean).join(" ").trim();
+  const empresa = (contact.company as { name?: string } | null)?.name ?? "";
+  const texto = renderTemplate(modelo, { contact: { ...contact, name: nome, company_name: empresa } }).trim();
+  if (!texto) return { type: tipo, ok: false, msg: "mensagem ficou vazia depois das variáveis" };
+
+  // Sem isso a resposta do contato criaria um segundo contato pelo webhook.
+  if (!contact.whatsapp_phone) {
+    await admin.from("contacts").update({ whatsapp_phone: telefone }).eq("id", contact.id).is("whatsapp_phone", null);
+  }
+  const conversa = await obterOuCriarConversa(
+    admin,
+    { org_id: orgId, phone_number: telefone, channel: "whatsapp", channel_account_id: conta.id, provider: conta.provider },
+    async () => {
+      const { data: assignedTo } = await admin.rpc("pick_agent_for_channel", { p_org: orgId, p_channel: "whatsapp" });
+      return {
+        contact_id: contact.id, deal_id: ctx.dealId, provider: conta.provider, channel: "whatsapp",
+        channel_contact_name: nome || null, status: "ai_active", assigned_to: assignedTo ?? null, unread_count: 0,
+      };
+    },
+  );
+  if (!conversa) return { type: tipo, ok: false, msg: "não foi possível abrir a conversa" };
+  // Conversa encerrada volta a ficar ativa: o envio agendado recusa conversa
+  // fechada, e a mensagem sairia por outro número ou falharia.
+  if (conversa.status === "closed") {
+    const { error: erroReabrir } = await admin.from("conversations")
+      .update({ status: "ai_active", updated_at: new Date().toISOString() }).eq("id", conversa.id);
+    if (erroReabrir) return { type: tipo, ok: false, msg: `não foi possível reabrir a conversa: ${erroReabrir.message}` };
+  }
+  // Idempotência: o mesmo texto já pendente nesta conversa (retry do cron,
+  // evento duplicado) não entra de novo na fila.
+  const { data: repetida } = await admin.from("scheduled_messages").select("id")
+    .eq("conversation_id", conversa.id).eq("message", texto).eq("status", "pending").limit(1).maybeSingle();
+  if (repetida) return { type: tipo, ok: true, msg: "mensagem igual já está na fila desta conversa" };
+
+  const { error } = await admin.from("scheduled_messages").insert({
+    org_id: orgId, contact_id: contact.id, conversation_id: conversa.id, deal_id: ctx.dealId,
+    message: texto, channel: "whatsapp", scheduled_at: new Date().toISOString(), status: "pending",
+  });
+  if (error) return { type: tipo, ok: false, msg: `não foi possível enfileirar o envio: ${error.message}` };
+  return { type: tipo, ok: true, msg: `enfileirada pelo número "${conta.label}"; sai no próximo ciclo de envio` };
 }
 
 async function actAddTag(
@@ -435,6 +544,8 @@ async function runAction(
   switch (action.type) {
     case "ai_outreach":
       return actAiOutreach(orgId, params, ctx);
+    case "send_whatsapp":
+      return actSendWhatsapp(admin, orgId, params, ctx);
     case "send_email":
       return actSendEmail(admin, orgId, params, ctx);
     case "create_activity":

@@ -82,7 +82,7 @@ export async function seedWhatsAppInbox(page: Page, ctx: SupabaseCtx): Promise<{
     org_id: ctx.orgId,
     provider: "evolution",
   });
-  await ensureRow(page, ctx, "evolution_configs", `org_id=eq.${ctx.orgId}`, {
+  await ensureRow(page, ctx, "evolution_configs", `org_id=eq.${ctx.orgId}&instance_name=eq.e2e-instance`, {
     org_id: ctx.orgId,
     instance_name: "e2e-instance",
     server_url: "https://evolution.e2e.local",

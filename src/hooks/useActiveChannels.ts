@@ -1,18 +1,12 @@
 import { canaisAtivos } from "@/lib/channelStatus";
-import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
-import { useZernioAccounts } from "@/hooks/useZernioConfig";
+import { useChannelAccounts } from "@/hooks/useChannelAccounts";
 
 /**
  * Canais realmente conectados na organização — fonte única para qualquer
- * seletor de canais (ex.: canais que um agente atende).
+ * seletor de canais (ex.: canais que um agente atende). Vem das contas de
+ * canal: cada plataforma do Zernio e cada número são uma conta.
  */
 export function useActiveChannels(): { channels: string[]; isLoading: boolean } {
-  const { data: setup, isLoading: carregandoSetup } = useWhatsAppSetup();
-  const ehZernio = setup?.provider === "zernio";
-  const { data: contas, isLoading: carregandoContas } = useZernioAccounts(!!ehZernio);
-
-  return {
-    channels: canaisAtivos(setup, contas),
-    isLoading: carregandoSetup || (ehZernio && carregandoContas),
-  };
+  const { data: contas, isLoading } = useChannelAccounts();
+  return { channels: canaisAtivos(contas), isLoading };
 }

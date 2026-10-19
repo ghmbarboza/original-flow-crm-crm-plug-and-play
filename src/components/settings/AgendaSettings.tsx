@@ -121,7 +121,7 @@ function PoliticaDeAgenda() {
     }
   }, [salvo]);
 
-  const canalOficial = setup?.provider === "meta_official" || setup?.provider === "zernio";
+  const canalOficial = !!setup?.temProvedorOficial;
   const aprovados = ((templates as { templates?: { name: string; status: string }[] } | undefined)?.templates ?? []).filter((t) => t.status === "APPROVED");
   const num = (v: string, fallback: number) => (Number.isFinite(Number(v)) && v !== "" ? Number(v) : fallback);
 

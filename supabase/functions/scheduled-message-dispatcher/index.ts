@@ -79,15 +79,30 @@ Deno.serve(async (req) => {
       failed++;
     };
 
-    // Conversa: a gravada na linha, senão a mais recente não-encerrada do contato.
+    // Conversa: a gravada na linha; só sem ela vale a mais recente não-encerrada
+    // do contato. Com vários números, trocar de conversa trocaria de número, e
+    // a mensagem sairia por onde ninguém pediu: conversa gravada e fechada falha
+    // com o motivo, em vez de cair em outra.
     let conv: Conversa | null = null;
     if (msg.conversation_id) {
       const { data } = await admin
         .from("conversations")
         .select(`${COLUNAS_CONVERSA}, status, is_demo`)
         .eq("id", msg.conversation_id).maybeSingle();
+      if (!data) {
+        await falhar("A conversa desta mensagem não existe mais");
+        continue;
+      }
       // Trava da demo: conversa semeada nunca recebe envio agendado real.
-      if (data && data.status !== "closed" && data.is_demo !== true) conv = data as unknown as Conversa;
+      if (data.is_demo === true) {
+        await falhar("Conversa de demonstração não recebe envio real");
+        continue;
+      }
+      if (data.status === "closed") {
+        await falhar("Conversa encerrada antes do envio; reabra a conversa e agende de novo");
+        continue;
+      }
+      conv = data as unknown as Conversa;
     }
     if (!conv) {
       const { data } = await admin

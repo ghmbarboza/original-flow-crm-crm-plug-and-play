@@ -21,7 +21,7 @@ import { obterOuCriarConversa } from "../_shared/conversa.ts";
 import { garantirNegocioAberto, registrarNotaIA } from "../_shared/negocio.ts";
 import { perfilDaOrigem } from "../_shared/perfilOrigem.ts";
 import { canalOficialDaConta, enviarTemplate, type EnvioDeTemplate } from "../_shared/templateWhatsapp.ts";
-import { contaParaAbordagem, type ContaCanal } from "../_shared/canal.ts";
+import { carregarConta, contaParaAbordagem, type ContaCanal } from "../_shared/canal.ts";
 
 const MAX_TOKENS_ABERTURA = 400;
 const PREVIEW_MAX = 120;
@@ -79,6 +79,8 @@ Deno.serve(async (req) => {
     const dealIdPedido = body.deal_id ? String(body.deal_id) : null;
     const instrucaoDaAcao = String(body.instruction ?? "").trim();
     const origem = String(body.origem ?? "Abordagem ativa").slice(0, 120);
+    // Número escolhido na ação da automação ("Pelo número"); vazio = regra geral.
+    const contaPedida = body.channel_account_id ? String(body.channel_account_id) : null;
     if (!orgId || !contactId) return json({ error: "Informe org_id e contact_id." }, 400);
 
     // 1. Contato, IA e canal.
@@ -109,8 +111,17 @@ Deno.serve(async (req) => {
 
     // Só uma conta de papel "ativo" (ou "ambos") inicia conversa: o número
     // define a abordagem, e um número passivo nunca prospecta (ver _shared/canal.ts).
-    const canal = await contaParaAbordagem(admin, orgId);
-    if (!canal) return json({ error: "Nenhum número de WhatsApp com papel ativo para abordar leads" }, 422);
+    // A automação pode apontar o número; sem isso vale a ordem geral.
+    let canal: ContaCanal | null;
+    if (contaPedida) {
+      canal = await carregarConta(admin, contaPedida, orgId);
+      if (!canal) return json({ error: "O número escolhido na automação não existe mais ou está desligado" }, 422);
+      if (canal.channel !== "whatsapp") return json({ error: `A conta "${canal.label}" não é de WhatsApp` }, 422);
+      if (canal.role === "passivo") return json({ error: `O número "${canal.label}" tem papel passivo e não inicia conversa` }, 422);
+    } else {
+      canal = await contaParaAbordagem(admin, orgId);
+      if (!canal) return json({ error: "Nenhum número de WhatsApp com papel ativo para abordar leads" }, 422);
+    }
 
     // 2. Quem já conversou não é abordado: a IA responde, não interrompe. Uma
     //    abordagem agendada (fora do horário) também conta: duas automações

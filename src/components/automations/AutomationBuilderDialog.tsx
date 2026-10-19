@@ -19,6 +19,7 @@ import { useEmailSequences } from "@/hooks/useEmailSequences";
 import { useTags } from "@/hooks/useTags";
 import { useStages } from "@/hooks/useDeals";
 import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
+import { podeIniciarConversa, rotuloDaConta, useChannelAccounts } from "@/hooks/useChannelAccounts";
 import { rotuloOrigem, useContactSources } from "@/hooks/useContactSources";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -26,6 +27,38 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   automation?: Automation | null;
+}
+
+const NUMERO_AUTOMATICO = "__auto__";
+
+/**
+ * "Pelo número": qual conta de WhatsApp dispara a ação. Vazio = automático
+ * (primeiro número que pode iniciar conversa, Evolution > Meta > Zernio). É o
+ * que permite abordar por um número e continuar a conversa por outro: cada
+ * ação do fluxo aponta o seu.
+ */
+function SeletorDeNumero({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const { data: contas } = useChannelAccounts();
+  const elegiveis = (contas ?? []).filter(podeIniciarConversa);
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs font-normal">Pelo número</Label>
+      <Select value={value || NUMERO_AUTOMATICO} onValueChange={(v) => onChange(v === NUMERO_AUTOMATICO ? "" : v)}>
+        <SelectTrigger className="h-8" data-testid="action-channel-account" aria-label="Número que envia">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NUMERO_AUTOMATICO}>Automático (primeiro número que pode iniciar conversa)</SelectItem>
+          {elegiveis.map((c) => <SelectItem key={c.id} value={c.id}>{rotuloDaConta(c)}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {elegiveis.length === 0 && (
+        <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+          Nenhum número com papel ativo. Em Integrações › Canais, marque um número como “Responde e prospecta”.
+        </p>
+      )}
+    </div>
+  );
 }
 
 /** Renderiza o campo de parâmetro certo para cada tipo de ação. */
@@ -49,20 +82,46 @@ function ActionParam({ action, onChange }: { action: AutomationAction; onChange:
   const value = action.params[meta.param] ?? "";
   const set = (v: string) => onChange({ [meta.param]: v });
 
+  // Ações de WhatsApp guardam dois parâmetros: o texto e o número. `set` acima
+  // substitui o objeto inteiro, então aqui o patch é mesclado à mão.
+  const mesclar = (patch: Record<string, string>) => onChange({ ...action.params, ...patch });
+  const numero = action.params.channel_account_id ?? "";
+
   if (action.type === "ai_outreach") {
     const provider = canal?.configured ? canal.provider : null;
     return (
-      <div className="space-y-1">
-        <Label className="text-xs font-normal">{meta.paramLabel}</Label>
-        <Textarea rows={2} value={value} onChange={(e) => set(e.target.value)}
-          placeholder="Ex.: diga que viu o pedido pelo site e pergunte o melhor horário para uma ligação" />
-        <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
-          {provider === "evolution"
-            ? "Atenção: o WhatsApp está conectado pelo Evolution (não oficial). Abordagem ativa por esse canal tem alto risco de bloqueio do número da empresa."
-            : provider === "meta_official" || provider === "zernio"
-              ? "Canal oficial: sai o template aprovado escolhido em IA > Abordagem ativa; a instrução vale quando o lead responder."
-              : "Nenhum canal de WhatsApp conectado: a ação vai falhar até conectar um em Integrações."}
-        </p>
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <Label className="text-xs font-normal">{meta.paramLabel}</Label>
+          <Textarea rows={2} value={value} onChange={(e) => mesclar({ instruction: e.target.value })}
+            placeholder="Ex.: diga que viu o pedido pelo site e pergunte o melhor horário para uma ligação" />
+          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+            {provider === "evolution"
+              ? "Atenção: pelo Evolution (não oficial) a abordagem ativa tem alto risco de bloqueio do número da empresa."
+              : provider === "meta_official" || provider === "zernio"
+                ? "Canal oficial: sai o template aprovado escolhido em IA > Abordagem ativa; a instrução vale quando o lead responder."
+                : "Nenhum canal de WhatsApp conectado: a ação vai falhar até conectar um em Integrações."}
+          </p>
+        </div>
+        <SeletorDeNumero value={numero} onChange={(id) => mesclar({ channel_account_id: id })} />
+      </div>
+    );
+  }
+
+  if (action.type === "send_whatsapp") {
+    return (
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <Label className="text-xs font-normal">{meta.paramLabel}</Label>
+          <Textarea rows={3} value={value} onChange={(e) => mesclar({ message: e.target.value })}
+            placeholder="Ex.: Oi {{contact.first_name}}, aqui é do suporte. Vi que você falou com o comercial e já estou acompanhando o seu caso."
+            data-testid="action-whatsapp-message" />
+          <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
+            Aceita {"{{contact.first_name}}"}, {"{{contact.name}}"} e {"{{contact.company_name}}"}. Entra na fila de envio e sai em poucos minutos.
+            Pela Meta e pelo Zernio só é entregue dentro da janela de 24h de uma conversa já aberta; a falha fica em Mensagens agendadas. A conversa fica com a IA para a resposta.
+          </p>
+        </div>
+        <SeletorDeNumero value={numero} onChange={(id) => mesclar({ channel_account_id: id })} />
       </div>
     );
   }
