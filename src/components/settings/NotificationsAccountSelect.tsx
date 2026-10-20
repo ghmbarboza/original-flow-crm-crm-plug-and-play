@@ -20,6 +20,9 @@ export function NotificationsAccountSelect() {
   const definir = useSetNotificationsAccount();
   const whatsapp = (contas ?? []).filter((c) => c.is_active && c.channel === "whatsapp");
   const atual = whatsapp.find((c) => c.notifications_default)?.id ?? AUTOMATICO;
+  // No automático só sai aviso por número que pode iniciar conversa. Com todos
+  // "Só responde" (o padrão de número novo), nenhum aviso de WhatsApp sai.
+  const semRemetente = atual === AUTOMATICO && whatsapp.length > 0 && !whatsapp.some(podeIniciarConversa);
 
   const trocar = async (valor: string) => {
     try {
@@ -58,6 +61,12 @@ export function NotificationsAccountSelect() {
           <p className="text-xs" style={{ color: "var(--via-text-muted)" }}>
             Vale para a organização inteira: avisos à equipe, lembretes de reunião e aviso de não comparecimento.
           </p>
+          {semRemetente && (
+            <p className="text-xs text-destructive" data-testid="notifications-account-sem-remetente">
+              Hoje nenhum aviso sai pelo WhatsApp: todos os números estão como “Só responde”. Escolha um número acima
+              ou mude o papel de um deles em Integrações › Canais.
+            </p>
+          )}
         </>
       )}
     </div>

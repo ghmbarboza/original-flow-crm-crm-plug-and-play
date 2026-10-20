@@ -30,9 +30,9 @@ const PROVIDER_LABEL: Record<WhatsAppProvider, string> = {
 };
 
 const PAPEIS: { value: PapelDaConta; label: string; hint: string }[] = [
-  { value: "passivo", label: PAPEL_LABEL.passivo, hint: "Atende quem escreve; nunca inicia conversa." },
+  { value: "passivo", label: PAPEL_LABEL.passivo, hint: "Atende quem escreve; nunca inicia conversa. Todo número novo começa assim." },
   { value: "ativo", label: PAPEL_LABEL.ativo, hint: "Inicia conversas (abordagem ativa, campanhas) e também responde." },
-  { value: "ambos", label: PAPEL_LABEL.ambos, hint: "Responde e inicia conversas: o padrão." },
+  { value: "ambos", label: PAPEL_LABEL.ambos, hint: "Responde e inicia conversas." },
 ];
 
 const MODOS_FUNIL: { value: ModoFunilDaConta; label: string }[] = [

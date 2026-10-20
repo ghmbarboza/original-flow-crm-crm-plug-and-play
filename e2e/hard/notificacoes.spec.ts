@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { abrirSandbox, capturas, ctx, esperar, invocar, Limpeza, MARCADOR, ok, postFunction, rodarDispatcher, uid, type Ctx, type Sessao } from "./ctx";
+import { abrirSandbox, capturas, ctx, esperar, invocar, Limpeza, MARCADOR, ok, postFunction, rodarDispatcher, tornarNumeroAtivo, uid, type Ctx, type Sessao } from "./ctx";
 
 /**
  * Hard smoke das notificações reais (Sprint 12 B2).
@@ -35,6 +35,9 @@ test.beforeAll(async () => {
   });
   expect(r.status, r.texto).toBe(200);
   limpeza.add("instância", async () => ok(await c.db.from("evolution_configs").delete().eq("instance_name", instancia), "apagar instância"));
+  // Aviso por WhatsApp no automático só sai por número que inicia conversa.
+  const inst = ok(await c.db.from("evolution_configs").select("id").eq("instance_name", instancia).single(), "instância");
+  await tornarNumeroAtivo(c, { evolution_config_id: inst.id as string });
 
   const cfgAntes = ok(await c.db.from("email_settings").select("*").eq("org_id", c.orgId).maybeSingle(), "config e-mail");
   limpeza.add("restaurar e-mail", async () => {

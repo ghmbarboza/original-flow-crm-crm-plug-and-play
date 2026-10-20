@@ -12,7 +12,7 @@ import {
  *  1. cada instância conectada vira uma conta de canal;
  *  2. o mesmo lead escrevendo para A e para B abre DUAS conversas, com um só contato;
  *  3. a resposta da equipe e a agendada saem pela instância da conversa, nunca pela outra;
- *  4. a abordagem ativa sai por A e nunca por B;
+ *  4. a abordagem ativa sai por A e nunca por B, e conversa em B não impede abordar por A;
  *  5. com a IA desligada em B, a IA não responde quem escreve para B.
  */
 
@@ -106,6 +106,13 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await limpeza.rodar();
+});
+
+test("conta nova nasce \"só responde\" (passivo) até alguém mudar o papel", async () => {
+  const instancia = `e2e-hard-canal-c-${sufixo}`;
+  const id = await conectar(instancia, "Número novo");
+  const conta = ok(await c.db.from("channel_accounts").select("role").eq("evolution_config_id", id).single(), "conta nova");
+  expect(conta.role).toBe("passivo");
 });
 
 test("cada instância conectada vira uma conta de canal com nome, papel e IA ligada", async () => {
@@ -216,6 +223,63 @@ test("abordagem ativa sai pelo número ativo (A) e nunca pelo passivo (B)", asyn
   expect(porA, "a abertura tem que sair pela instância A").toBeTruthy();
   const porB = (await capturas(c, sandbox, `/message/sendText/${instanciaB}`)).find((x) => x.body?.number === telefone);
   expect(porB, "o número passivo nunca prospecta").toBeFalsy();
+});
+
+test("lead que já conversa com o número passivo é abordado pelo ativo; quem já fala com o ativo, não", async () => {
+  test.setTimeout(300_000);
+  const telefone = telefoneUnico();
+  limpeza.add(`telefone passivo-ativo ${telefone}`, () => limparTelefone(telefone));
+
+  // 1. O lead escreve primeiro para o número passivo (B, suporte).
+  const rb = await webhook(instanciaB, mensagemTexto(instanciaB, telefone, "Oi, é do suporte?", `${MARCADOR} Passivo e ativo`));
+  expect(rb.status, rb.texto).toBe(200);
+  const contato = ok(await c.db.from("contacts").select("id").eq("whatsapp_phone", telefone).single(), "contato do webhook");
+
+  // Gatilho por tag: dispara a abordagem para um contato que já existe.
+  const tag = ok(await c.db.from("tags").insert({ org_id: c.orgId, name: `${MARCADOR} abordar ${uid().slice(0, 6)}` }).select("id").single(), "tag");
+  limpeza.add("tag passivo-ativo", async () => {
+    ok(await c.db.from("contact_tags").delete().eq("tag_id", tag.id), "tirar tag");
+    ok(await c.db.from("tags").delete().eq("id", tag.id), "apagar tag");
+  });
+  const automacao = ok(await c.db.from("automations").insert({
+    org_id: c.orgId, name: `Abordagem ${MARCADOR} passivo-ativo ${uid().slice(0, 6)}`, is_active: true,
+    trigger: { type: "tag_added" },
+    conditions: [{ field: "tag_id", op: "eq", value: tag.id }],
+    actions: [{ type: "ai_outreach", params: { instruction: "" } }],
+    created_by: c.userId,
+  }).select("id").single(), "automação");
+  limpeza.add("automação passivo-ativo", async () => ok(await c.db.from("automations").delete().eq("id", automacao.id), "apagar"));
+
+  const disparar = async (vez: number) => {
+    ok(await c.db.from("contact_tags").delete().eq("tag_id", tag.id).eq("contact_id", contato.id), "tirar tag");
+    ok(await c.db.from("contact_tags").insert({ contact_id: contato.id, tag_id: tag.id }), "pôr tag");
+    await rodarDispatcher(c, "automation-dispatcher");
+    return esperar(`automação executada (${vez}ª)`, async () => {
+      const r = await c.db.from("automation_logs").select("status, result, error_msg, created_at")
+        .eq("automation_id", automacao.id).order("created_at", { ascending: true });
+      const l = r.data?.[vez - 1];
+      return l && l.status !== "queued" && l.status !== "processing" ? l : null;
+    }, { timeout: 120_000, intervalo: 3_000 });
+  };
+
+  // 2. A conversa no passivo não impede: a abertura sai pelo número ativo (A).
+  const primeira = await disparar(1);
+  expect(primeira.status, JSON.stringify(primeira)).toBe("ok");
+  expect(JSON.stringify(primeira)).not.toContain("já tem conversa");
+  const convA = ok(await c.db.from("conversations").select("id").eq("phone_number", telefone).eq("channel_account_id", contas[instanciaA]).single(), "conversa aberta em A");
+  const abertura = ok(await c.db.from("conversation_messages").select("status").eq("conversation_id", convA.id).eq("direction", "outbound"), "abertura");
+  expect(abertura.length, "a abertura foi registrada na conversa de A").toBeGreaterThan(0);
+  const porA = (await capturas(c, sandbox, `/message/sendText/${instanciaA}`)).find((x) => x.body?.number === telefone);
+  expect(porA, "a abertura tem que sair pelo número ativo").toBeTruthy();
+  const convs = ok(await c.db.from("conversations").select("id").eq("phone_number", telefone), "conversas");
+  expect(convs, "uma conversa em cada número, um só contato").toHaveLength(2);
+
+  // 3. Agora o lead já fala com o número ativo: uma segunda abordagem é pulada.
+  const antes = (await capturas(c, sandbox, `/message/sendText/${instanciaA}`)).filter((x) => x.body?.number === telefone).length;
+  const segunda = await disparar(2);
+  expect(JSON.stringify(segunda)).toContain("já tem conversa com mensagens");
+  const depois = (await capturas(c, sandbox, `/message/sendText/${instanciaA}`)).filter((x) => x.body?.number === telefone).length;
+  expect(depois, "nenhuma segunda abertura sai").toBe(antes);
 });
 
 test("sem nenhum número ativo, a abordagem é recusada com motivo claro", async () => {

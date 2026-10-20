@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
-  ctx, hmacHex, invocar, Limpeza, MARCADOR, ok, postFunction, telefoneUnico, uid, type Ctx,
+  ctx, hmacHex, invocar, Limpeza, MARCADOR, ok, postFunction, telefoneUnico, tornarNumeroAtivo, uid, type Ctx,
 } from "./ctx";
 
 /**
@@ -73,6 +73,8 @@ test.beforeAll(async () => {
     is_active: true,
   }).select("id, webhook_verify_token").single(), "criar config Meta");
   verifyToken = row.webhook_verify_token as string;
+  // Campanha e template de abertura só saem por número que inicia conversa.
+  await tornarNumeroAtivo(c, { meta_config_id: row.id as string });
   limpeza.add("config Meta", async () => ok(await c.db.from("meta_configs").delete().eq("id", row.id), "apagar config Meta"));
 });
 

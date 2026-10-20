@@ -6,6 +6,7 @@ import { AlertTriangle, Bot, Clock, KanbanSquare, MessageSquare, Send, ShoppingC
 import { Link, useSearchParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useWhatsAppSetup } from "@/hooks/useWhatsAppConfig";
+import { podeIniciarConversa } from "@/hooks/useChannelAccounts";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,6 +142,8 @@ export default function AISettings() {
   const { data: canalSetup } = useWhatsAppSetup();
   const canal = { provider: canalSetup?.configured ? canalSetup.provider : null };
   const templateProvider = !!canalSetup?.temProvedorOficial;
+  // Número conectado, mas todos só respondem: a abordagem ativa recusaria.
+  const semNumeroQueProspecta = !!canalSetup?.configured && !(canalSetup.contasAtivas ?? []).some(podeIniciarConversa);
   const { data: templatesData, isLoading: carregandoTemplates } = useMessageTemplates(templateProvider);
   const templatesAprovados = (templatesData?.templates ?? []).filter((t) => t.status === "APPROVED");
   const templateEscolhido = templatesAprovados.find((t) => t.name === outreach.template_name) ?? null;
@@ -678,6 +681,18 @@ export default function AISettings() {
               <Alert>
                 <AlertDescription>
                   Nenhum canal de WhatsApp conectado. Conecte em Integrações para a abordagem ativa funcionar.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {semNumeroQueProspecta && (
+              <Alert data-testid="outreach-sem-numero-ativo">
+                <AlertTriangle className="h-4 w-4" strokeWidth={1.5} />
+                <AlertTitle>Nenhum número prospecta</AlertTitle>
+                <AlertDescription>
+                  Todos os números conectados estão como “Só responde”. Para a IA iniciar conversas, mude o papel de um
+                  deles em{" "}
+                  <Link to="/settings/integrations?integration=channels" className="underline">Integrações › Canais</Link>.
                 </AlertDescription>
               </Alert>
             )}

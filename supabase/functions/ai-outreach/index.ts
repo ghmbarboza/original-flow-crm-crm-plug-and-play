@@ -127,12 +127,17 @@ Deno.serve(async (req) => {
     //    abordagem agendada (fora do horário) também conta: duas automações
     //    mirando o mesmo lead não podem gerar duas aberturas.
     const jaAbordado = async (): Promise<string | null> => {
-      // O telefone pode ter uma conversa em cada número da empresa: basta uma
-      // com mensagens para o lead já ter falado com a gente.
-      const { data: existentes } = await admin
-        .from("conversations").select("id, status")
+      // O telefone pode ter uma conversa em cada número da empresa. Conversa
+      // num número passivo (suporte, só responde) NÃO impede a abordagem pelo
+      // número ativo (decisão de 19/10/2026): é outro contexto. Conversa num
+      // número que prospecta, ou sem número gravado (histórico), continua
+      // impedindo: o lead já está falando com a área comercial.
+      const { data: todas } = await admin
+        .from("conversations").select("id, status, channel_account_id, conta:channel_accounts(role)")
         .eq("org_id", orgId).eq("phone_number", telefone);
-      if (existentes && existentes.length > 0) {
+      const existentes = ((todas ?? []) as unknown as { id: string; status: string; channel_account_id: string | null; conta: { role: string } | null }[])
+        .filter((c) => !c.channel_account_id || c.conta?.role !== "passivo");
+      if (existentes.length > 0) {
         const { count } = await admin
           .from("conversation_messages").select("id", { count: "exact", head: true })
           .in("conversation_id", existentes.map((c) => c.id)).eq("is_internal_note", false);

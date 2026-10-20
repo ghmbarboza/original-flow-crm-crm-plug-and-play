@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { abrirSandbox, capturas, ctx, esperar, invocar, Limpeza, MARCADOR, ok, postFunction, rodarDispatcher, telefoneUnico, uid, type Ctx, type Sessao } from "./ctx";
+import { abrirSandbox, capturas, ctx, esperar, invocar, Limpeza, MARCADOR, ok, postFunction, rodarDispatcher, telefoneUnico, tornarNumeroAtivo, uid, type Ctx, type Sessao } from "./ctx";
 
 /**
  * Hard smoke da agenda (Sprint 12 B11).
@@ -91,7 +91,10 @@ test.beforeAll(async () => {
   });
   expect(r.status, r.texto).toBe(200);
   limpeza.add("instância evolution", async () => ok(await c.db.from("evolution_configs").delete().eq("instance_name", instancia), "apagar instância"));
-  webhookToken = ok(await c.db.from("evolution_configs").select("webhook_token").eq("instance_name", instancia).single(), "instância").webhook_token as string;
+  const inst = ok(await c.db.from("evolution_configs").select("id, webhook_token").eq("instance_name", instancia).single(), "instância");
+  webhookToken = inst.webhook_token as string;
+  // Lembrete e aviso de não comparecimento são mensagens que a empresa inicia.
+  await tornarNumeroAtivo(c, { evolution_config_id: inst.id as string });
 });
 
 test.afterAll(async () => {

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   abrirSandbox, capturas, ctx, esperar, invocar, Limpeza, MARCADOR, ok, postFunction,
-  rodarDispatcher, telefoneUnico, uid, type Ctx, type Sessao,
+  rodarDispatcher, telefoneUnico, tornarNumeroAtivo, uid, type Ctx, type Sessao,
 } from "./ctx";
 
 /**
@@ -72,8 +72,10 @@ test.beforeAll(async () => {
   expect(r.status, r.texto).toBe(200);
   limpeza.add("instância evolution", async () =>
     ok(await c.db.from("evolution_configs").delete().eq("instance_name", instancia), "apagar instância"));
-  const row = ok(await c.db.from("evolution_configs").select("webhook_token").eq("instance_name", instancia).single(), "instância");
+  const row = ok(await c.db.from("evolution_configs").select("id, webhook_token").eq("instance_name", instancia).single(), "instância");
   webhookToken = row.webhook_token as string;
+  // A abordagem ativa só sai por número que inicia conversa.
+  await tornarNumeroAtivo(c, { evolution_config_id: row.id as string });
 
   const original = ok(
     await c.db.from("ai_messaging_config").select("id, is_active, working_hours, funnel_actions, outreach").eq("org_id", c.orgId).single(),

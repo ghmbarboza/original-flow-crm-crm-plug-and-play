@@ -199,8 +199,9 @@ export function ProviderWizard({
             </p>
             <p className="text-sm" style={{ color: "var(--via-text-muted)" }}>
               Provedor: {provider ? PROVIDER_LABEL[provider] : "—"}. As conversas recebidas passam a
-              aparecer no inbox. Papel e regras deste número ficam em Integrações › Canais; a
-              personalidade geral da IA, em Configurações › IA.
+              aparecer no inbox. O número começa como “Só responde”: para ele também prospectar
+              (abordagem ativa, campanhas, lembretes), mude o papel em Integrações › Canais. A
+              personalidade geral da IA fica em Configurações › IA.
             </p>
           </div>
           <Button onClick={onDone}>{doneLabel}</Button>

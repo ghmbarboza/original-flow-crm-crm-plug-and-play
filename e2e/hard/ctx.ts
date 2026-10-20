@@ -134,6 +134,19 @@ export async function postFunction(
 }
 
 /** Chama uma function com a sessão do usuário E2E (como o front chamaria). */
+/**
+ * Conta de canal nasce "só responde" (19/10/2026). Specs que precisam que o
+ * número inicie conversa (abordagem, campanha, lembrete, aviso) chamam isto
+ * depois de conectar.
+ */
+export async function tornarNumeroAtivo(c: Ctx, filtro: { evolution_config_id?: string; meta_config_id?: string }) {
+  const [coluna, valor] = Object.entries(filtro)[0] ?? [];
+  if (!coluna || !valor) throw new Error("tornarNumeroAtivo: informe evolution_config_id ou meta_config_id");
+  const r = await c.db.from("channel_accounts").update({ role: "ativo" }).eq(coluna, valor).select("id");
+  if (r.error) throw new Error(`tornarNumeroAtivo: ${r.error.message}`);
+  if (!r.data?.length) throw new Error(`tornarNumeroAtivo: nenhuma conta com ${coluna}=${valor}`);
+}
+
 export async function invocar(c: Ctx, nome: string, body: object) {
   const { data: sessao } = await c.db.auth.getSession();
   return postFunction(c, nome, body, {
