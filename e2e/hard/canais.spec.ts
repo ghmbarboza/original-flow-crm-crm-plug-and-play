@@ -255,10 +255,12 @@ test("lead que já conversa com o número passivo é abordado pelo ativo; quem j
     ok(await c.db.from("contact_tags").insert({ contact_id: contato.id, tag_id: tag.id }), "pôr tag");
     await rodarDispatcher(c, "automation-dispatcher");
     return esperar(`automação executada (${vez}ª)`, async () => {
-      const r = await c.db.from("automation_logs").select("status, result, error_msg, created_at")
-        .eq("automation_id", automacao.id).order("created_at", { ascending: true });
-      const l = r.data?.[vez - 1];
-      return l && l.status !== "queued" && l.status !== "processing" ? l : null;
+      // automation_logs não tem created_at: a ordem é a do processamento (ran_at).
+      const r = await c.db.from("automation_logs").select("status, result, error_msg, ran_at")
+        .eq("automation_id", automacao.id).order("ran_at", { ascending: true, nullsFirst: false });
+      if (r.error) throw new Error(r.error.message);
+      const feitos = (r.data ?? []).filter((l) => l.status !== "queued" && l.status !== "processing");
+      return feitos.length >= vez ? feitos[vez - 1] : null;
     }, { timeout: 120_000, intervalo: 3_000 });
   };
 
